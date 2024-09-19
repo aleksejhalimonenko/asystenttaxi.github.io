@@ -1,25 +1,175 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Telegram Mini App</title>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+      overflow-x: hidden;
+    }
+    .container {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border-radius: 8px;
+      background: white;
+      box-shadow: none;
+    }
+    h2 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    input[type="text"], input[type="number"], textarea {
+      width: calc(100% - 20px);
+      padding: 8px;
+      margin: 6px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      width: calc(100% - 20px);
+      padding: 8px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .form-step {
+      display: none;
+    }
+    .form-step.active {
+      display: block;
+    }
+    .form-navigation {
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 10px;
+        height: auto;
+        min-height: 100vh;
+      }
+      h2 {
+        font-size: 20px;
+      }
+      input[type="text"], input[type="number"], textarea {
+        font-size: 14px;
+      }
+      button {
+        font-size: 14px;
+      }
+    }
+  </style>
 </head>
 <body>
-    <h1>Telegram Mini App</h1>
-    <button id="closeBtn">Закрыть приложение</button>
+  <div class="container">
+    <h2>Добавить показания автомобиля</h2>
+    <form id="fuelForm">
+      <div class="form-step active">
+        <h3>Шаг 1: Тип топлива</h3>
+        <label for="fuelType">Тип топлива:</label>
+        <input type="text" id="fuelType" name="fuelType" placeholder="Газ, Бензин, Дизель" required>
+        <div class="form-navigation">
+          <button type="button" onclick="nextStep()">Следующий шаг</button>
+        </div>
+      </div>
+      
+      <div class="form-step">
+        <h3>Шаг 2: Заправка и пробег</h3>
+        <label for="fuelAmount">Количество литров:</label>
+        <input type="number" id="fuelAmount" name="fuelAmount" required>
+        
+        <label for="fuelCost">Стоимость заправки:</label>
+        <input type="number" id="fuelCost" name="fuelCost" required>
+        
+        <label for="distance">Пройдено километров:</label>
+        <input type="number" id="distance" name="distance" required>
+        
+        <div class="form-navigation">
+          <button type="button" onclick="prevStep()">Предыдущий шаг</button>
+          <button type="button" onclick="nextStep()">Следующий шаг</button>
+        </div>
+      </div>
+      
+      <div class="form-step">
+        <h3>Шаг 3: Дополнительные данные</h3>
+        <label for="mileage">Пробег:</label>
+        <input type="number" id="mileage" name="mileage">
+        
+        <label for="comment">Комментарий:</label>
+        <textarea id="comment" name="comment" rows="4" placeholder="Комментарий (опционально)"></textarea>
+        
+        <div class="form-navigation">
+          <button type="button" onclick="prevStep()">Предыдущий шаг</button>
+          <button type="submit">Отправить данные</button>
+        </div>
+      </div>
+    </form>
+    <div id="status"></div>
+  </div>
 
-    <script>
-        // Telegram WebApp API
-        const tg = window.Telegram.WebApp;
+  <script>
+    let currentStep = 0;
+    const steps = document.querySelectorAll('.form-step');
 
-        // Закрыть мини-приложение
-        document.getElementById('closeBtn').addEventListener('click', function() {
-            tg.close();
+    function showStep(index) {
+      steps.forEach((step, i) => {
+        step.classList.toggle('active', i === index);
+      });
+    }
+
+    function nextStep() {
+      if (currentStep < steps.length - 1) {
+        currentStep++;
+        showStep(currentStep);
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 0) {
+        currentStep--;
+        showStep(currentStep);
+      }
+    }
+
+    document.getElementById("fuelForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      var fuelType = document.getElementById("fuelType").value;
+      var fuelAmount = document.getElementById("fuelAmount").value;
+      var fuelCost = document.getElementById("fuelCost").value;
+      var distance = document.getElementById("distance").value;
+      var mileage = document.getElementById("mileage").value;
+      var comment = document.getElementById("comment").value;
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          document.getElementById("status").innerText = response;
+        })
+        .addFuelData({
+          fuelType: fuelType,
+          fuelAmount: fuelAmount,
+          fuelCost: fuelCost,
+          distance: distance,
+          mileage: mileage,
+          comment: comment
         });
+    });
 
-        // Можно также отправлять данные в бот через tg.sendData()
-        tg.sendData('Данные для бота');
-    </script>
+    showStep(currentStep); // Show the first step initially
+  </script>
 </body>
 </html>
