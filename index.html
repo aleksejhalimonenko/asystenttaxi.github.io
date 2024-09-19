@@ -1,46 +1,86 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Sheets Data</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Данные из Google Sheets</h1>
-        <div id="data-table"></div>
-    </div>
-
     <script>
-        fetch('https://script.google.com/macros/s/AKfycbz-KH6sTR_v2hF7T9hLL0wzo4C7DonzyXRrJMItew-Pi-8MeneObXAYU40j9SE8dNCkow/exec') // Замените на URL вашего веб-приложения
+        async function fetchData() {
+            const response = await fetch('【Published Web App URL】');
+            const data = await response.json();
+            displayData(data);
+        }
+
+        function displayData(data) {
+            let table = `
+                <table border='1'>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Price</th>
+                        <th>Available</th>
+                    </tr>
+            `;
+
+            for (let i = 0; i < data.length; i++) {
+                table += `
+                    <tr>
+                        <td>${data[i].Name}</td>
+                        <td>${data[i].Description}</td>
+                        <td>${data[i].Price}</td>
+                        <td>${data[i].Available}</td>
+                    </tr>
+                `;
+            }
+
+            table += "</table>";
+            document.getElementById('data-table').innerHTML = table;
+        }
+
+        function addData() {
+            const newValues = [
+                document.getElementById('name').value,
+                document.getElementById('description').value,
+                document.getElementById('price').value,
+                document.getElementById('available').value
+            ];
+
+            fetch('https://script.google.com/macros/s/AKfycbxsJaC0dnfMBNOHORhlCoGKcmMCZo52E9oZaKeLZ-xO6fSeIbtDKuePe4emNtQYoE_jKw/exec', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sheet: 'Sheet1',
+                    values: newValues,
+                }),
+            })
             .then(response => response.json())
             .then(data => {
-                let table = `
-                    <table class='table table-bordered'>
-                        <tr>
-                            <th>Name</th>
-                            <th>Description</th>
-                            <th>Price</th>
-                            <th>Available</th>
-                        </tr>
-                `;
-
-                data.forEach(item => {
-                    table += `
-                        <tr>
-                            <td>${item.Name}</td>
-                            <td>${item.Description}</td>
-                            <td>${item.Price}</td>
-                            <td>${item.Available}</td>
-                        </tr>
-                    `;
-                });
-
-                table += "</table>";
-                document.getElementById('data-table').innerHTML = table;
+                if (data.success) {
+                    alert('Данные успешно добавлены');
+                    fetchData(); // Обновить данные после добавления
+                } else {
+                    alert('Ошибка при добавлении данных');
+                }
             })
-            .catch(error => console.log('Ошибка:', error));
+            .catch(error => {
+                console.log('Ошибка:', error);
+            });
+        }
+
+        window.onload = fetchData;
     </script>
+</head>
+<body>
+    <h1>Google Sheets Data</h1>
+    <div id="data-table"></div>
+
+    <h2>Добавить новую запись</h2>
+    <input type="text" id="name" placeholder="Имя">
+    <input type="text" id="description" placeholder="Описание">
+    <input type="text" id="price" placeholder="Цена">
+    <input type="text" id="available" placeholder="Доступно">
+    <button onclick="addData()">Добавить запись</button>
 </body>
 </html>
