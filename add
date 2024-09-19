@@ -1,1 +1,73 @@
-dsds
+
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить запись</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Добавить новую запись</h1>
+        <form id="addRecordForm">
+            <div class="form-group">
+                <label for="name">Имя:</label>
+                <input type="text" class="form-control" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Описание:</label>
+                <input type="text" class="form-control" id="description" required>
+            </div>
+            <div class="form-group">
+                <label for="price">Цена:</label>
+                <input type="number" class="form-control" id="price" required>
+            </div>
+            <div class="form-group">
+                <label for="available">Доступно:</label>
+                <select class="form-control" id="available" required>
+                    <option value="Yes">Да</option>
+                    <option value="No">Нет</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Добавить запись</button>
+        </form>
+        <div id="responseMessage" class="mt-3"></div>
+    </div>
+
+    <script>
+        document.getElementById('addRecordForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const data = {
+                name: document.getElementById('name').value,
+                description: document.getElementById('description').value,
+                price: document.getElementById('price').value,
+                available: document.getElementById('available').value
+            };
+
+            fetch('https://script.google.com/macros/s/AKfycbxsJaC0dnfMBNOHORhlCoGKcmMCZo52E9oZaKeLZ-xO6fSeIbtDKuePe4emNtQYoE_jKw/exec', { // Замените на URL вашего веб-приложения
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('responseMessage').innerText = 'Запись успешно добавлена!';
+                    document.getElementById('addRecordForm').reset(); // Очистка формы
+                } else {
+                    document.getElementById('responseMessage').innerText = 'Ошибка при добавлении записи.';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                document.getElementById('responseMessage').innerText = 'Ошибка при добавлении записи.';
+            });
+        });
+    </script>
+</body>
+</html>
