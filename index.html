@@ -155,18 +155,27 @@
       var mileage = document.getElementById("mileage").value;
       var comment = document.getElementById("comment").value;
 
-      google.script.run
-        .withSuccessHandler(function(response) {
-          document.getElementById("status").innerText = response;
-        })
-        .addFuelData({
+      // URL вашего веб-приложения Google Apps Script
+      const scriptURL = 'https://script.google.com/macros/s/AKfycbwrhHOQBkZTJQpQ8S6fAzvU5UG5Xtl3GdaQ_Th8YsoJtHJjz7EDOLsj7vlAw4vwNv0/exec';
+
+      fetch(scriptURL, {
+        method: 'POST',
+        body: new URLSearchParams({
           fuelType: fuelType,
           fuelAmount: fuelAmount,
           fuelCost: fuelCost,
           distance: distance,
           mileage: mileage,
           comment: comment
-        });
+        })
+      })
+      .then(response => response.text())
+      .then(result => {
+        document.getElementById("status").innerText = "Данные успешно отправлены!";
+      })
+      .catch(error => {
+        document.getElementById("status").innerText = "Произошла ошибка при отправке данных.";
+      });
     });
 
     showStep(currentStep); // Show the first step initially
