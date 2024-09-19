@@ -3,37 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GAS Project</title>
+    <title>Google Sheets Data</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
-    <h1>Отправка данных в Google Sheets</h1>
-    <input type="text" id="value" placeholder="Введите значение">
-    <button id="send">Отправить</button>
+    <div class="container">
+        <h1>Данные из Google Sheets</h1>
+        <div id="data-table"></div>
+    </div>
 
     <script>
-        document.getElementById('send').onclick = async () => {
-            const value = document.getElementById('value').value;
-            const url = "https://script.google.com/macros/s/AKfycbygl-uay00p9idLSj4rvUSXBYQB6i0n2KLP7OUDdk97x-OjJsTApQFSgsGyBdPYvwp2tg/exec";
-            const options = {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    sheet: "Топливо",
-                    cell: "A1",
-                    value: value,
-                }),
-            };
+        fetch('https://script.google.com/macros/s/AKfycbz-KH6sTR_v2hF7T9hLL0wzo4C7DonzyXRrJMItew-Pi-8MeneObXAYU40j9SE8dNCkow/exec') // Замените на URL вашего веб-приложения
+            .then(response => response.json())
+            .then(data => {
+                let table = `
+                    <table class='table table-bordered'>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Price</th>
+                            <th>Available</th>
+                        </tr>
+                `;
 
-            try {
-                const response = await fetch(url, options);
-                const data = await response.json();
-                console.log(data);
-            } catch (error) {
-                console.error("Ошибка:", error);
-            }
-        };
+                data.forEach(item => {
+                    table += `
+                        <tr>
+                            <td>${item.Name}</td>
+                            <td>${item.Description}</td>
+                            <td>${item.Price}</td>
+                            <td>${item.Available}</td>
+                        </tr>
+                    `;
+                });
+
+                table += "</table>";
+                document.getElementById('data-table').innerHTML = table;
+            })
+            .catch(error => console.log('Ошибка:', error));
     </script>
 </body>
 </html>
