@@ -3,48 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Запись о заправке</title>
+    <title>Запись заправки</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        form { max-width: 300px; margin: auto; }
+        input, select { width: 100%; margin-bottom: 10px; }
+        button { width: 100%; }
+    </style>
 </head>
 <body>
-    <h1>Запись о заправке</h1>
+    <h1>Запись заправки</h1>
     <form id="fuelForm">
-        <label for="fuelType">Тип топлива:</label>
-        <input type="text" id="fuelType" name="fuelType" required><br><br>
-
-        <label for="fuelAmount">Количество литров:</label>
-        <input type="number" id="fuelAmount" name="fuelAmount" required><br><br>
-
-        <label for="fuelCost">Стоимость:</label>
-        <input type="number" id="fuelCost" name="fuelCost" required><br><br>
-
-        <label for="mileage">Пробег:</label>
-        <input type="number" id="mileage" name="mileage"><br><br>
-
-        <label for="distance">Пройденный путь:</label>
-        <input type="number" id="distance" name="distance"><br><br>
-
-        <label for="comment">Комментарий:</label>
-        <textarea id="comment" name="comment"></textarea><br><br>
-
+        <input type="number" name="mileage" placeholder="Пробег" required>
+        <select name="fuelType" required>
+            <option value="">Тип топлива</option>
+            <option value="бензин">Бензин</option>
+            <option value="дизель">Дизель</option>
+            <option value="газ">Газ</option>
+        </select>
+        <input type="number" name="fuelAmount" placeholder="Количество (л)" required>
+        <input type="number" name="fuelCost" placeholder="Стоимость за литр" required>
+        <input type="number" name="distance" placeholder="Пройденный путь (км)" required>
+        <textarea name="comment" placeholder="Комментарий"></textarea>
         <button type="submit">Отправить</button>
     </form>
 
     <script>
-        document.getElementById('fuelForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        document.getElementById('fuelForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Предотвращает стандартное поведение формы
+
             const formData = new FormData(this);
-            const data = Object.fromEntries(formData.entries());
+            const jsonData = Object.fromEntries(formData.entries());
 
             fetch('https://script.google.com/macros/s/AKfycbzhU1ozh7hvZhxbpyZ8UZC8GPU4P-ot2QRCHTC3VGcodOeVxrSRahxaA5Lkl6iGc2OuEg/exec', {
                 method: 'POST',
-                body: JSON.stringify(data),
+                body: JSON.stringify(jsonData),
                 headers: {
                     'Content-Type': 'application/json'
                 }
             })
             .then(response => response.text())
-            .then(result => alert(result))
-            .catch(error => console.error('Ошибка:', error));
+            .then(data => {
+                console.log(data); // Отладка: выводим ответ сервера
+                alert('Данные успешно отправлены!'); // Уведомление пользователя
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при отправке данных.'); // Уведомление об ошибке
+            });
         });
     </script>
 </body>
