@@ -55,7 +55,6 @@
       margin-top: 10px;
       text-align: center;
     }
-
     @media (max-width: 600px) {
       .container {
         padding: 10px;
@@ -155,12 +154,14 @@
       var mileage = document.getElementById("mileage").value;
       var comment = document.getElementById("comment").value;
 
-      // URL вашего веб-приложения Google Apps Script
-      const scriptURL = 'https://script.google.com/macros/s/AKfycbwrhHOQBkZTJQpQ8S6fAzvU5UG5Xtl3GdaQ_Th8YsoJtHJjz7EDOLsj7vlAw4vwNv0/exec';
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbwM39o08PF2cKzw0E8EZ731AsncEajWOByeXbrhXAfPgsB59_gTVF5KEqfbeXJATEOQhA/exec'; // Замените на ваш URL
 
-      fetch(scriptURL, {
+      fetch(scriptUrl, {
         method: 'POST',
-        body: new URLSearchParams({
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           fuelType: fuelType,
           fuelAmount: fuelAmount,
           fuelCost: fuelCost,
@@ -170,15 +171,16 @@
         })
       })
       .then(response => response.text())
-      .then(result => {
-        document.getElementById("status").innerText = "Данные успешно отправлены!";
+      .then(data => {
+        document.getElementById("status").innerText = data;
       })
       .catch(error => {
-        document.getElementById("status").innerText = "Произошла ошибка при отправке данных.";
+        console.error('Ошибка:', error);
+        document.getElementById("status").innerText = 'Произошла ошибка!';
       });
     });
 
-    showStep(currentStep); // Show the first step initially
+    showStep(currentStep); // Показать первый шаг изначально
   </script>
 </body>
 </html>
