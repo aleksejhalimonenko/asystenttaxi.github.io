@@ -3,78 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Запись о заправках</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: auto;
-            padding: 20px;
-        }
-        input, select, textarea {
-            width: 100%;
-            margin-bottom: 10px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            padding: 10px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #218838;
-        }
-        #status {
-            margin-top: 20px;
-        }
-    </style>
+    <title>GAS Project</title>
 </head>
 <body>
-    <h1>Запись о заправках</h1>
-    <form id="fuelForm">
-        <input type="date" id="date" required>
-        <input type="number" id="mileage" placeholder="Пробег (км)" required>
-        <select id="fuelType" required>
-            <option value="">Выберите тип топлива</option>
-            <option value="Бензин">Бензин</option>
-            <option value="Газ">Газ</option>
-        </select>
-        <input type="number" id="fuelPrice" placeholder="Стоимость топлива за 1 литр (зл)" required>
-        <input type="number" id="fuelAmount" placeholder="Количество топлива (л)" required>
-        <input type="text" id="comment" placeholder="Комментарий">
-        <input type="number" id="distance" placeholder="Пройденный путь (км)" required>
-        <button type="submit">Отправить</button>
-    </form>
-    <div id="status"></div>
+    <h1>Отправка данных в Google Sheets</h1>
+    <input type="text" id="value" placeholder="Введите значение">
+    <button id="send">Отправить</button>
 
     <script>
-        document.getElementById('fuelForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const statusDiv = document.getElementById('status');
-            const data = {
-                date: document.getElementById('date').value,
-                mileage: document.getElementById('mileage').value,
-                fuelType: document.getElementById('fuelType').value,
-                fuelPrice: document.getElementById('fuelPrice').value,
-                fuelAmount: document.getElementById('fuelAmount').value,
-                comment: document.getElementById('comment').value,
-                distance: document.getElementById('distance').value,
-            };
-            const response = await fetch('https://script.google.com/macros/s/AKfycbz6as1MZIMmncHaEnAM7f1MSW0yLdpOBEgHOK4IOHRKdFYStOipqcyMsaTK89rMUBD-/exec', {
-                method: 'POST',
+        document.getElementById('send').onclick = async () => {
+            const value = document.getElementById('value').value;
+            const url = "https://script.google.com/macros/s/AKfycbygl-uay00p9idLSj4rvUSXBYQB6i0n2KLP7OUDdk97x-OjJsTApQFSgsGyBdPYvwp2tg/exec";
+            const options = {
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
+                    "Content-Type": "application/json",
                 },
-                body: JSON.stringify(data),
-            });
-            const result = await response.json();
-            statusDiv.textContent = result.message;
-        });
+                body: JSON.stringify({
+                    sheet: "Топливо",
+                    cell: "A1",
+                    value: value,
+                }),
+            };
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                console.log(data);
+            } catch (error) {
+                console.error("Ошибка:", error);
+            }
+        };
     </script>
 </body>
 </html>
