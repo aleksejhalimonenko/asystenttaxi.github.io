@@ -214,6 +214,14 @@
         resultMessage.textContent = 'Заправка успешно добавлена! ' + data.summary;
         resultMessage.style.backgroundColor = '#d4edda'; // Зеленый фон
         resultMessage.style.color = '#155724'; // Темно-зеленый текст
+        
+        // Скрыть кнопки и добавить новую
+        document.querySelector('.footer-buttons').style.display = 'none';
+        const addButton = document.createElement('button');
+        addButton.textContent = 'Добавить заправку';
+        addButton.style.marginTop = '10px';
+        addButton.onclick = resetForm;
+        resultMessage.appendChild(addButton);
       } else {
         resultMessage.textContent = `Ошибка: ${data.error}`;
         resultMessage.style.backgroundColor = '#f8d7da'; // Красный фон
@@ -229,8 +237,16 @@
       resultMessage.style.display = 'block'; // Показать сообщение
     });
   });
+
+  // Функция для сброса формы
+  function resetForm() {
+    currentStep = 0; // Сбросить шаг
+    showStep(currentStep); // Показать первый шаг
+    document.getElementById('resultMessage').style.display = 'none'; // Скрыть сообщение
+    document.querySelector('.footer-buttons').style.display = 'flex'; // Показать кнопки
+    document.getElementById('fuelForm').reset(); // Очистить форму
+  }
 </script>
 
 </body>
 </html>
-
