@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Заправка автомобиля</title>
+  <style>
+    /* Основные стили для оформления в стиле iOS */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #f5f5f7;
+      margin: 0;
+      padding: 0;
+    }
+    
+    /* Шапка страницы с кнопками */
+    .header {
+      background-color: #007aff;
+      padding: 20px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: bold;
+    }
+
+    .header button {
+      background-color: transparent;
+      border: none;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .form-container {
+      padding: 20px;
+      background-color: white;
+      border-radius: 10px;
+      margin: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-step {
+      display: none;
+    }
+
+    .form-step.active {
+      display: block;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background-color: #f9f9f9;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      font-size: 16px;
+      border-radius: 10px;
+      background-color: #007aff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #005fdb;
+    }
+
+    .footer-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+
+    .footer-buttons button {
+      width: 48%;
+    }
+
+    #resultMessage {
+      display: none;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Шапка страницы -->
+<div class="header">
+  <button>Назад</button>
+  <h1>Заправка автомобиля</h1>
+  <button>Меню</button>
+</div>
+
+<!-- Контейнер для многоступенчатой формы -->
+<div class="form-container">
+  <form id="fuelForm">
+    <!-- Шаг 1 -->
+    <div class="form-step active" id="step1">
+      <label for="fuel-type">Тип топлива:</label>
+      <select name="Тип топлива" id="fuel-type" required>
+        <option value="Газ">Газ</option>
+        <option value="Бензин">Бензин</option>
+        <option value="Дизель">Дизель</option>
+      </select>
+    </div>
+
+    <!-- Шаг 2 -->
+    <div class="form-step" id="step2">
+      <label for="fuel-amount">Сколько литров топлива вы заправили?</label>
+      <input name="Количество топлива" type="number" step="0.01" placeholder="Литры" required>
+    </div>
+
+    <!-- Шаг 3 -->
+    <div class="form-step" id="step3">
+      <label for="fuel-cost">Какая стоимость заправки?</label>
+      <input name="Стоимость заправки" type="number" step="0.01" placeholder="PLN" required>
+    </div>
+
+    <!-- Шаг 4 -->
+    <div class="form-step" id="step4">
+      <label for="distance-travelled">Сколько километров вы проехали после последней заправки?</label>
+      <input name="Пройденный путь км" type="number" placeholder="Километры" required>
+    </div>
+
+    <!-- Шаг 5 -->
+    <div class="form-step" id="step5">
+      <label for="current-mileage">Укажите текущий пробег вашего автомобиля</label>
+      <input name="Пробег" type="number" placeholder="Км" required>
+    </div>
+
+    <!-- Шаг 6 -->
+    <div class="form-step" id="step6">
+      <label for="comment">Комментарии по заправке</label>
+      <input name="Комментарий" type="text" placeholder="Комментарий">
+    </div>
+
+    <!-- Навигационные кнопки -->
+    <div class="footer-buttons">
+      <button type="button" id="prevBtn" onclick="nextPrev(-1)" disabled>Назад</button>
+      <button type="button" id="nextBtn" onclick="nextPrev(1)">Далее</button>
+    </div>
+  </form>
+
+  <!-- Сообщение о результате -->
+  <div id="resultMessage"></div>
+</div>
+
+<script>
+  let currentStep = 0; // Текущий шаг формы
+  showStep(currentStep); // Показать текущий шаг
+
+  // Функция для показа текущего шага формы
+  function showStep(n) {
+    let steps = document.getElementsByClassName('form-step');
+    steps[n].classList.add('active'); // Показать текущий шаг
+
+    // Обновляем кнопки "Назад" и "Далее"
+    if (n == 0) {
+      document.getElementById('prevBtn').disabled = true;
+    } else {
+      document.getElementById('prevBtn').disabled = false;
+    }
+
+    if (n == steps.length - 1) {
+      document.getElementById('nextBtn').innerText = 'Отправить';
+    } else {
+      document.getElementById('nextBtn').innerText = 'Далее';
+    }
+  }
+
+  // Переключение шагов
+  function nextPrev(n) {
+    let steps = document.getElementsByClassName('form-step');
+    steps[currentStep].classList.remove('active'); // Скрыть текущий шаг
+    currentStep = currentStep + n; // Обновить текущий шаг
+
+    // Если последний шаг — отправляем форму
+    if (currentStep >= steps.length) {
+      document.getElementById('fuelForm').submit();
+      return false;
+    }
+
+    showStep(currentStep); // Показать новый шаг
+  }
+
+  // Отправка формы через fetch API и отображение сообщения
+  document.getElementById('fuelForm').addEventListener('submit', function(event) {
+    event.preventDefault(); // Останавливаем стандартное действие отправки формы
+
+    const formData = new FormData(event.target);
+
+    fetch('https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      const resultMessage = document.getElementById('resultMessage');
+      if (data.result === 'success') {
+        resultMessage.textContent = 'Заправка успешно добавлена! ' + data.summary;
+        resultMessage.style.backgroundColor = '#d4edda'; // Зеленый фон
+        resultMessage.style.color = '#155724'; // Темно-зеленый текст
+      } else {
+        resultMessage.textContent = `Ошибка: ${data.error}`;
+        resultMessage.style.backgroundColor = '#f8d7da'; // Красный фон
+        resultMessage.style.color = '#721c24'; // Темно-красный текст
+      }
+      resultMessage.style.display = 'block'; // Показать сообщение
+    })
+    .catch(error => {
+      const resultMessage = document.getElementById('resultMessage');
+      resultMessage.textContent = `Ошибка: ${error.message}`;
+      resultMessage.style.backgroundColor = '#f8d7da'; // Красный фон
+      resultMessage.style.color = '#721c24'; // Темно-красный текст
+      resultMessage.style.display = 'block'; // Показать сообщение
+    });
+  });
+</script>
+
+</body>
+</html>
