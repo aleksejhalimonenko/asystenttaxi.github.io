@@ -1,7 +1,49 @@
-<form 
-  method="POST" 
-  action="https://script.google.com/macros/s/AKfycbwAA7H0-e5xXmImN2p8EHFZwatjMjZ6mLozFruAvYKZ3GAnDyAH_usF4RehGiWgXQxyuA/exec"
->
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Форма заправки</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input, select, button {
+      padding: 8px;
+      font-size: 16px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #resultMessage {
+      display: none;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Форма для добавления заправки</h1>
+
+<form id="fuelForm" action="https://script.google.com/macros/s/AKfycbwAA7H0-e5xXmImN2p8EHFZwatjMjZ6mLozFruAvYKZ3GAnDyAH_usF4RehGiWgXQxyuA/exec">
   <label for="fuel-type">Тип топлива:</label>
   <select name="Тип топлива" id="fuel-type" required>
     <option value="Газ">Газ</option>
@@ -26,3 +68,46 @@
 
   <button type="submit">Отправить</button>
 </form>
+
+<!-- Место для модального окна или уведомления -->
+<div id="resultMessage"></div>
+
+<script>
+  document.getElementById('fuelForm').addEventListener('submit', function(event) {
+    event.preventDefault(); // Останавливаем стандартное действие отправки формы
+
+    const form = event.target;
+    const formData = new FormData(form);
+
+    fetch(form.action, {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      const resultMessage = document.getElementById('resultMessage');
+      if (data.result === 'success') {
+        // Показываем сообщение об успешной отправке
+        resultMessage.textContent = 'Заправка успешно добавлена! ' + data.summary;
+        resultMessage.style.backgroundColor = '#d4edda'; // Зеленый фон
+        resultMessage.style.color = '#155724'; // Темно-зеленый текст
+      } else {
+        // Показываем сообщение об ошибке
+        resultMessage.textContent = `Ошибка: ${data.error}`;
+        resultMessage.style.backgroundColor = '#f8d7da'; // Красный фон
+        resultMessage.style.color = '#721c24'; // Темно-красный текст
+      }
+      resultMessage.style.display = 'block'; // Показываем сообщение
+    })
+    .catch(error => {
+      const resultMessage = document.getElementById('resultMessage');
+      resultMessage.textContent = `Ошибка: ${error.message}`;
+      resultMessage.style.backgroundColor = '#f8d7da'; // Красный фон
+      resultMessage.style.color = '#721c24'; // Темно-красный текст
+      resultMessage.style.display = 'block'; // Показываем сообщение
+    });
+  });
+</script>
+
+</body>
+</html>
