@@ -12,7 +12,7 @@
       margin: 0;
       padding: 0;
     }
-    
+
     /* Шапка страницы с кнопками */
     .header {
       background-color: #007aff;
@@ -190,7 +190,7 @@
 
     // Если последний шаг — отправляем форму
     if (currentStep >= steps.length) {
-      document.getElementById('fuelForm').submit();
+      document.getElementById('fuelForm').dispatchEvent(new Event('submit'));
       return false;
     }
 
@@ -233,3 +233,4 @@
 
 </body>
 </html>
+
