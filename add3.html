@@ -1,0 +1,28 @@
+<form 
+  method="POST" 
+  action="https://script.google.com/macros/s/AKfycbwAA7H0-e5xXmImN2p8EHFZwatjMjZ6mLozFruAvYKZ3GAnDyAH_usF4RehGiWgXQxyuA/exec"
+>
+  <label for="fuel-type">Тип топлива:</label>
+  <select name="Тип топлива" id="fuel-type" required>
+    <option value="Газ">Газ</option>
+    <option value="Бензин">Бензин</option>
+    <option value="Дизель">Дизель</option>
+  </select>
+
+  <label for="fuel-amount">Сколько литров топлива вы заправили?</label>
+  <input name="Количество топлива" type="number" step="0.01" placeholder="Литры" required>
+
+  <label for="fuel-cost">Какая стоимость заправки?</label>
+  <input name="Стоимость заправки" type="number" step="0.01" placeholder="PLN" required>
+
+  <label for="distance-travelled">Сколько километров вы проехали после последней заправки?</label>
+  <input name="Пройденный путь км" type="number" placeholder="Километры" required>
+
+  <label for="current-mileage">Укажите текущий пробег вашего автомобиля</label>
+  <input name="Пробег" type="number" placeholder="Км" required>
+
+  <label for="comment">Комментарии по заправке</label>
+  <input name="Комментарий" type="text" placeholder="Комментарий">
+
+  <button type="submit">Отправить</button>
+</form>
