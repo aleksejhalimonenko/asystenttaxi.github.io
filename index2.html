@@ -12,7 +12,8 @@
     .dropdown-content {
       display: none;
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transform: translateX(-20px); /* Начальная позиция для анимации */
+      transition: opacity 0.3s ease, transform 0.3s ease; /* Анимация прозрачности и смещения */
       position: fixed; /* Закрепляем меню */
       top: 0; /* Прикрепляем к верхней части */
       left: 0; /* Прикрепляем к левой стороне */
@@ -26,6 +27,7 @@
     .dropdown-content.show {
       display: block;
       opacity: 1;
+      transform: translateX(0); /* Возвращаем в исходную позицию */
     }
     .dropdown-content a {
       color: #000000; /* Черный цвет текста */
