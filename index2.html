@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Заправка автомобиля</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Шапка страницы -->
+  <nav>
+    <div class="nav-wrapper blue">
+      <a href="#" class="brand-logo center">MojeTaxi</a>
+      <ul id="nav-mobile" class="left">
+        <li><a href="#" id="menuButton"><i class="material-icons">menu</i></a></li>
+      </ul>
+      <ul class="right">
+        <li><a href="#" id="backButton"><i class="material-icons">arrow_back</i></a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Всплывающее меню -->
+  <ul id="menu" class="dropdown-content">
+    <li><a href="#info">Информация о авто</a></li>
+    <li><a href="#add-fuel">Добавить заправку</a></li>
+    <li><a href="#weekly-fuel">Заправка за неделю</a></li>
+    <li><a href="#summary">Сводка</a></li>
+  </ul>
+
+  <!-- Контейнер для формы -->
+  <div class="container">
+    <div class="form-container">
+      <form id="fuelForm">
+        <!-- Шаги формы -->
+        <div class="form-step active" id="step1">
+          <div class="input-field">
+            <select id="fuel-type" name="Тип топлива" required>
+              <option value="" disabled selected>Выберите тип топлива</option>
+              <option value="Газ">Газ</option>
+              <option value="Бензин">Бензин</option>
+              <option value="Дизель">Дизель</option>
+            </select>
+            <label>Тип топлива</label>
+          </div>
+        </div>
+
+        <div class="form-step" id="step2">
+          <div class="input-field">
+            <input id="fuel-amount" name="Количество топлива" type="number" step="0.01" placeholder="Литры" required>
+            <label for="fuel-amount">Сколько литров топлива вы заправили?</label>
+          </div>
+        </div>
+
+        <div class="form-step" id="step3">
+          <div class="input-field">
+            <input id="fuel-cost" name="Стоимость заправки" type="number" step="0.01" placeholder="PLN" required>
+            <label for="fuel-cost">Какая стоимость заправки?</label>
+          </div>
+        </div>
+
+        <div class="form-step" id="step4">
+          <div class="input-field">
+            <input id="distance-travelled" name="Пройденный путь км" type="number" placeholder="Км" required>
+            <label for="distance-travelled">Сколько километров вы проехали после последней заправки?</label>
+          </div>
+        </div>
+
+        <div class="form-step" id="step5">
+          <div class="input-field">
+            <input id="current-mileage" name="Пробег" type="number" placeholder="Км" required>
+            <label for="current-mileage">Укажите текущий пробег вашего автомобиля</label>
+          </div>
+        </div>
+
+        <div class="form-step" id="step6">
+          <div class="input-field">
+            <input id="comment" name="Комментарий" type="text" placeholder="Комментарий">
+            <label for="comment">Комментарии по заправке</label>
+          </div>
+        </div>
+
+        <!-- Кнопки -->
+        <div class="footer-buttons">
+          <button type="button" id="prevBtn" class="btn" disabled>Назад</button>
+          <button type="button" id="nextBtn" class="btn blue">Далее</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Сообщение о результате -->
+    <div id="resultMessage" class="card-panel"></div>
+  </div>
+
+  <!-- Плавающая кнопка действия (FAB) -->
+  <div class="fixed-action-btn">
+    <a class="btn-floating btn-large red" id="fabButton">
+      <i class="large material-icons">qr_code_scanner</i>
+    </a>
+  </div>
+
+  <!-- Модальное окно для штрихкода -->
+  <div id="barcodeModal" class="modal">
+    <div class="modal-content">
+      <h4>Сканирование штрихкода</h4>
+      <p>Здесь будет сканер штрихкодов.</p>
+    </div>
+    <div class="modal-footer">
+      <a href="#" class="modal-close btn-flat">Закрыть</a>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <script src="scripts.js"></script>
+</body>
+</html>
