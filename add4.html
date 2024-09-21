@@ -37,6 +37,44 @@
       cursor: pointer;
     }
 
+    /* Стили для всплывающего меню */
+    .dropdown-menu {
+      position: absolute;
+      top: 60px; /* Под шапкой */
+      left: 0;
+      width: 200px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      display: none;
+      z-index: 1000; /* Поднимаем над другими элементами */
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .dropdown-menu.show {
+      display: block;
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .dropdown-menu ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .dropdown-menu li {
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+
+    .dropdown-menu li:hover {
+      background-color: #f0f0f0; /* Подсветка при наведении */
+    }
+
+    /* Остальные стили... */
     .form-container {
       padding: 20px;
       background-color: white;
@@ -106,7 +144,7 @@
 </div>
 
 <!-- Всплывающее меню -->
-<div id="menu" class="dropdown-menu" style="display: none;">
+<div id="menu" class="dropdown-menu">
     <ul>
         <li><a href="#info" onclick="toggleMenu()">Информация о авто</a></li>
         <li><a href="#add-fuel" onclick="toggleMenu()">Добавить заправку</a></li>
@@ -115,34 +153,14 @@
     </ul>
 </div>
 
-<style>
-    /* Стили для всплывающего меню с анимацией */
-    .dropdown-menu {
-        position: absolute;
-        top: 60px; /* Под шапкой */
-        left: 0;
-        width: 200px;
-        background-color: white;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.3s ease;
-        transform: translateX(-100%); /* Скрыто вне экрана */
-    }
-
-    .dropdown-menu.show {
-        transform: translateX(0); /* Показываем меню */
-    }
-</style>
-
 <script>
     function goBack() {
         // Логика для возврата на предыдущую страницу или шаг
-        nextPrev(-1);
     }
 
     function toggleMenu() {
         const menu = document.getElementById('menu');
-        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        menu.classList.toggle('show'); // Добавляем класс для анимации
+        menu.classList.toggle('show'); // Добавляем/удаляем класс для анимации
     }
 
     // Закрыть меню, если кликнули вне его
@@ -150,7 +168,6 @@
         const menu = document.getElementById('menu');
         if (!event.target.matches('#menuButton') && !menu.contains(event.target)) {
             menu.classList.remove('show');
-            setTimeout(() => { menu.style.display = 'none'; }, 300); // Скрываем после анимации
         }
     };
 </script>
