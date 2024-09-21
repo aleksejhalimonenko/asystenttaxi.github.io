@@ -3,117 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Заправка автомобиля</title>
+  <title>История заправок</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Стили для выпадающего меню */
+    .dropdown-content {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      position: fixed; /* Закрепляем меню */
+      top: 0; /* Прикрепляем к верхней части */
+      left: 0; /* Прикрепляем к левой стороне */
+      width: 80%; /* Адаптивная ширина */
+      max-width: 400px; /* Максимальная ширина */
+      height: 100%; /* Высота на всю страницу */
+      background-color: #ffffff; /* Цвет фона меню */
+      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2); /* Тень под меню */
+      z-index: 1; /* Чтобы меню было поверх других элементов */
+    }
+    .dropdown-content.show {
+      display: block;
+      opacity: 1;
+    }
+    .dropdown-content a {
+      color: #000000; /* Черный цвет текста */
+      padding: 16px; /* Добавлено для улучшения кликабельности */
+      display: flex; /* Для выравнивания иконки и текста */
+      align-items: center; /* Выравнивание по центру по вертикали */
+    }
+    .dropdown-content a:hover {
+      background-color: #f0f0f0; /* Цвет фона при наведении */
+    }
+    .dropdown-content a i {
+      margin-right: 8px; /* Отступ между иконкой и текстом */
+    }
+    .dropdown-content a {
+      color: #333333 !important; /* Принудительно устанавливаем белый цвет */
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Шапка страницы -->
-  <nav>
+<nav>
     <div class="nav-wrapper blue">
-      <a href="#" class="brand-logo center">MojeTaxi</a>
-      <ul id="nav-mobile" class="left">
-        <li><a href="#" id="menuButton"><i class="material-icons">menu</i></a></li>
-      </ul>
-      <ul class="right">
-        <li><a href="#" id="backButton"><i class="material-icons">arrow_back</i></a></li>
-      </ul>
+        <a href="index.html" class="brand-logo center">
+            <i class="material-icons" style="font-size: 36px; color: white;">directions_car</i>
+        </a>
+        <ul id="nav-mobile" class="left">
+            <li>
+                <a href="#" id="menuButton" class="dropdown-trigger">
+                    <i class="material-icons">menu</i>
+                </a>
+            </li>
+        </ul>
+        <ul class="right">
+            <li><a href="#" id="backButton"><i class="material-icons">arrow_back</i></a></li>
+        </ul>
     </div>
-  </nav>
+</nav>
 
-  <!-- Всплывающее меню -->
-  <ul id="menu" class="dropdown-content">
-    <li><a href="#info">Информация о авто</a></li>
-    <li><a href="#add-fuel">Добавить заправку</a></li>
-    <li><a href="#weekly-fuel">Заправка за неделю</a></li>
-    <li><a href="#summary">Сводка</a></li>
-  </ul>
+<!-- Всплывающее меню -->
+<ul id="menu" class="dropdown-content">
+    <li><a href="#info"><i class="material-icons">info</i>Информация о авто</a></li>
+    <li><a href="#add-fuel"><i class="material-icons">local_gas_station</i>Добавить заправку</a></li>
+    <li><a href="#weekly-fuel"><i class="material-icons">calendar_today</i>Заправка за неделю</a></li>
+    <li><a href="#summary"><i class="material-icons">assessment</i>Сводка</a></li>
+    <li><a href="history.html"><i class="material-icons">history</i>История заправок</a></li>
+</ul>
 
-  <!-- Контейнер для формы -->
-  <div class="container">
-    <div class="form-container">
-      <form id="fuelForm">
-        <!-- Шаги формы -->
-        <div class="form-step active" id="step1">
-          <div class="input-field">
-            <select id="fuel-type" name="Тип топлива" required>
-              <option value="" disabled selected>Выберите тип топлива</option>
-              <option value="Газ">Газ</option>
-              <option value="Бензин">Бензин</option>
-              <option value="Дизель">Дизель</option>
-            </select>
-            <label>Тип топлива</label>
-          </div>
-        </div>
+<!-- Контейнер для истории заправок -->
+<div class="container">
+    <h5>История заправок</h5>
+    <table class="striped">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Тип топлива</th>
+                <th>Количество (л)</th>
+                <th>Стоимость (PLN)</th>
+                <th>Пройденный путь (км)</th>
+                <th>Пробег (км)</th>
+                <th>Комментарии</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>2024-09-20</td>
+                <td>Бензин</td>
+                <td>30</td>
+                <td>150</td>
+                <td>200</td>
+                <td>15000</td>
+                <td>Заправка перед поездкой</td>
+            </tr>
+            <tr>
+                <td>2024-09-15</td>
+                <td>Дизель</td>
+                <td>40</td>
+                <td>200</td>
+                <td>250</td>
+                <td>14970</td>
+                <td>Регулярная заправка</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 
-        <div class="form-step" id="step2">
-          <div class="input-field">
-            <input id="fuel-amount" name="Количество топлива" type="number" step="0.01" placeholder="Литры" required>
-            <label for="fuel-amount">Сколько литров топлива вы заправили?</label>
-          </div>
-        </div>
-
-        <div class="form-step" id="step3">
-          <div class="input-field">
-            <input id="fuel-cost" name="Стоимость заправки" type="number" step="0.01" placeholder="PLN" required>
-            <label for="fuel-cost">Какая стоимость заправки?</label>
-          </div>
-        </div>
-
-        <div class="form-step" id="step4">
-          <div class="input-field">
-            <input id="distance-travelled" name="Пройденный путь км" type="number" placeholder="Км" required>
-            <label for="distance-travelled">Сколько километров вы проехали после последней заправки?</label>
-          </div>
-        </div>
-
-        <div class="form-step" id="step5">
-          <div class="input-field">
-            <input id="current-mileage" name="Пробег" type="number" placeholder="Км" required>
-            <label for="current-mileage">Укажите текущий пробег вашего автомобиля</label>
-          </div>
-        </div>
-
-        <div class="form-step" id="step6">
-          <div class="input-field">
-            <input id="comment" name="Комментарий" type="text" placeholder="Комментарий">
-            <label for="comment">Комментарии по заправке</label>
-          </div>
-        </div>
-
-        <!-- Кнопки -->
-        <div class="footer-buttons">
-          <button type="button" id="prevBtn" class="btn" disabled>Назад</button>
-          <button type="button" id="nextBtn" class="btn blue">Далее</button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Сообщение о результате -->
-    <div id="resultMessage" class="card-panel"></div>
-  </div>
-
-  <!-- Плавающая кнопка действия (FAB) -->
-  <div class="fixed-action-btn">
-    <a class="btn-floating btn-large red" id="fabButton">
-      <i class="large material-icons">qr_code_scanner</i>
+<!-- Плавающая кнопка действия (FAB) -->
+<div class="fixed-action-btn">
+    <a class="btn-floating btn-large red" href="index.html">
+        <i class="large material-icons">add</i>
     </a>
-  </div>
+</div>
 
-  <!-- Модальное окно для штрихкода -->
-  <div id="barcodeModal" class="modal">
-    <div class="modal-content">
-      <h4>Сканирование штрихкода</h4>
-      <p>Здесь будет сканер штрихкодов.</p>
-    </div>
-    <div class="modal-footer">
-      <a href="#" class="modal-close btn-flat">Закрыть</a>
-    </div>
-  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script src="scripts.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const menuButton = document.getElementById('menuButton');
+        const dropdownMenu = document.getElementById('menu');
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-  <script src="scripts.js"></script>
+        menuButton.addEventListener('click', function() {
+            dropdownMenu.classList.toggle('show');
+            const icon = menuButton.querySelector('i');
+            icon.textContent = icon.textContent === 'menu' ? 'close' : 'menu';
+        });
+
+        document.addEventListener('click', function(event) {
+            if (!menuButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                dropdownMenu.classList.remove('show');
+                menuButton.querySelector('i').textContent = 'menu';
+            }
+        });
+    });
+</script>
 </body>
 </html>
