@@ -1,0 +1,113 @@
+body {
+    font-family: 'Roboto', sans-serif;
+}
+
+.dropdown-content {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 80%;
+    height: 100%;
+    background-color: #ffffff;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+
+.dropdown-content.show {
+    display: block;
+    opacity: 1;
+}
+
+.dropdown-content a {
+    color: #333333 !important; /* Принудительно устанавливаем цвет текста */
+    padding: 16px; /* Добавлено для улучшения кликабельности */
+    display: flex; /* Для выравнивания иконки и текста */
+    align-items: center; /* Выравнивание по центру по вертикали */
+}
+
+.dropdown-content a:hover {
+    background-color: #f0f0f0; /* Цвет фона при наведении */
+}
+
+.dropdown-content a i {
+    margin-right: 8px; /* Отступ между иконкой и текстом */
+}
+
+/* Стили для кнопки FAB */
+.fixed-action-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.fab-button {
+    background-color: #ff4081;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    transition: transform 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.fab-button:hover {
+    transform: scale(1.1);
+}
+
+.menu {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+}
+
+.menu.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.menu-item {
+    background-color: white;
+    border-radius: 8px;
+    margin: 10px 0;
+    padding: 10px;
+    width: 160px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.menu-item.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.menu-item:hover {
+    background-color: #f5f5f5;
+}
+
+.menu-icon {
+    margin-right: 10px;
+}
