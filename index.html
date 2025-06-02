@@ -1,117 +1,36 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Учет заправок</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/index.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
-    <script src="js/grafik.js" defer></script> <!-- Подключение внешнего JavaScript файла -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Авто: Обслуживание</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<nav>
-    <div class="nav-wrapper blue">
-        <ul id="nav-mobile" class="left">
-            <li><a href="#" id="menuButton"><i class="material-icons">menu</i></a></li>
-        </ul>
-        <ul id="nav-mobile" class="right">
-            <li><a href="#!" class="btn-flat white-text"><i class="material-icons">arrow_back</i></a></li>
-        </ul>
-    </div>
-</nav>
+  <header>
+    <h1>Мой Авто</h1>
+    <nav>
+      <a href="?page=home" class="home-tab">Главная</a>
+      <a href="?page=fuel" class="fuel-tab">Топливо</a>
+      <a href="?page=service" class="service-tab">Обслуживание</a>
+      <a href="?page=other" class="other-tab">Другое</a>
+      <a href="?page=settings" class="settings-tab">Настройки</a>
+    </nav>
+  </header>
 
-<!-- Всплывающее меню -->
-<ul id="menu" class="dropdown-content">
-    <li><a href="#info"><i class="material-icons">info</i>Информация о авто</a></li>
-    <li><a href="fuel-log.html"><i class="material-icons">history</i>История заправок</a></li>
-    <li><a href="#add-fuel"><i class="material-icons">local_gas_station</i>Добавить заправку</a></li>
-</ul>
 
-<!-- Основное содержимое -->
-<div class="container">
-    <div class="row">
-        <!-- Карточка с информацией об автомобиле -->
-        <div class="col s12 m6">
-            <div class="card">
-                <div class="card-content">
-                    <span class="card-title">
-                        <i class="material-icons left">info</i>Информация об автомобиле
-                    </span>
-                    <p>Текущий пробег: 12000 км</p>
-                    <p>Страховка заканчивается: 2024-05-15</p>
-                    <p>Замена масла: 2024-07-20</p>
-                </div>
-            </div>
-        </div>
+  <div class="main-content">
+    <div class="card">
+      <h2 id="sectionTitle">Загрузка данных...</h2>
+      <div class="spinner" id="spinner"></div>
+      <table id="dataTable">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+       </div>
+  </div>
 
-        <!-- Блок с общей статистикой -->
-        <div class="col s12 m6">
-            <div class="card">
-                <div class="card-content">
-                    <span class="card-title">
-                        <i class="material-icons left">assessment</i>Общая статистика
-                    </span>
-                    <p>Средний расход топлива: 6.5 л/100 км</p>
-                    <p>Общие расходы на топливо: 1500 PLN</p>
-                    <p>Общая стоимость обслуживания: 1200 PLN</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Блок с напоминаниями -->
-        <div class="col s12 m6">
-            <div class="card">
-                <div class="card-content">
-                    <span class="card-title">
-                        <i class="material-icons left">event_note</i>Напоминания
-                    </span>
-                    <p>Следующее ТО: 2024-10-15</p>
-                    <p>Замена тормозных колодок: 2025-01-10</p>
-                    <p>Проверка шин: через 5000 км</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Блок с графиком пробега -->
-        <div class="col s12">
-            <div class="card">
-                <div class="card-content">
-                    <span class="card-title">
-                        <i class="material-icons left">show_chart</i>График пробега
-                    </span>
-                    <!-- Изменение здесь: только один canvas для графика -->
-                    <canvas id="mileageChart" width="400" height="200"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Плавающая кнопка действия (FAB) -->
-<div class="fixed-action-btn">
-    <div class="fab-button" id="fab-button">
-        <i class="material-icons" id="fab-icon">add</i>
-    </div>
-    <div class="menu" id="fab-menu">
-        <div class="menu-item" id="add-fuel">
-            <i class="material-icons menu-icon">local_gas_station</i>
-            <div class="menu-text">Заправка</div>
-        </div>
-        <div class="menu-item" id="add-mileage">
-            <i class="material-icons menu-icon">speed</i>
-            <div class="menu-text">Пробег</div>
-        </div>
-        <div class="menu-item" id="add-service">
-            <i class="material-icons menu-icon">build</i>
-            <div class="menu-text">Обслуживание</div>
-        </div>
-    </div>
-</div>
-
-<script src="js/index.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
