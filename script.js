@@ -172,45 +172,56 @@ function renderHomeData(data) {
 -->
   <div class="grid">
     <div class="card2">
-      <div class="card2-icon">      <img src="icons/free-icon-tools-and-utensils-453591.png" alt="Пробег" style="width:64px; height:64px;"></div>
+      <div class="card2-icon">      <img src="icons/free-icon-tools-and-utensils-453591.png" alt="Мой пробег" style="width:64px; height:64px;"></div>
       <div><strong>${data.distance || '—'} км</strong></div>
-      <div>Пробег</div>
+      <div>Мой пробег</div>
     </div>
     <div class="card2">
       <div class="card-icon"><img src="icons/free-icon-calendar-7955483.png" alt="Календарь" style="width:64px; height:64px;"></div>
-      <div>через <strong>${data.nextDiagnostic || '—'} км</strong></div>
-      <div>до ТО</div>
+      <div><strong>${data.nextDiagnostic || '—'} км</strong></div>
+      <div>Осталось до ТО</div>
     </div>
     <div class="card2">
-      <div class="card2-icon"><img src="icons/free-icon-fuel-4459018.png" alt="Пробег" style="width:64px; height:64px;"></div>
+      <div class="card2-icon"><img src="icons/free-icon-fuel-4459018.png" alt="Расходтоплива" style="width:64px; height:64px;"></div>
       <div><strong>251 zł/мес.</strong></div>
       <div>Топливо</div>
     </div>
     <div class="card2">
-      <div class="card2-icon"><img src="icons/free-icon-wallet-passes-app-3845819.png" alt="Расходы" style="width:64px; height:64px;"></div>
-      <div><strong>${data.totalCost !== undefined ? data.totalCost + ' zł' : '—'}</strong></div>
-      <div>Расходы</div>
+      <div class="card2-icon"><img src="icons/free-icon-wallet-passes-app-3845819.png" alt="Всегорасходов" style="width:64px; height:64px;"></div>
+      <div><strong>${data.totalCost !== undefined ? data.totalCost : '—'}</strong></div>
+      <div>Всего расходов</div>
     </div>
   </div>
 
   <div class="expenses-summary">
-    <div><strong>Расходы</strong></div>
+    <div><strong>Доп.информация</strong></div>
     <div class="expenses-items">
       <div class="expenses-item">
-        <div class="expenses-item-icon"><img src="icons/free-icon-eco-car-16775761.png" alt="Пробег" style="width:48px; height:48px;"></div>
-        <div><strong>${data.gasServiceDue || '—'} км</strong></div>
+        <div class="expenses-item-icon"><img src="icons/free-icon-gas-3144737.png" alt="Обсл.газа" style="width:48px; height:48px;"></div>
+		   <div><strong>${data.gasServiceDue || '—'} км</strong></div>
+		  <div class="infoniz"><span>До обслуж.газа</span></div>
+ 
       </div>
+	  
       <div class="expenses-item">
-        <div class="expenses-item-icon"><img src="icons/free-icon-calendar-3706395.png" alt="Владение" style="width:48px; height:48px;"></div>
-        <div><strong>${data.duration || '—'}</strong></div>
+        <div class="expenses-item-icon"><img src="icons/free-icon-car-oil-938639.png" alt="Заменамасла" style="width:48px; height:48px;"></div>
+		 <div><strong>${data.nextOilChange} км</strong></div>
+		  <div class="infoniz"><span>До замены масла</span></div>
+       
       </div>
+	  
       <div class="expenses-item">
-        <div class="expenses-item-icon"><img src="icons/free-icon-wallet-passes-app-3845819.png" alt="Затраты" style="width:48px; height:48px;"></div>
-        <div><strong>${data.costWithoutFuel !== undefined ? data.costWithoutFuel + ' zł' : '—'}</strong></div>
+        <div class="expenses-item-icon"><img src="icons/free-icon-gearshift-1399176.png" alt="Коробка передач масло" style="width:48px; height:48px;"></div>
+		<div><strong>${data.nextGearboxOilChange || '—'} км</strong></div>
+		      <div class="infoniz"><span>До замены в КПП</span></div>
+        
       </div>
+	  
       <div class="expenses-item">
-        <div class="expenses-item-icon"><img src="icons/free-icon-gas-station-1000437.png" alt="Пробег" style="width:48px; height:48px;"></div>
-        <div><strong>${data.totalCost !== undefined ? data.totalCost + ' zł' : '—'}</strong></div>
+        <div class="expenses-item-icon"><img src="icons/free-icon-medical-insurance-835397.png" alt="Страховка" style="width:48px; height:48px;"></div>
+		<div><strong>${data.insuranceEnds || '—'} дн.</strong></div>
+         <div class="infoniz"><span>До окончания страховки</span></div>
+		
       </div>
     </div>
 

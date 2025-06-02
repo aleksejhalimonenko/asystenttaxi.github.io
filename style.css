@@ -179,12 +179,13 @@ td {
 }
 
  .shapka-selenyj {
-      background-color: #44b678;
+      background-color: #007aff; /* #44b678*/
       color: white;
-      padding: 24px;
+      padding: 12px; /* было 24 */
       border-radius: 20px;
       text-align: center;
       margin-bottom: 16px;
+	  height: 150px; /* Явно задаём высоту можно удалить */
     }
  .shapka-selenyj h2 {
       font-size: 18px;
@@ -387,4 +388,15 @@ td {
   }
 }
 
-/* Главная */
+/* временно скрыть заголовок карточек */ 
+#sectionTitle {
+  display: none;
+}
+
+.infoniz {
+  margin-bottom: 10px;  /*Отступ между строками */
+  line-height: 1.6;  /*Межстрочный интервал */
+  font-size: 10px; /* Базовый размер шрифта для инфо */
+  color: #333;
+  
+}
