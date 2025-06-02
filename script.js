@@ -213,11 +213,6 @@ function renderHomeData(data) {
         <div><strong>${data.totalCost !== undefined ? data.totalCost + ' zł' : '—'}</strong></div>
       </div>
     </div>
-  </div>
-      <div style="text-align: center;">
-      <a href="?page=fuel" class="home-fuel-link">⛽ Отчёт по заправкам</a>
-    </div>
-
 
 <!--
 <div class="info"><span>Начальный пробег:</span> <strong>${data.startKm || '—'} км</strong></div>
