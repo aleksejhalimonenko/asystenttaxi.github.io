@@ -181,11 +181,11 @@ td {
  .shapka-selenyj {
       background-color: #007aff; /* #44b678*/
       color: white;
-      padding: 12px; /* было 24 */
+      padding: 8px; /* было 24 */
       border-radius: 20px;
       text-align: center;
       margin-bottom: 16px;
-	  height: 150px; /* Явно задаём высоту можно удалить */
+	  /*height: 150px;  Явно задаём высоту можно удалить */
     }
  .shapka-selenyj h2 {
       font-size: 18px;
