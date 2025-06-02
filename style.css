@@ -230,6 +230,26 @@ td {
     .expenses-item-icon {
       font-size: 24px;
     }
+	
+	
+	.bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: white;
+      display: flex;
+      justify-content: space-around;
+      padding: 12px 0;
+      border-top: 1px solid #ccc;
+    }
+    .bottom-nav-item {
+      text-align: center;
+      color: #666;
+    }
+    .bottom-nav-item.active {
+      color: #228c22;
+    }
 
 
 /* Адаптивность: Для экрана с шириной менее 768px */
