@@ -193,32 +193,33 @@ function renderHomeData(data) {
     </div>
   </div>
 
+<!-- Информационные карточки -->
   <div class="expenses-summary">
-    <div><strong>Доп.информация</strong></div>
+    <div><strong>Информационные карточки</strong></div>
     <div class="expenses-items">
       <div class="expenses-item">
-        <div class="expenses-item-icon"><img src="icons/free-icon-gas-3144737.png" alt="Обсл.газа" style="width:48px; height:48px;"></div>
+        <div class="icon-circle green"><img src="icons/free-icon-gas-3144737.png" alt="Обсл.газа" style="width:48px; height:48px;"></div>
 		   <div><strong>${data.gasServiceDue || '—'} км</strong></div>
 		  <div class="infoniz"><span>До обслуж.газа</span></div>
  
       </div>
 	  
       <div class="expenses-item">
-        <div class="expenses-item-icon"><img src="icons/free-icon-car-oil-938639.png" alt="Заменамасла" style="width:48px; height:48px;"></div>
+        <div class="icon-circle red"><img src="icons/free-icon-car-oil-938639.png" alt="Заменамасла" style="width:48px; height:48px;"></div>
 		 <div><strong>${data.nextOilChange} км</strong></div>
 		  <div class="infoniz"><span>До замены масла</span></div>
        
       </div>
 	  
       <div class="expenses-item">
-        <div class="expenses-item-icon"><img src="icons/free-icon-gearshift-1399176.png" alt="Коробка передач масло" style="width:48px; height:48px;"></div>
+        <div class="icon-circle yellow"><img src="icons/free-icon-gearshift-1399176.png" alt="Коробка передач масло" style="width:48px; height:48px;"></div>
 		<div><strong>${data.nextGearboxOilChange || '—'} км</strong></div>
 		      <div class="infoniz"><span>До замены в КПП</span></div>
         
       </div>
 	  
       <div class="expenses-item">
-        <div class="expenses-item-icon"><img src="icons/free-icon-medical-insurance-835397.png" alt="Страховка" style="width:48px; height:48px;"></div>
+        <div class="icon-circle orange"><img src="icons/free-icon-medical-insurance-835397.png" alt="Страховка" style="width:48px; height:48px;"></div>
 		<div><strong>${data.insuranceEnds || '—'} дн.</strong></div>
          <div class="infoniz"><span>До окончания страховки</span></div>
 		

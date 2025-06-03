@@ -1,10 +1,11 @@
+/* === ОБЩИЙ СТИЛЬ СТРАНИЦЫ === */
 body {
   font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial, sans-serif;
   background-color: #f7f7f7;
   margin: 0;
   padding: 0;
 }
-
+/* === ВЕРХНЕЕ МЕНЮ (ШАПКА) === */
 header {
   background-color: white;
   padding: 16px 32px;
@@ -22,7 +23,7 @@ header h1 {
   margin: 0;
   color: #333;
 }
-
+/* === НАВИГАЦИОННОЕ МЕНЮ === */
 nav a {
   text-decoration: none;
   color: #007aff;
@@ -41,11 +42,12 @@ nav a.active {
   background-color: #007aff;
   color: white;
 }
-
+/* === ОСНОВНОЙ КОНТЕНТ === */
 .main-content {
   padding: 32px;
 }
 
+/* === КАРТОЧКА — ОБЩИЙ КОНТЕЙНЕР === */
 .card {
   background-color: white;
   border-radius: 12px;
@@ -56,18 +58,15 @@ nav a.active {
   transition: transform 0.3s ease;
 }
 
-/* Уберем hover эффект, так как на главной он мешал */
-/* .card:hover {
-  transform: scale(1.02);
-} */
 
+/* Заголовок раздела */
 h2 {
   margin-top: 0;
   font-size: 24px;
   color: #1c1c1c;
 }
 
-/* Стиль таблицы*/
+/* === ТАБЛИЦЫ === */
 table {
   width: 100%;
   border-collapse: collapse; /* Убирает двойные границы */
@@ -91,12 +90,12 @@ td {
   color: #555; /* Средне-серый цвет текста */
 }
 
-/* Специальные стили для классов внутри таблицы */
+/* Цветовая маркировка для ячеек */
 .mileage { color: #ff3b30; font-weight: bold; } /* Красный цвет для пробега */
 .cost { color: #34c759; font-weight: bold; }  /* Зеленый цвет для стоимости */
 .no-comment { font-style: italic; color: #888; } /* Курсив для комментариев */  /* Серый цвет */
 
-/* Spinner Анимация и спиннер Круговой индикатор загрузки с анимацией вращения.*/
+/* === СПИННЕР ЗАГРУЗКИ === */
 .spinner {
   display: none; /* Скрыт по умолчанию */
   margin: 30px auto;
@@ -118,7 +117,7 @@ td {
 
 /* Главная. Стили для контента вкладки 'home' (добавлены для исходного варианта) 
  Стиль для текстовых блоков с информацией на главной вкладке */
- /* Основной текст информации на главной вкладке */
+/* === ИНФОРМАЦИОННЫЕ БЛОКИ НА ГЛАВНОЙ === */
 .info {
   margin-bottom: 10px;  /*Отступ между строками */
   line-height: 1.6;  /*Межстрочный интервал */
@@ -133,8 +132,7 @@ td {
   color: #000;
 }
 
-/* Стили для псевдо-прогресс бара (если вы его используете) */
- /* Контейнер для прогресс-бара и текста рядом (горизонтальный ряд) */
+/* === ПСЕВДО-ПРОГРЕСС БАР === */
 .progress-wrapper {
   margin-top: 5px;
   display: flex;
@@ -159,7 +157,7 @@ td {
   color: #007aff;
 }
 
-/* Стили для кнопки 'Отчет по заправкам' на главной */
+/* === КНОПКА "ОТЧЕТ ПО ЗАПРАВКАМ" === */
 .home-fuel-link {
   display: inline-block;
   background-color: #007aff;
@@ -178,6 +176,7 @@ td {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* === ШАПКА С ЗАГОЛОВКОМ НА ГЛАВНОЙ === */
  .shapka-selenyj {
       background-color: #007aff; /* #44b678*/
       color: white;
@@ -196,12 +195,17 @@ td {
       font-size: 36px;
       font-weight: bold;
     }
+
+
+/* === СЕТКА КАРТОЧЕК НА ГЛАВНОЙ === */
+	/*Сетка с карточками */
     .grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 16px;
       margin-bottom: 24px;
     }
+	/*Карточка с иконкой и текстом*/
     .card2 {
       background-color: white;
       border-radius: 16px;
@@ -209,10 +213,14 @@ td {
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
       text-align: center;
     }
+	
+	/*Обертка для иконки*/
     .card2-icon {
       font-size: 28px;
       margin-bottom: 8px;
     }
+	
+	/* === ОБЗОР РАСХОДОВ === */
     .expenses-summary {
       background-color: white;
       border-radius: 16px;
@@ -232,7 +240,7 @@ td {
       font-size: 24px;
     }
 	
-	
+	/* === НИЖНЯЯ НАВИГАЦИЯ === */
 	.bottom-nav {
       position: fixed;
       bottom: 0;
@@ -392,7 +400,7 @@ td {
 #sectionTitle {
   display: none;
 }
-
+/* Альтернативный блок с информацией */
 .infoniz {
   margin-bottom: 10px;  /*Отступ между строками */
   line-height: 1.6;  /*Межстрочный интервал */
@@ -400,3 +408,19 @@ td {
   color: #333;
   
 }
+
+/* Круглая иконка с обводкой  */
+.icon-circle {
+  width: 64px;
+  height: 64px;
+  border: 2px solid #ccc; /* цвет рамки */
+  border-radius: 50%; /* делает круг */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white; /* или прозрачный фон */
+}
+.icon-circle.green { border-color: #00c853; }
+.icon-circle.red { border-color: #d50000; }
+.icon-circle.yellow { border-color: #fbc02d; }
+.icon-circle.orange { border-color: #fb862d; }
