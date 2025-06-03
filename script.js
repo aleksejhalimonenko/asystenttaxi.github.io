@@ -177,7 +177,7 @@ function renderHomeData(data) {
       <div>Мой пробег</div>
     </div>
     <div class="card2">
-      <div class="card-icon"><img src="icons/free-icon-calendar-7955483.png" alt="Календарь" style="width:64px; height:64px;"></div>
+      <div class="card2-icon"><img src="icons/free-icon-calendar-7955483.png" alt="Календарь" style="width:64px; height:64px;"></div>
       <div><strong>${data.nextDiagnostic || '—'} км</strong></div>
       <div>Осталось до ТО</div>
     </div>
