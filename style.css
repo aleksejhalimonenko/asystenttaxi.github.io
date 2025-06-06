@@ -98,7 +98,15 @@ td {
 /* === СПИННЕР ЗАГРУЗКИ === */
 .spinner {
   display: none; /* Скрыт по умолчанию */
-  margin: 30px auto;
+  /* margin: 30px auto;*/
+   display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  margin: 0;
+  
   border: 4px solid #f3f3f3; /* Light grey */
   border-top: 4px solid #007aff; /* Blue */
   border-radius: 50%;
