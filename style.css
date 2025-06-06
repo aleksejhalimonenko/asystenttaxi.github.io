@@ -243,6 +243,7 @@ td {
 /* === НИЖНЯЯ НАВИГАЦИЯ === */
 /* Нижняя навигация */
 .bottom-nav {
+	 flex-wrap: nowrap;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -407,7 +408,39 @@ td {
    }
 }
  
-
+@media (max-width: 480px) {
+  /* Уменьшаем отступы и размеры нижнего меню */
+  .bottom-nav {
+    padding: 8px 0; /* Уменьшаем вертикальные отступы */
+  }
+  
+  .bottom-nav-item {
+    padding: 4px 6px; /* Уменьшаем внутренние отступы */
+    min-width: auto; /* Убираем фиксированную ширину */
+  }
+  
+  /* Уменьшаем размер иконок */
+  .bottom-nav-item img {
+    width: 24px;
+    height: 24px;
+  }
+  
+  /* Уменьшаем размер текста и скрываем его при необходимости */
+  .bottom-nav-item span {
+    font-size: 10px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
+  }
+  
+  /* Особые стили для кнопки добавления */
+  .bottom-nav-item.add-tab img {
+    width: 28px;
+    height: 28px;
+  }
+}
 
 
 /* Адаптация для стилей info на маленьких экранах */
