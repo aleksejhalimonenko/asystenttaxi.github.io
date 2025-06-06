@@ -243,7 +243,7 @@ td {
 /* === НИЖНЯЯ НАВИГАЦИЯ === */
 /* Нижняя навигация */
 .bottom-nav {
-	 flex-wrap: nowrap;
+  flex-wrap: nowrap;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -407,22 +407,31 @@ td {
      height: 20px;
    }
 }
+
+
  
 @media (max-width: 480px) {
   /* Уменьшаем отступы и размеры нижнего меню */
   .bottom-nav {
     padding: 8px 0; /* Уменьшаем вертикальные отступы */
+	justify-content: space-between; /* Равномерное распределение */
+	padding-left: 8px;
+    padding-right: 8px;
   }
   
   .bottom-nav-item {
-    padding: 4px 6px; /* Уменьшаем внутренние отступы */
-    min-width: auto; /* Убираем фиксированную ширину */
+    padding: 4px 2px; /* Ещё меньше отступы */
+    flex-grow: 1; /* Растягиваем на доступное пространство */
+    text-align: center;
+    min-width: 0; /* Разрешаем сжатие */
   }
   
   /* Уменьшаем размер иконок */
   .bottom-nav-item img {
-    width: 24px;
-    height: 24px;
+     width: 22px;
+    height: 22px;
+    margin: 0 auto 2px; /* Центрируем иконку */
+    display: block;
   }
   
   /* Уменьшаем размер текста и скрываем его при необходимости */
@@ -435,10 +444,17 @@ td {
     max-width: 60px;
   }
   
+   /* Особые стили для кнопки добавления */
+  .bottom-nav-item.add-tab {
+    flex-grow: 0; /* Не растягиваем */
+    flex-basis: 44px; /* Фиксированная ширина */
+  } 
+  
   /* Особые стили для кнопки добавления */
   .bottom-nav-item.add-tab img {
     width: 28px;
     height: 28px;
+    margin-bottom: 0;
   }
 }
 
