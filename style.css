@@ -533,3 +533,118 @@ td {
 .icon-circle.red { border-color: #d50000; }
 .icon-circle.yellow { border-color: #fbc02d; }
 .icon-circle.orange { border-color: #fb862d; }
+
+
+
+
+/* Общие стили для формы */
+/* Общие стили для формы */
+#addFuelFormContainer {
+    max-width: 400px; /* Уменьшили максимальную ширину */
+    margin: 10px auto; /* Меньшие отступы */
+    padding: 15px; /* Меньший внутренний отступ */
+    background-color: #ffffff;
+    border-radius: 8px; /* Немного меньше радиус углов */
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1); /* Менее выраженная тень */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+}
+
+#addFuelFormContainer h3 {
+    text-align: center;
+    color: #007bff;
+    margin-bottom: 20px; /* Меньший отступ снизу */
+    font-size: 1.5em; /* Уменьшили размер заголовка */
+    font-weight: 600;
+}
+
+/* Стили для каждой группы полей формы */
+.form-group {
+    margin-bottom: 10px; /* Меньший отступ между группами полей */
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px; /* Меньший отступ под лейблом */
+    font-weight: 500;
+    color: #555;
+    font-size: 0.95em; /* Уменьшили размер лейбла */
+}
+
+/* Стили для всех полей ввода и select/textarea */
+.form-group input[type="date"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+    width: calc(100% - 16px); /* Учитываем padding */
+    padding: 10px 8px; /* Уменьшили внутренние отступы */
+    border: 1px solid #ced4da;
+    border-radius: 5px; /* Немного меньше радиус углов */
+    font-size: 0.9em; /* Уменьшили размер шрифта в полях */
+    color: #495057;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-group input[type="date"]:focus,
+.form-group input[type="number"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.2); /* Менее выраженная тень */
+    outline: none;
+}
+
+/* Стили для textarea (многострочное поле) */
+.form-group textarea {
+    min-height: 60px; /* Уменьшили минимальную высоту */
+}
+
+/* Стили для маленького текста под полями */
+.form-group small {
+    margin-top: 4px; /* Меньший отступ сверху */
+    font-size: 0.75em; /* Уменьшили размер шрифта */
+}
+
+/* Стили для кнопки отправки */
+button[type="submit"] {
+    display: block;
+    width: 100%;
+    padding: 12px 15px; /* Уменьшили внутренние отступы кнопки */
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 6px; /* Меньше радиус углов */
+    font-size: 1em; /* Уменьшили размер шрифта кнопки */
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2); /* Менее выраженная тень */
+}
+
+button[type="submit"]:hover {
+    background-color: #218838;
+    transform: translateY(-1px); /* Меньше поднятие */
+}
+
+button[type="submit"]:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(40, 167, 69, 0.3);
+}
+
+/* Стили для сообщений формы (успех/ошибка) */
+#formMessage {
+    padding: 10px; /* Меньший внутренний отступ */
+    border-radius: 6px; /* Меньше радиус углов */
+    margin-top: 15px; /* Меньший отступ сверху */
+    font-size: 0.9em; /* Уменьшили размер шрифта */
+    font-weight: 500;
+    text-align: center;
+}
+
+/* Стили для select элемента */
+.form-group select {
+    background-position: right 8px center; /* Скорректировали позицию стрелки */
+    background-size: 10px; /* Уменьшили размер стрелки */
+    padding-right: 25px; /* Уменьшили отступ для стрелки */
+}

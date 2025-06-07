@@ -5,6 +5,16 @@ const sectionTitle = document.getElementById("sectionTitle");
 const cardElement = document.querySelector('.card'); // Ссылка на контейнер .card
 
 // Функция для получения параметра из URL
+/**
+ * Получает параметр из адресной строки (URL).
+ *
+ * Эта функция смотрит на адрес страницы в браузере
+ * (например, "мойсайт.ком/?страница=главная")
+ * и позволяет "вытянуть" значение нужного вам параметра.
+ *
+ * @param {string} name - Имя параметра, значение которого нужно найти (например, "page" или "id").
+ * @returns {string|null} - Значение параметра в виде текста, или null, если параметр не найден.
+ */
 function getQueryParam(name) {
   const params = new URLSearchParams(window.location.search);
   return params.get(name);
@@ -19,6 +29,7 @@ function setActiveTab(page) {
     home: "Главная",
     fuel: "История заправок",
     service: "Обслуживание и ремонт",
+	addfuel: "Добавить Запись",
     other: "Прочее",
     settings: "Настройки"
   };
@@ -27,6 +38,7 @@ function setActiveTab(page) {
     home: ".home-tab",
     fuel: ".fuel-tab",
     service: ".service-tab",
+	addfuel: ".add-tab",
     other: ".other-tab",
     settings: ".settings-tab"
   };
@@ -46,6 +58,7 @@ function setActiveTab(page) {
 }
 
 // Функция для загрузки и отображения данных
+/*функция загружает данные с Google Apps Script и отображает их на странице в зависимости от выбранной вкладки.*/
 function loadData() {
   const page = getQueryParam("page") || "home"; // Вкладка по умолчанию 'home'
   setActiveTab(page);
@@ -62,7 +75,7 @@ function loadData() {
   tbody.innerHTML = "";
 
   // 💡 Убедитесь, что URL вашего веб-приложения GAS верный
-  const url = `https://script.google.com/macros/s/AKfycbwbIVB5WCgp5YVIZWHDiWzlX4gKtMQSwBBZhdLtH4rPdu2f9gBrzGqmF-6dy5csTaF4/exec?page=${page}`;
+  const url = `https://script.google.com/macros/s/AKfycbxLYT5b2qCLXK8iLtSz-48kimWcjGYfI6r31s3sJMjPJljrVMuJqmuNIswJ7RnjiTmG/exec?page=${page}`;
 
   fetch(url)
     .then(res => {
@@ -77,10 +90,16 @@ function loadData() {
       // Обработка данных в зависимости от страницы
       if (page === "service") {
         renderServiceData(data);
+		
       } else if (page === "home") {
         renderHomeData(data);
+		
       } else if (page === "fuel") {
         renderFuelData(data);
+		
+	} else if (page === "addfuel") {
+         renderAddFuelData(data); // <-- Эту строку оставим без изменений, но убедимся, что функция renderAddFuelData теперь определена в addFuel.js
+		
       } else {
         renderPlaceholder(page); // Для 'other', 'settings' и т.д.
       }
@@ -106,6 +125,7 @@ function loadData() {
 
 
 // --- Функции рендеринга для каждой страницы ---
+/* Отображает данные об обслуживании и ремонте в виде таблицы*/
 
 function renderServiceData(data) {
   table.style.display = "table"; // Показать таблицу
@@ -251,6 +271,9 @@ function renderHomeData(data) {
   cardElement.appendChild(homeContent); // Добавляем созданный контент в .card
 }
 
+/*
+ * Динамически рендерит (отображает) таблицу с историей заправок на веб-странице.
+ */
 function renderFuelData(data) {
   table.style.display = "table"; // Показать таблицу
   const thead = table.querySelector("thead");
@@ -294,6 +317,9 @@ function renderFuelData(data) {
   });
 }
 
+/*
+Показывает сообщение о том, что выбранный раздел находится в разработке, вместо того чтобы отображать таблицу с данными.
+ */
 function renderPlaceholder(page) {
   table.style.display = "none"; // Скрыть таблицу
   const placeholderDiv = document.createElement('div');
@@ -303,11 +329,16 @@ function renderPlaceholder(page) {
 
   const titleMap = {
      other: "Другое",
-     settings: "Настройки"
+     settings: "Настройки",
+	addfuel: "Добавить Запись" // Добавлено
    };
   placeholderDiv.textContent = `Раздел "${titleMap[page] || page}" находится в разработке.`;
   cardElement.appendChild(placeholderDiv);
 }
+
+
+
+
 
 
 // --- Инициализация ---
