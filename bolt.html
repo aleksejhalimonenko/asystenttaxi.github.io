@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Импорт CSV и анализ поездок</title>
+  <style>
+    /* ... ваш CSS без изменений ... */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      background: #f2f2f7;
+      margin: 0;
+      padding: 20px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      color: #1c1c1e;
+    }
+
+    h2 {
+      font-weight: 600;
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #000;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 20px;
+      padding: 20px 30px;
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.1),
+        0 10px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    input[type="file"], select {
+      width: 100%;
+      font-size: 17px;
+      padding: 12px 15px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 14px;
+      background: #f9f9f9;
+      transition: border-color 0.3s ease;
+      box-sizing: border-box;
+      outline: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+    input[type="file"]:focus, select:focus {
+      border-color: #007aff;
+      background: #fff;
+      box-shadow: 0 0 5px rgba(0, 122, 255, 0.5);
+    }
+
+    label {
+      font-weight: 600;
+      font-size: 17px;
+      color: #3a3a3c;
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+
+    h3 {
+      font-weight: 600;
+      font-size: 22px;
+      margin-top: 30px;
+      margin-bottom: 10px;
+      color: #000;
+      border-bottom: 1px solid #d1d1d6;
+      padding-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 10px;
+      margin-top: 10px;
+    }
+    th, td {
+      text-align: left;
+      padding: 14px 20px;
+      font-size: 16px;
+      color: #1c1c1e;
+    }
+    th {
+      background: #f2f2f7;
+      font-weight: 600;
+      border-radius: 12px;
+    }
+    tbody tr {
+      background: #fff;
+      box-shadow:
+        0 1px 2px rgba(60, 60, 67, 0.15),
+        0 1px 3px rgba(60, 60, 67, 0.1);
+      border-radius: 14px;
+    }
+    tbody tr + tr {
+      margin-top: 8px;
+    }
+    tbody tr td:first-child {
+      border-top-left-radius: 14px;
+      border-bottom-left-radius: 14px;
+    }
+    tbody tr td:last-child {
+      border-top-right-radius: 14px;
+      border-bottom-right-radius: 14px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 15px 10px;
+      }
+      .container {
+        padding: 15px 20px;
+        border-radius: 16px;
+      }
+      th, td {
+        padding: 12px 10px;
+        font-size: 14px;
+      }
+      h2 {
+        font-size: 24px;
+      }
+      h3 {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Загрузка CSV-файла</h2>
+    <input type="file" id="csvFile" accept=".csv" />
+    <label for="sortSelect">Сортировать по:</label>
+    <select id="sortSelect">
+      <option value="pricePerKm">Цена за км</option>
+      <option value="price">Стоимость поездки</option>
+      <option value="distance">Расстояние</option>
+    </select>
+
+    <div id="output"></div>
+  </div>
+
+  <!-- Подключаем Chart.js из CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    let globalData = [];
+
+    document.getElementById('csvFile').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const csv = event.target.result;
+
+        const rows = csv.trim().split("\n").map(row =>
+          row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.replace(/^"|"$/g, ''))
+        );
+        const headers = rows[0];
+
+        const requiredColumns = ["Стоимость поездки", "Расстояние", "Время заказа"];
+        const missing = requiredColumns.filter(col => !headers.includes(col));
+        if (missing.length > 0) {
+          document.getElementById("output").innerHTML = `⚠️ Ошибка: Файл не содержит нужные поля: ${missing.join(", ")}`;
+          return;
+        }
+
+        globalData = rows.slice(1).map(row => {
+          const obj = {};
+          headers.forEach((h, i) => obj[h] = row[i]);
+          return obj;
+        }).filter(r => r["Стоимость поездки"] && r["Расстояние"]);
+
+        globalData.forEach(r => {
+          r.price = parseFloat(r["Стоимость поездки"].replace(',', '.'));
+          r.distance = parseFloat(r["Расстояние"].replace(',', '.'));
+          r.pricePerKm = (r.distance > 0) ? r.price / r.distance : 0;
+          r.date = new Date(r["Время заказа"].split(" ")[0].split(".").reverse().join("-"));
+          r.week = getWeek(r.date);
+        });
+
+        renderTable();
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('sortSelect').addEventListener('change', renderTable);
+
+    function renderTable() {
+      if (!globalData.length) return;
+
+      const sortBy = document.getElementById('sortSelect').value;
+
+      const weeks = {};
+      globalData.forEach(r => {
+        if (!weeks[r.week]) weeks[r.week] = [];
+        weeks[r.week].push(r);
+      });
+
+      const sortedWeeks = Object.entries(weeks).sort((a, b) => +a[0] - +b[0]);
+
+      let html = '';
+
+      // Определяем интервалы расстояний для диаграммы
+      const distanceRanges = [
+        { label: '1-3 км', min: 1, max: 3 },
+        { label: '3-5 км', min: 3, max: 5 },
+        { label: '6-10 км', min: 6, max: 10 },
+        { label: '11-20 км', min: 11, max: 20 },
+        { label: '21-30 км', min: 21, max: 30 },
+        { label: '31-50 км', min: 31, max: 50 },
+        { label: '51-100 км', min: 51, max: 100 },
+        { label: '100+ км', min: 100, max: Infinity },
+      ];
+
+      sortedWeeks.forEach(([week, trips], index) => {
+        trips.sort((a, b) => b[sortBy] - a[sortBy]);
+
+        // Считаем количество поездок по интервалам расстояний для текущей недели
+        const counts = distanceRanges.map(range => {
+          return trips.filter(trip => trip.distance >= range.min && trip.distance < range.max).length;
+        });
+
+        // Добавляем заголовок недели
+        html += `<h3>Неделя ${week}</h3>`;
+
+        // Добавляем canvas для диаграммы с уникальным id
+        const canvasId = `chartWeek${week}`;
+        html += `<canvas id="${canvasId}" style="max-width: 100%; height: 300px;"></canvas>`;
+
+        // Добавляем таблицу с поездками
+        html += `<table><thead><tr><th>Дата</th><th>Стоимость</th><th>Расстояние</th><th>Цена за км</th></tr></thead><tbody>`;
+        trips.forEach(r => {
+          html += `<tr>
+            <td>${r["Время заказа"]}</td>
+            <td>${r.price.toFixed(2)}</td>
+            <td>${r.distance.toFixed(2)}</td>
+            <td>${r.pricePerKm.toFixed(2)}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+
+        // После формирования html создадим диаграмму через setTimeout, чтобы DOM обновился
+        setTimeout(() => {
+          const ctx = document.getElementById(canvasId).getContext('2d');
+
+          // eslint-disable-next-line no-unused-vars
+          const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: distanceRanges.map(r => r.label),
+              datasets: [{
+                label: 'Количество поездок',
+                data: counts,
+                backgroundColor: '#007aff',
+                borderRadius: 5,
+              }]
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    stepSize: 1,
+                    precision: 0,
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  display: false
+                },
+                tooltip: {
+                  enabled: true
+                }
+              }
+            }
+          });
+        }, 0);
+      });
+
+      document.getElementById('output').innerHTML = html;
+    }
+
+    function getWeek(date) {
+      const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+      const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+      return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+    }
+  </script>
+</body>
+</html>
