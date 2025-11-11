@@ -201,11 +201,25 @@ function renderHomeData(data) {
       <div><strong>${data.nextDiagnostic || '—'} км</strong></div>
       <div>Осталось до ТО</div>
     </div>
+	
+	
+	<div class="card2">
+  <div class="card2-icon">
+    <img src="icons/free-icon-fuel-4459018.png" alt="Расходтоплива" style="width:64px; height:64px;">
+  </div>
+  <div><strong>${data.weeklyFuelCost ? data.weeklyFuelCost + ' zł' : '—'}</strong></div>
+  <div>${data.weeklyFuelPeriod ? 'Топливо (' + data.weeklyFuelPeriod + ')' : 'Топливо'}</div>
+</div>
+	
+	
+	<!-- 
     <div class="card2">
       <div class="card2-icon"><img src="icons/free-icon-fuel-4459018.png" alt="Расходтоплива" style="width:64px; height:64px;"></div>
       <div><strong>251 zł/мес.</strong></div>
       <div>Топливо</div>
     </div>
+-->
+	
     <div class="card2">
       <div class="card2-icon"><img src="icons/free-icon-wallet-passes-app-3845819.png" alt="Всегорасходов" style="width:64px; height:64px;"></div>
       <div><strong>${data.totalCost !== undefined ? data.totalCost : '—'}</strong></div>
