@@ -1,6 +1,6 @@
 /* === ОБЩИЙ СТИЛЬ СТРАНИЦЫ === */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial, sans-serif;
+  font-family: /*'Fira Sans',  */-apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial, sans-serif;
   background-color: #f7f7f7;
   margin: 0;
   padding: 0;
@@ -190,22 +190,27 @@ td {
 
 /* === ШАПКА С ЗАГОЛОВКОМ НА ГЛАВНОЙ === */
  .shapka-selenyj {
-      background-color: #007aff; /* #44b678*/
-      color: white;
+       background-color: transparent;  Прозрачный фон */
+      color: black; /* Черный текст */
       padding: 10px; /* было 24 */
       border-radius: 20px;
       text-align: center;
       margin-bottom: 16px;
-	  /*height: 150px;  Явно задаём высоту можно удалить */
+	  padding-top: 5px; /* ← Уменьшаем верхний внутренний отступ */
+      margin-top: -35px; /* ← ОТРИЦАТЕЛЬНЫЙ ОТСТУП - поднимаем выше */
     }
  .shapka-selenyj h2 {
       font-size: 18px;
       font-weight: 400;
-	        color: white;
+	   color: #9a9ea1; /* СЕРЫЙ ЗАГОЛОВОК */
+	   margin-bottom: 4px; /* ← Уменьшаем отступ снизу */
     }
 .shapka-selenyj h1 {
-      font-size: 36px;
-      font-weight: bold;
+      font-size: 48px;
+	  font-weight: 600;  /*SemiBold */
+	  font-family: 'Fira Sans', sans-serif; /* Добавляем шрифт */
+	  color: black; /*ЧЕРНЫЙ Текущий пробег цифры*/
+	  margin-top: 4px; /* ← Уменьшаем отступ сверху */
     }
 
 
