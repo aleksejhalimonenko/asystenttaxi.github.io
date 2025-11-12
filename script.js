@@ -1,8 +1,20 @@
 // Получаем ссылки на DOM элементы один раз
-const spinner = document.getElementById("spinner");
+const appContent = document.getElementById("appContent");
+const spinnerOverlay = document.getElementById("spinnerOverlay"); // ⬅️ Ссылка на оверлей спиннера
 const table = document.getElementById("dataTable");
 const sectionTitle = document.getElementById("sectionTitle");
-const cardElement = document.querySelector('.card'); // Ссылка на контейнер .card
+const cardElement = document.querySelector('.card');
+
+// 🔥 НОВАЯ ФУНКЦИЯ для управления состоянием загрузки
+function setLoadingState(isLoading) {
+    if (isLoading) {
+        appContent.style.display = 'none';    // Скрываем весь основной контент
+        spinnerOverlay.style.display = 'flex'; // Показываем оверлей со спиннером
+    } else {
+        spinnerOverlay.style.display = 'none'; // Скрываем оверлей со спиннером
+        appContent.style.display = 'block';    // Показываем весь основной контент
+    }
+}
 
 // Функция для получения параметра из URL
 /**
@@ -63,7 +75,7 @@ function loadData() {
   const page = getQueryParam("page") || "home"; // Вкладка по умолчанию 'home'
   setActiveTab(page);
 
-  spinner.style.display = "block"; // Показать спиннер
+  setLoadingState(true); // 🔥 ПОКАЗАТЬ СПИННЕР, СКРЫТЬ КОНТЕНТ
   table.style.display = "none";    // Скрыть таблицу по умолчанию
   // Очистить предыдущий динамический контент внутри .card (кроме h2 и spinner)
   const dynamicContent = cardElement.querySelectorAll(':scope > *:not(h2):not(.spinner):not(#dataTable)');
@@ -85,7 +97,7 @@ function loadData() {
       return res.json(); // Пытаемся распарсить JSON
     })
     .then(data => {
-      spinner.style.display = "none"; // Скрыть спиннер после получения данных
+      setLoadingState(false); // 🔥 СКРЫТЬ СПИННЕР, ПОКАЗАТЬ КОНТЕНТ
 
       // Обработка данных в зависимости от страницы
       if (page === "service") {
@@ -105,7 +117,7 @@ function loadData() {
       }
     })
     .catch(err => {
-      spinner.style.display = "none"; // Скрыть спиннер при ошибке
+      setLoadingState(false); // 🔥 СКРЫТЬ СПИННЕР, ПОКАЗАТЬ КОНТЕНТ (с ошибкой)
       sectionTitle.textContent = "Ошибка загрузки"; // Установить заголовок ошибки
       // Показать сообщение об ошибке в карточке
       const errorDiv = document.createElement('div');
