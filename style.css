@@ -192,11 +192,16 @@ td {
  .shapka-selenyj {
        background-color: transparent;  Прозрачный фон */
       color: black; /* Черный текст */
-      padding: 10px; /* было 24 */
+      
       border-radius: 20px;
       text-align: center;
       margin-bottom: 16px;
-	  padding-top: 5px; /* ← Уменьшаем верхний внутренний отступ */
+	  padding-top: 5px;
+    padding-bottom: 5px; /* ← Уменьшаем нижний отступ как сверху */
+    padding-left: 10px;
+    padding-right: 10px;
+	  /*padding: 10px;  было 24 */
+	  /*padding-top: 5px;  ← Уменьшаем верхний внутренний отступ */
       margin-top: -35px; /* ← ОТРИЦАТЕЛЬНЫЙ ОТСТУП - поднимаем выше */
     }
  .shapka-selenyj h2 {
@@ -230,7 +235,8 @@ td {
       background-color: white;
       border-radius: 16px;
       padding: 16px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+box-shadow: 0 15px 35px #e9eff3; /* ↑ больше смещение, ↑↑ больше размытие */
+      /*box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); Старая тень*/
       text-align: center;
     }
 	
@@ -243,10 +249,12 @@ td {
 	
 	/* === ОБЗОР РАСХОДОВ === */
     .expenses-summary {
-      background-color: white;
+	background-color: #e9eff3; /* светло-серый */
+      /* background-color: white;*/
       border-radius: 16px;
       padding: 16px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	  font-family: 'Fira Sans', sans-serif;
     }
     .expenses-items {
       display: flex;
@@ -666,3 +674,48 @@ button[type="submit"]:active {
 
 
 
+/* Стиль для тестовой ячейки */
+.card2-test {
+    background-color: white;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 15px 35px #e9eff3;
+    text-align: left;
+	
+}
+
+.card2-test .card2-icon {
+    margin-bottom: 6px;
+    text-align: left;
+}
+
+.card2-test > div {
+    text-align: left;
+    margin-bottom: 2px;
+
+}
+
+
+/* Только заголовки: */
+.card-title {
+    font-family: 'Fira Sans', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+/* только цифры (системный шрифт, жирный): */
+.card-value {
+	font-family: 'Fira Sans';
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 0;
+}
+
+/* дополнительная информация*/
+.fuel-period {
+    font-size: 12px; /* чуть меньше чем заголовок ТОПЛИВО */
+    color: #9a9ea1; /*#9a9ea1 тот же серый что у "Текущий пробег" */
+    font-weight: 400;
+    font-family: 'Fira Sans', sans-serif !important;
+    margin-top: -2px; /* поднимаем ближе к цене */
+}

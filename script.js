@@ -196,80 +196,78 @@ function renderHomeData(data) {
   homeContent.innerHTML = `
 
     <div class="shapka-selenyj"><span class="shapka-selenyj"><h2>Текущий пробег</h2><h1>${data.endKm || '—'} км</h1></span></div>
-<!--
-  <div class="shapka-selenyj">
-    <h2>Текущий пробег</h2>
-    <h1>249 559 км</h1>
-  </div>
--->
+
   <div class="grid">
-    <div class="card2">
-      <div class="card2-icon">      <img src="icons/free-icon-tools-and-utensils-453591.png" alt="Мой пробег" style="width:64px; height:64px;"></div>
-      <div><strong>${data.distance || '—'} км</strong></div>
-      <div>Мой пробег</div>
-    </div>
-    <div class="card2">
-      <div class="card2-icon"><img src="icons/free-icon-calendar-7955483.png" alt="Календарь" style="width:64px; height:64px;"></div>
-      <div><strong>${data.nextDiagnostic || '—'} км</strong></div>
-      <div>Осталось до ТО</div>
-    </div>
-	
-	
-	<div class="card2">
+<div class="card2-test">
   <div class="card2-icon">
-    <img src="icons/free-icon-fuel-4459018.png" alt="Расходтоплива" style="width:64px; height:64px;">
+    <img src="icons/free-icon-tools-and-utensils-453591.png" alt="Мой пробег" style="width:42px; height:42px;">
   </div>
-  <div><strong>${data.weeklyFuelCost ? data.weeklyFuelCost + ' zł' : '—'}</strong></div>
-  <div>${data.weeklyFuelPeriod ? 'Топливо (' + data.weeklyFuelPeriod + ')' : 'Топливо'}</div>
+  <div class="card-title">МОЙ ПРОБЕГ</div>
+  <div class="card-value">${data.distance || '—'} км</div>
+</div>
+	
+    <div class="card2-test">
+      <div class="card2-icon"><img src="icons/free-icon-calendar-7955483.png" alt="Календарь" style="width:42px; height:42px;"></div>
+      <div class="card-title">ДО СЛЕДУЮЩЕГО ТО</div>
+	  <div class="card-value">${data.nextDiagnostic || '—'} км</div>
+    </div>
+	
+	
+<div class="card2-test">
+  <div class="card2-icon">
+    <img src="icons/free-icon-fuel-4459018.png" alt="Топливо" style="width:42px; height:42px;">
+  </div>
+  <div class="card-title">ТОПЛИВО</div>
+  <div class="card-value">${data.weeklyFuelCost ? data.weeklyFuelCost + ' zł' : '—'}</div>
+  <div class="fuel-period">${data.weeklyFuelPeriod ? data.weeklyFuelPeriod : ''}</div>
 </div>
 	
 	
-	<!-- 
-    <div class="card2">
-      <div class="card2-icon"><img src="icons/free-icon-fuel-4459018.png" alt="Расходтоплива" style="width:64px; height:64px;"></div>
-      <div><strong>251 zł/мес.</strong></div>
-      <div>Топливо</div>
-    </div>
--->
+
 	
-    <div class="card2">
-      <div class="card2-icon"><img src="icons/free-icon-wallet-passes-app-3845819.png" alt="Всегорасходов" style="width:64px; height:64px;"></div>
-      <div><strong>${data.totalCost !== undefined ? data.totalCost : '—'}</strong></div>
-      <div>Всего расходов</div>
+    <div class="card2-test">
+      <div class="card2-icon"><img src="icons/free-icon-wallet-passes-app-3845819.png" alt="Всегорасходов" style="width:42px; height:42px;"></div>
+      <div class="card-title">ВСЕГО РАСХОДОВ</div>
+	  <div class="card-value">${data.totalCost !== undefined ? data.totalCost : '—'}</div>
+      <div class="fuel-period">тестовая заглушка</div>
     </div>
   </div>
 
 <!-- Информационные карточки -->
   <div class="expenses-summary">
-    <div><strong>Информационные карточки</strong></div>
+    <div><strong>АКТУАЛЬНЫЕ СРОКИ</strong></div>
     <div class="expenses-items">
-      <div class="expenses-item">
-        <div class="icon-circle green"><img src="icons/free-icon-gas-3144737.png" alt="Обсл.газа" style="width:48px; height:48px;"></div>
-		   <div><strong>${data.gasServiceDue || '—'} км</strong></div>
-		  <div class="infoniz"><span>До обслуж.газа</span></div>
- 
-      </div>
+	
+
 	  
       <div class="expenses-item">
         <div class="icon-circle red"><img src="icons/free-icon-car-oil-938639.png" alt="Заменамасла" style="width:48px; height:48px;"></div>
 		 <div><strong>${data.nextOilChange} км</strong></div>
-		  <div class="infoniz"><span>До замены масла</span></div>
+		  <div class="infoniz"><span>МАСЛО</span></div>
        
       </div>
 	  
       <div class="expenses-item">
         <div class="icon-circle yellow"><img src="icons/free-icon-gearshift-1399176.png" alt="Коробка передач масло" style="width:48px; height:48px;"></div>
 		<div><strong>${data.nextGearboxOilChange || '—'} км</strong></div>
-		      <div class="infoniz"><span>До замены в КПП</span></div>
+		      <div class="infoniz"><span>КПП</span></div>
         
       </div>
 	  
       <div class="expenses-item">
         <div class="icon-circle orange"><img src="icons/free-icon-medical-insurance-835397.png" alt="Страховка" style="width:48px; height:48px;"></div>
 		<div><strong>${data.insuranceEnds || '—'} дн.</strong></div>
-         <div class="infoniz"><span>До окончания страховки</span></div>
+         <div class="infoniz"><span>СТРАХОВКА</span></div>
 		
       </div>
+	  
+	        <div class="expenses-item">
+        <div class="icon-circle green"><img src="icons/free-icon-gas-3144737.png" alt="Обсл.газа" style="width:48px; height:48px;"></div>
+		   <div><strong>${data.gasServiceDue || '—'} км</strong></div>
+		  <div class="infoniz"><span>ГАЗ</span></div>
+ 
+      </div>
+	  
     </div>
 
 <!--
