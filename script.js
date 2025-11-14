@@ -136,43 +136,143 @@ function loadData() {
 
 
 
-// --- Функции рендеринга для каждой страницы ---
+// --- Функции рендеринга страницы ---
 /* Отображает данные об обслуживании и ремонте в виде таблицы*/
-
+/* Позже нужно пофиксить баг двойной сортировки, на сайте работает как надо,но в коде две сортировки задействованные*/
 function renderServiceData(data) {
-  table.style.display = "table"; // Показать таблицу
-  const thead = table.querySelector("thead");
-  const tbody = table.querySelector("tbody");
-
-  thead.innerHTML = `
-    <tr>
-      <th>Дата</th>
-      <th>Пробег</th>
-      <th>Тип</th>
-      <th>Описание</th>
-    </tr>`;
+  table.style.display = "none";
+  
+  const serviceContent = document.createElement('div');
+  serviceContent.className = 'service-timeline';
 
   if (!Array.isArray(data)) {
       console.error("Данные для 'service' не являются массивом:", data);
-      tbody.innerHTML = '<tr><td colspan="4">Ошибка формата данных</td></tr>';
+      serviceContent.innerHTML = '<p style="color: red; text-align: center;">Ошибка формата данных.</p>';
+      cardElement.appendChild(serviceContent);
       return;
   }
 
   if (data.length === 0) {
-     tbody.innerHTML = '<tr><td colspan="4">Нет данных об обслуживании</td></tr>';
+     serviceContent.innerHTML = '<p style="text-align: center; color: #666;">Нет данных об обслуживании</p>';
+     cardElement.appendChild(serviceContent);
      return;
   }
 
-  data.forEach(row => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${row.date || '—'}</td>
-      <td><span class="mileage">${row.mileage !== undefined ? row.mileage + ' км' : '—'}</span></td>
-      <td>${row.type || '—'}</td>
-      <td>${row.description || '—'}</td>
-    `;
-    tbody.appendChild(tr);
+  // 🔥 РАЗВЕРНИ ПОРЯДОК - от новых к старым
+  const reversedData = [...data].reverse();
+  const groupedByMonth = groupByMonth(reversedData);
+  
+  let timelineHTML = '';
+  
+  Object.keys(groupedByMonth).forEach(monthYear => {
+    timelineHTML += `<h2 class="timeline-month">${monthYear}</h2>`;
+    
+    groupedByMonth[monthYear].forEach(service => {
+      const icon = getServiceIcon(service.type);
+      const typeClass = getServiceTypeClass(service.type);
+      
+timelineHTML += `
+  <div class="timeline-entry ${typeClass}">
+    <div class="entry-date-info">
+      <span class="entry-date">${service.date || '—'}</span>
+      <span class="entry-km">${service.mileage || '—'} км</span>
+    </div>
+    <div class="entry-content">
+      <div class="entry-icon">${icon}</div>
+      <div class="entry-text">
+        <p class="entry-title">${service.type || 'ОБСЛУЖИВАНИЕ'}</p>
+        <p class="entry-description">${service.description || '—'}</p>
+      </div>
+    </div>
+  </div>
+`;
+    });
   });
+
+  serviceContent.innerHTML = timelineHTML;
+  cardElement.appendChild(serviceContent);
+}
+
+// Вспомогательные функции
+function groupByMonth(data) {
+  const groups = {};
+  
+  // Фильтруем только валидные даты и сортируем от новых к старым
+  const validData = data.filter(item => {
+    const date = parseCustomDate(item.date);
+    return !isNaN(date); // Оставляем только валидные даты
+  }).sort((a, b) => {
+    const dateA = parseCustomDate(a.date);
+    const dateB = parseCustomDate(b.date);
+    return dateB - dateA; // От новых к старым
+  });
+  
+  validData.forEach(item => {
+    const date = parseCustomDate(item.date);
+    const monthYear = date.toLocaleDateString('ru-RU', { 
+      month: 'long', 
+      year: 'numeric' 
+    }).toUpperCase();
+    
+    if (!groups[monthYear]) groups[monthYear] = [];
+    groups[monthYear].push(item);
+  });
+
+  return groups;
+}
+
+// 🔥 ДОБАВЬ ЭТУ ФУНКЦИЮ ДЛЯ ПРАВИЛЬНОГО ПАРСИНГА ДАТ
+function parseCustomDate(dateString) {
+  if (!dateString) return new Date(NaN);
+  
+  const parts = dateString.trim().split('.');
+  if (parts.length !== 3) return new Date(NaN);
+  
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1; // Месяцы в JS: 0-11
+  const year = parseInt(parts[2], 10);
+  
+  if (isNaN(day) || isNaN(month) || isNaN(year)) {
+    return new Date(NaN);
+  }
+  
+  return new Date(year, month, day);
+}
+
+function getServiceIcon(type) {
+  const icons = {
+    'плановое то': '<img src="icons/tools.png" class="service-icon" alt="ТО">',
+	'расходники': '<img src="icons/windshield.png" class="service-icon" alt="расходники">',
+    'ремонт': '<img src="icons/damper.png" class="service-icon" alt="Ремонт">',
+    'покупка запчатей': '<img src="icons/shop.png" class="service-icon" alt="ТО">',
+    'переобувка': '<img src="icons/history_pereobuvka.png" class="service-icon" alt="колесо">'
+	
+  };
+  
+  const lowerType = type?.toLowerCase().trim() || '';
+  
+  // Прямое сравнение с основными типами
+  if (icons[lowerType]) {
+    return icons[lowerType];
+  }
+  
+  // Резервный поиск по ключевым словам
+  if (lowerType.includes('газ') || lowerType.includes('гбо')) return '⛽';
+  if (lowerType.includes('шины') || lowerType.includes('резина') || lowerType.includes('переобувка')) return '🛞';
+  if (lowerType.includes('масло') || lowerType.includes('фильтр')) return '🛢️';
+  if (lowerType.includes('то') || lowerType.includes('обслуживание')) return '🔧';
+  if (lowerType.includes('ремонт')) return '<img src="icons/free-icon-check-18307363.png" class="service-icon" alt="Ремонт">';
+  
+  return '<img src="icons/free-icon-eco-car-16775761.png" class="service-icon" alt="Дефолд">'; // иконка по умолчанию
+}
+
+function getServiceTypeClass(type) {
+  const lowerType = type?.toLowerCase() || '';
+  if (lowerType.includes('шины') || lowerType.includes('резина')) return 'entry--tyre';
+  if (lowerType.includes('масло') || lowerType.includes('то')) return 'entry--maintenance';
+  if (lowerType.includes('ремонт')) return 'entry--repair';
+  if (lowerType.includes('газ')) return 'entry--gas';
+  return 'entry--default';
 }
 
 
