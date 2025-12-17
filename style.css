@@ -982,6 +982,8 @@ button[type="submit"]:active {
 
 /* Кнопка добавления */
 .add-fuel-btn-container {
+	 display: none !important;
+	    /* временно скрыл кнопку добавить заправку */
   margin-bottom: 24px;
   text-align: center;
 }
@@ -1054,8 +1056,20 @@ button[type="submit"]:active {
     padding: 16px;
   }
   
-  .stat-value {
-    font-size: 18px;
+.stat-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: nowrap; /* ← Запрещаем перенос */
+  white-space: nowrap; /* ← Запрещаем перенос текста */
+  overflow: hidden; /* ← Скрываем выходящее за границы */
+  text-overflow: ellipsis; /* ← Добавляем "..." если не помещается */
+  font-size: 16px;
+}
+
+  .separator {
+    font-size: 14px; /* Уменьшаем плюс */
   }
   
  .add-fuel-btn {
@@ -1093,6 +1107,18 @@ button[type="submit"]:active {
   
   .history-details {
     font-size: 13px;
+  }
+}
+
+
+@media (max-width: 360px) {
+  .stat-value {
+    font-size: 14px; /* Уменьшаем шрифт */
+    gap: 2px; /* Уменьшаем расстояние */
+  }
+  
+  .separator {
+    font-size: 14px; /* Уменьшаем плюс */
   }
 }
 
@@ -1248,21 +1274,6 @@ button[type="submit"]:active {
   }
 }
 
-  /* Можно сократить текст на очень узких экранах */
-  @media (max-width: 360px) {
-    .filter-btn[data-filter="week"] span.long { display: none; }
-    .filter-btn[data-filter="week"]::after { content: "Нед."; }
-    
-    .filter-btn[data-filter="month"] span.long { display: none; }
-    .filter-btn[data-filter="month"]::after { content: "Месяц"; }
-    
-    .filter-btn[data-filter="year"] span.long { display: none; }
-    .filter-btn[data-filter="year"]::after { content: "Год"; }
-    
-    .filter-btn[data-filter="all"] span.long { display: none; }
-    .filter-btn[data-filter="all"]::after { content: "Все"; }
-  }
-}
 
 
 /* Стили для графика тренда расхода */
