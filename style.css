@@ -1,16 +1,63 @@
-/* === ОБЩИЙ СТИЛЬ СТРАНИЦЫ === */
+/* ==========================================================================
+   ГЛАВНЫЙ ФАЙЛ СТИЛЕЙ - АВТО ОБСЛУЖИВАНИЕ
+   Структура:
+   1. БАЗОВЫЕ СТИЛИ
+   2. КОМПОНЕНТЫ ИНТЕРФЕЙСА
+   3. СТРАНИЦЫ/РАЗДЕЛЫ
+   4. АДАПТИВНОСТЬ
+   5. УТИЛИТЫ
+   ========================================================================== */
+
+/* ==========================================================================
+   1. БАЗОВЫЕ СТИЛИ (Foundation)
+   ========================================================================== */
+:root {
+  /* Цветовая палитра */
+  --primary-color: #007aff;
+  --primary-hover: #005bb5;
+  --success-color: #34c759;
+  --error-color: #ff3b30;
+  --warning-color: #ff9500;
+  --text-primary: #1c1c1c;
+  --text-secondary: #666;
+  --text-tertiary: #9a9ea1;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7f7f7;
+  --bg-tertiary: #e9eff3;
+  --border-color: #e0e0e0;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 15px 35px #e9eff3;
+  
+  /* Размеры */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  
+  /* Шрифты */
+  --font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial, sans-serif;
+  --font-family-fira: 'Fira Sans', sans-serif;
+}
+
+/* Общие стили страницы */
 body {
-  font-family: /*'Fira Sans',  */-apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial, sans-serif;
-  background-color: #f7f7f7;
+  font-family: var(--font-family);
+  background-color: var(--bg-secondary);
   margin: 0;
   padding: 0;
-  padding-bottom: 70px; /* 🔥 Даем запас, чтобы контент не перекрывался нижней панелью */
+  padding-bottom: 70px; /* Отступ для нижней навигации */
 }
-/* === ВЕРХНЕЕ МЕНЮ (ШАПКА) === */
+
+/* ==========================================================================
+   2. КОМПОНЕНТЫ ИНТЕРФЕЙСА (UI Components)
+   ========================================================================== */
+
+/* --- ШАПКА И НАВИГАЦИЯ --- */
 header {
-  background-color: white;
+  background-color: var(--bg-primary);
   padding: 16px 32px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-sm);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -22,283 +69,56 @@ header {
 header h1 {
   font-size: 22px;
   margin: 0;
-  color: #333;
+  color: var(--text-primary);
 }
-/* === НАВИГАЦИОННОЕ МЕНЮ === */
+
+/* Верхняя навигация */
 nav a {
   text-decoration: none;
-  color: #007aff;
+  color: var(--primary-color);
   font-weight: 500;
   margin-left: 20px;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   transition: background-color 0.3s;
 }
 
 nav a:hover {
-  background-color: #e6f0ff;
+  background-color: rgba(0, 122, 255, 0.1);
 }
 
 nav a.active {
-  background-color: #007aff;
+  background-color: var(--primary-color);
   color: white;
 }
-/* === ОСНОВНОЙ КОНТЕНТ === */
-.main-content {
-  padding: 32px;
-}
 
-/* === КАРТОЧКА — ОБЩИЙ КОНТЕЙНЕР === */
-.card {
-  background-color: white; /* цвет  контейнера white */
-  border-radius: 12px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /*Добавляет тень вокруг элемента*/
-  max-width: 100%; /* Устанавливает максимальную ширину элемента. */
-  margin: 0 auto;
-  padding: 24px;  /*Устанавливает внутренние отступы элемента (пространство между содержимым элемента и его границей).*/
-  transition: transform 0.3s ease;
-  padding-bottom: 80px; /* Дополнительный отступ внутри карточки, чтобы в таблице последние записи видно было*/
-}
-
-
-/* Заголовок раздела */
-h2 {
-  margin-top: 0;
-  font-size: 24px;
-  color: #1c1c1c;
-}
-
-/* === ТАБЛИЦЫ === */
-table {
-  width: 100%;
-  border-collapse: collapse; /* Убирает двойные границы */
-  margin-top: 24px;
-}
-
-th, td {
-  padding: 16px 20px;
-  text-align: left;
-  border: 1px solid #e0e0e0; /* Светло-серая рамка */
-  font-size: 16px;
-}
-
-th {
-  background-color: #f1f1f1; /* Светло-серый фон заголовка */
-  color: #333; /* Темно-серый цвет текста заголовка */
-}
-
-td {
-  background-color: #fff; /* Белый фон ячеек */
-  color: #555; /* Средне-серый цвет текста */
-}
-
-/* Цветовая маркировка для ячеек */
-.mileage { color: #ff3b30; font-weight: bold; } /* Красный цвет для пробега */
-.cost { color: #34c759; font-weight: bold; }  /* Зеленый цвет для стоимости */
-.no-comment { font-style: italic; color: #888; } /* Курсив для комментариев */  /* Серый цвет */
-
-/* === СПИННЕР ЗАГРУЗКИ (Оверлей) - МИНИМАЛИСТИЧНЫЙ === */
-/* === СПИННЕР ЗАГРУЗКИ (Оверлей) === */
-.spinner-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-     height: calc(100% - 100px); /* 🔥 Исключаем высоту нижней навигации */
-    display: none; /* 🔥 Изначально скрыт, показывается через JS flex */
-    justify-content: center; /* Центрирование по горизонтали */
-    align-items: center; /* Центрирование по вертикали */
-	 background-color: transparent; /* 🔥 Прозрачный фон */
-    /*background-color: rgba(255, 255, 255, 0.95);  Белый фон с прозрачностью */
-    z-index: 10000; /* Очень высокий z-index, чтобы перекрыть все */
-}
-
-.spinner {
-    border: 5px solid #f3f3f3; /* Светло-серый */
-    border-top: 5px solid #007aff; /* Синий цвет */
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Главная. Стили для контента вкладки 'home' (добавлены для исходного варианта) 
- Стиль для текстовых блоков с информацией на главной вкладке */
-/* === ИНФОРМАЦИОННЫЕ БЛОКИ НА ГЛАВНОЙ === */
-.info {
-  margin-bottom: 10px;  /*Отступ между строками */
-  line-height: 1.6;  /*Межстрочный интервал */
-  font-size: 13px; /* Базовый размер шрифта для инфо */
-  color: #333;
-}
-
-/*Выделение важных данных в .info*/
-  /* Выделение важных значений (жирный и чёрный цвет) */
-.info strong {
-  font-weight: 600; /* Сделать жирные значения чуть заметнее */
-  color: #000;
-}
-
-/* === ПСЕВДО-ПРОГРЕСС БАР === */
-.progress-wrapper {
-  margin-top: 5px;
-  display: flex;
-  align-items: center;
-  gap: 10px; /* Расстояние между баром и текстом */
-}
-
- /* Визуальный прогресс-бар (серый фон, скруглённые углы) */
-.progress-bar {
-  /* Примерный стиль, если нужен простой бар. Настройте по желанию. */
-  height: 8px;
-  background-color: #e0e0e0;
-  border-radius: 4px;
-  width: 100px; /* Фиксированная ширина или процент */
-  /* Или можно использовать --value для установки ширины через JS, если нужно */
-  /* Например, style="--value: 50%;" и width: var(--value); */
-}
- /* Текст метки прогресса (голубой цвет, полужирный) */
-.progress-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #007aff;
-}
-
-/* === КНОПКА "ОТЧЕТ ПО ЗАПРАВКАМ" === */
-.home-fuel-link {
-  display: inline-block;
-  background-color: #007aff;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 500; /* Сделал чуть менее жирным */
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-  transition: background-color 0.3s, box-shadow 0.3s;
-  margin-top: 20px;
-}
-
-.home-fuel-link:hover {
-  background-color: #005bb5;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-/* === ШАПКА С ЗАГОЛОВКОМ НА ГЛАВНОЙ === */
- .shapka-selenyj {
-       background-color: transparent;  Прозрачный фон */
-      color: black; /* Черный текст */
-      
-      border-radius: 20px;
-      text-align: center;
-      margin-bottom: 16px;
-	  padding-top: 5px;
-    padding-bottom: 5px; /* ← Уменьшаем нижний отступ как сверху */
-    padding-left: 10px;
-    padding-right: 10px;
-	  /*padding: 10px;  было 24 */
-	  /*padding-top: 5px;  ← Уменьшаем верхний внутренний отступ */
-      margin-top: -35px; /* ← ОТРИЦАТЕЛЬНЫЙ ОТСТУП - поднимаем выше */
-    }
- .shapka-selenyj h2 {
-      font-size: 18px;
-      font-weight: 400;
-	   color: #9a9ea1; /* СЕРЫЙ ЗАГОЛОВОК */
-	   margin-bottom: 4px; /* ← Уменьшаем отступ снизу */
-    }
-.shapka-selenyj h1 {
-      font-size: 48px;
-	  font-weight: 600;  /*SemiBold */
-	  font-family: 'Fira Sans', sans-serif; /* Добавляем шрифт */
-	  color: black; /*ЧЕРНЫЙ Текущий пробег цифры*/
-	  margin-top: 4px; /* ← Уменьшаем отступ сверху */
-    }
-
-
-/* === СЕТКА КАРТОЧЕК НА ГЛАВНОЙ === */
-	/*Сетка с карточками */
-	/*Это родительский контейнер, который располагает все
-	четыре информационные карточки в виде сетки из двух колонок.*/
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-	/*Карточка с иконкой и текстом*/
-	/*Это стили для каждой из четырех отдельных информационных карточек*/
-    .card2 {
-      background-color: white;
-      border-radius: 16px;
-      padding: 16px;
-box-shadow: 0 15px 35px #e9eff3; /* ↑ больше смещение, ↑↑ больше размытие */
-      /*box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); Старая тень*/
-      text-align: center;
-    }
-	
-	/*Это контейнер, в котором размещена иконка в каждой карточке*/ 
-	/*Обертка для иконки*/
-    .card2-icon {
-      font-size: 28px;
-      margin-bottom: 8px;
-    }
-	
-	/* === ОБЗОР РАСХОДОВ === */
-    .expenses-summary {
-	background-color: #e9eff3; /* светло-серый */
-      /* background-color: white;*/
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-	  font-family: 'Fira Sans', sans-serif;
-    }
-    .expenses-items {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 8px;
-    }
-    .expenses-item {
-      text-align: center;
-      max-width: 70px;
-    }
-    .expenses-item-icon {
-      font-size: 24px;
-    }
-	
-/* === НИЖНЯЯ НАВИГАЦИЯ === */
-/* Нижняя навигация */
+/* Нижняя навигация (PWA-style) */
 .bottom-nav {
   flex-wrap: nowrap;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: white;
+  background-color: var(--bg-primary);
   display: flex;
   justify-content: space-around;
   padding: 12px 0;
-  border-top: 1px solid #ccc;
+  border-top: 1px solid var(--border-color);
   z-index: 100;
 }
 
-/* Каждая вкладка */
 .bottom-nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 6px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   text-decoration: none;
-  color: #666;
+  color: var(--text-secondary);
   transition: background 0.3s, color 0.3s;
 }
 
-/* Иконки */
 .bottom-nav-item img {
   width: 32px;
   height: 32px;
@@ -306,23 +126,19 @@ box-shadow: 0 15px 35px #e9eff3; /* ↑ больше смещение, ↑↑ б
   transition: filter 0.3s;
 }
 
-/* Hover эффект (не обязательно для мобильных, но удобно для ПК) */
 .bottom-nav-item:hover {
   background: rgba(0, 122, 255, 0.1);
 }
 
-/* Активная вкладка */
 .bottom-nav-item.active {
-  background: #007aff;
+  background: var(--primary-color);
   color: white;
 }
 
-/* Иконка активной вкладки — белая */
 .bottom-nav-item.active img {
   filter: brightness(0) invert(1);
 }
 
-/* Скрытие текста у вкладки "добавить" (если нужно иконку без текста) */
 .bottom-nav-item.add-tab img {
   width: 32px;
   height: 32px;
@@ -331,442 +147,474 @@ box-shadow: 0 15px 35px #e9eff3; /* ↑ больше смещение, ↑↑ б
   display: none;
 }
 
-
-/* Адаптивность: Для экрана с шириной менее 768px */
-@media (max-width: 768px) {
-  header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 12px 16px;
-  }
-
-  header h1 {
-    font-size: 18px;
-    margin-bottom: 10px;
-  }
-
-  nav {
-    width: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 5px; /* Отступ между кнопками */
-  }
-
-  nav a {
-    font-size: 13px;
-    margin-left: 0; /* Убрал левый отступ */
-    padding: 6px 12px;
-  }
-
-  .main-content {
-    padding: 16px;
-  }
-
-  .card {
-    padding: 16px;
-  }
-
-  h2 {
-    font-size: 20px;
-  }
-
-  table {
-    font-size: 13px;
-  }
-
-  table th, table td {
-    padding: 10px 8px;
-  }
-
-  .spinner {
-    width: 25px;
-    height: 25px;
-  }
-
-   .mileage {
-    font-size: 13px;
-   }
-
-   .cost {
-    font-size: 13px;
-   }
-
-   .no-comment {
-    font-size: 13px;
-   }
+/* --- КАРТОЧКИ И КОНТЕЙНЕРЫ --- */
+.main-content {
+  padding: 32px;
 }
 
-/* Адаптивность: Для экрана с шириной менее 480px*/
-@media (max-width: 480px) {
-  header {
-    padding: 8px 12px;
-  }
-  header h1 {
-    font-size: 16px;
-  }
-  nav a {
-    font-size: 12px;
-    padding: 5px 10px;
-  }
-  .main-content {
-    padding: 10px;
-  }
-  .card {
-    padding: 12px;
-  }
-  h2 {
-    font-size: 18px;
-  }
-  table {
-    font-size: 11px;
-  }
-  table th, table td {
-    padding: 8px 6px;
-    font-size: 11px;
-  }
-   .mileage, .cost {
-    font-size: 11px;
-   }
-   .no-comment {
-     font-size: 10px;
-   }
-   .spinner {
-     width: 20px;
-     height: 20px;
-   }
+/* Основная карточка контента */
+.card {
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 24px;
+  transition: transform 0.3s ease;
+  padding-bottom: 80px; /* Для нижней навигации */
 }
 
-
- 
-@media (max-width: 480px) {
-  /* Уменьшаем отступы и размеры нижнего меню */
-  .bottom-nav {
-    padding: 8px 0; /* Уменьшаем вертикальные отступы */
-	justify-content: space-between; /* Равномерное распределение */
-	padding-left: 8px;
-    padding-right: 8px;
-  }
-  
-  .bottom-nav-item {
-    padding: 4px 2px; /* Ещё меньше отступы */
-    flex-grow: 1; /* Растягиваем на доступное пространство */
-    text-align: center;
-    min-width: 0; /* Разрешаем сжатие */
-  }
-  
-  /* Уменьшаем размер иконок */
-  .bottom-nav-item img {
-     width: 22px;
-    height: 22px;
-    margin: 0 auto 2px; /* Центрируем иконку */
-    display: block;
-  }
-  
-  /* Уменьшаем размер текста и скрываем его при необходимости */
-  .bottom-nav-item span {
-    font-size: 10px;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 60px;
-  }
-  
-   /* Особые стили для кнопки добавления */
-  .bottom-nav-item.add-tab {
-    flex-grow: 0; /* Не растягиваем */
-    flex-basis: 44px; /* Фиксированная ширина */
-  } 
-  
-  /* Особые стили для кнопки добавления */
-  .bottom-nav-item.add-tab img {
-    width: 28px;
-    height: 28px;
-    margin-bottom: 0;
-  }
+/* Заголовки разделов */
+h2 {
+  margin-top: 0;
+  font-size: 24px;
+  color: var(--text-primary);
 }
 
-
-/* Адаптация для стилей info на маленьких экранах */
-@media (max-width: 768px) {
-  .info {
-    font-size: 14px;
-  }
-   .progress-label {
-    font-size: 13px;
-  }
-  .home-fuel-link {
-    font-size: 14px;
-    padding: 8px 16px;
-  }
-}
-
-@media (max-width: 480px) {
-  .info {
-    font-size: 13px;
-  }
-  .progress-label {
-    font-size: 12px;
-  }
-  .home-fuel-link {
-    font-size: 13px;
-    padding: 7px 14px;
-  }
-}
-
-/* Заголовок карточек  */
 #sectionTitle {
-	 display: none; /*block вкл*/
-    margin-top: 100px; /* высота отступ сверху*/
-    margin-bottom: 10px; /* высота отступ снизу*/
-	max-width: 20px;
-	 background-color: #e0f2f7;
-	  color: #333;
-}
-
-
-/* Альтернативный блок с информацией */
-.infoniz {
-  margin-bottom: 10px;  /*Отступ между строками */
-  line-height: 1.6;  /*Межстрочный интервал */
-  font-size: 10px; /* Базовый размер шрифта для инфо */
+  display: none;
+  margin-top: 100px;
+  margin-bottom: 10px;
+  max-width: 20px;
+  background-color: #e0f2f7;
   color: #333;
-  
 }
 
-/* Круглая иконка с обводкой  */
+/* --- СЕТКА И КАРТОЧКИ НА ГЛАВНОЙ --- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.card2-test {
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+}
+
+.card2-test .card2-icon {
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+.card2-test > div {
+  text-align: left;
+  margin-bottom: 2px;
+}
+
+.card-title {
+  font-family: var(--font-family-fira);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.card-value {
+  font-family: var(--font-family-fira);
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 0;
+}
+
+.fuel-period {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  font-family: var(--font-family-fira) !important;
+  margin-top: -2px;
+}
+
+/* --- СПИННЕР ЗАГРУЗКИ --- */
+.spinner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(100% - 100px);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background-color: transparent;
+  z-index: 10000;
+}
+
+.spinner {
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid var(--primary-color);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   3. СТРАНИЦЫ/РАЗДЕЛЫ (Pages/Sections)
+   ========================================================================== */
+
+/* --- ГЛАВНАЯ СТРАНИЦА (Home) --- */
+.shapka-selenyj {
+  background-color: transparent;
+  color: black;
+  border-radius: var(--radius-xl);
+  text-align: center;
+  margin-bottom: 16px;
+  padding: 5px 10px;
+  margin-top: -35px;
+}
+
+.shapka-selenyj h2 {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.shapka-selenyj h1 {
+  font-size: 48px;
+  font-weight: 600;
+  font-family: var(--font-family-fira);
+  color: black;
+  margin-top: 4px;
+}
+
+/* Обзор расходов */
+.expenses-summary {
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-family-fira);
+}
+
+.expenses-items {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 8px;
+}
+
+.expenses-item {
+  text-align: center;
+  max-width: 70px;
+}
+
+/* Круглые иконки */
 .icon-circle {
   width: 64px;
   height: 64px;
-  border: 2px solid #ccc; /* цвет рамки */
-  border-radius: 50%; /* делает круг */
+  border: 2px solid #ccc;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white; /* или прозрачный фон */
+  background: white;
 }
 .icon-circle.green { border-color: #00c853; }
 .icon-circle.red { border-color: #d50000; }
 .icon-circle.yellow { border-color: #fbc02d; }
 .icon-circle.orange { border-color: #fb862d; }
 
-
-
-
-/* Общие стили для формы */
-/* Общие стили для формы */
-#addFuelFormContainer {
-    max-width: 400px; /* Уменьшили максимальную ширину */
-    margin: 10px auto; /* Меньшие отступы */
-    padding: 15px; /* Меньший внутренний отступ */
-    background-color: #ffffff;
-    border-radius: 8px; /* Немного меньше радиус углов */
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1); /* Менее выраженная тень */
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #333;
+/* Информационные блоки */
+.info {
+  margin-bottom: 10px;
+  line-height: 1.6;
+  font-size: 13px;
+  color: #333;
 }
 
-#addFuelFormContainer h3 {
-    text-align: center;
-    color: #007bff;
-    margin-bottom: 20px; /* Меньший отступ снизу */
-    font-size: 1.5em; /* Уменьшили размер заголовка */
-    font-weight: 600;
+.info strong {
+  font-weight: 600;
+  color: #000;
 }
 
-/* Стили для каждой группы полей формы */
-.form-group {
-    margin-bottom: 10px; /* Меньший отступ между группами полей */
+.infoniz {
+  margin-bottom: 10px;
+  line-height: 1.6;
+  font-size: 10px;
+  color: #333;
 }
 
-.form-group label {
-    display: block;
-    margin-bottom: 6px; /* Меньший отступ под лейблом */
-    font-weight: 500;
-    color: #555;
-    font-size: 0.95em; /* Уменьшили размер лейбла */
+/* --- РАЗДЕЛ ТОПЛИВА (Fuel) --- */
+.fuel-dashboard {
+  padding: 0 8px;
 }
 
-/* Стили для всех полей ввода и select/textarea */
-.form-group input[type="date"],
-.form-group input[type="number"],
-.form-group select,
-.form-group textarea {
-    width: calc(100% - 16px); /* Учитываем padding */
-    padding: 10px 8px; /* Уменьшили внутренние отступы */
-    border: 1px solid #ced4da;
-    border-radius: 5px; /* Немного меньше радиус углов */
-    font-size: 0.9em; /* Уменьшили размер шрифта в полях */
-    color: #495057;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    box-sizing: border-box;
+/* Статистические карточки */
+.fuel-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
-.form-group input[type="date"]:focus,
-.form-group input[type="number"]:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.2); /* Менее выраженная тень */
-    outline: none;
+.stat-card {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
 }
 
-/* Стили для textarea (многострочное поле) */
-.form-group textarea {
-    min-height: 60px; /* Уменьшили минимальную высоту */
+.stat-label {
+  font-family: var(--font-family-fira);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-/* Стили для маленького текста под полями */
-.form-group small {
-    margin-top: 4px; /* Меньший отступ сверху */
-    font-size: 0.75em; /* Уменьшили размер шрифта */
+/* ОБЩИЕ СТИЛИ ДЛЯ СТАТИСТИЧЕСКИХ ЗНАЧЕНИЙ */
+.stat-value {
+  font-family: var(--font-family-fira);
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 4px;
 }
 
-/* Стили для кнопки отправки */
-button[type="submit"] {
-    display: block;
-    width: 100%;
-    padding: 12px 15px; /* Уменьшили внутренние отступы кнопки */
-    background-color: #28a745;
-    color: white;
-    border: none;
-    border-radius: 6px; /* Меньше радиус углов */
-    font-size: 1em; /* Уменьшили размер шрифта кнопки */
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2); /* Менее выраженная тень */
+/* Для карточки СРЕДНИЙ РАСХОД - inline вместо flex */
+.stat-card--average .stat-value {
+  display: inline;
 }
 
-button[type="submit"]:hover {
-    background-color: #218838;
-    transform: translateY(-1px); /* Меньше поднятие */
+/* Стили для СРЕДНЕГО РАСХОДА */
+.consumption-number { color: #000; }
+.consumption-l100 { color: var(--success-color); }
+.consumption-km { color: #000; }
+
+/* Стили для ПОСЛЕДНЕЙ ЗАПРАВКИ */
+.fuel-amount { color: var(--primary-color); }
+.separator { color: #000; opacity: 0.7; }
+.fuel-cost { color: var(--success-color); }
+
+.stat-subvalue {
+  font-family: var(--font-family-fira);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary-color);
 }
 
-button[type="submit"]:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 3px rgba(40, 167, 69, 0.3);
+/* Блок тренда */
+.fuel-trend {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
 }
 
-/* Стили для сообщений формы (успех/ошибка) */
-#formMessage {
-    padding: 10px; /* Меньший внутренний отступ */
-    border-radius: 6px; /* Меньше радиус углов */
-    margin-top: 15px; /* Меньший отступ сверху */
-    font-size: 0.9em; /* Уменьшили размер шрифта */
-    font-weight: 500;
-    text-align: center;
+.section-title {
+  font-family: var(--font-family-fira);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-/* Стили для select элемента */
-.form-group select {
-    background-position: right 8px center; /* Скорректировали позицию стрелки */
-    background-size: 10px; /* Уменьшили размер стрелки */
-    padding-right: 25px; /* Уменьшили отступ для стрелки */
+.trend-placeholder {
+  background: #f8f9fa;
+  border-radius: var(--radius-md);
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-
-
-
-
-
-
-
-
-/* Стиль для тестовой ячейки */
-.card2-test {
-    background-color: white;
-    border-radius: 16px;
-    padding: 16px;
-    box-shadow: 0 15px 35px #e9eff3;
-    text-align: left;
-	
+.trend-chart-container {
+  position: relative;
+  height: 250px;
+  margin-top: 10px;
 }
 
-.card2-test .card2-icon {
-    margin-bottom: 6px;
-    text-align: left;
+#fuelTrendCanvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
-.card2-test > div {
-    text-align: left;
-    margin-bottom: 2px;
-
+/* Кнопка добавления (скрыта) */
+.add-fuel-btn-container {
+  display: none !important;
+  margin-bottom: 24px;
+  text-align: center;
 }
 
-
-/* Только заголовки: */
-.card-title {
-    font-family: 'Fira Sans', sans-serif;
-    font-weight: 500;
-    font-size: 14px;
+.add-fuel-btn {
+  display: inline-block;
+  background: var(--primary-color);
+  color: white;
+  padding: 16px 32px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-family: var(--font-family-fira);
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
 }
 
-/* только цифры (системный шрифт, жирный): */
-.card-value {
-	font-family: 'Fira Sans';
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 0;
+.add-fuel-btn:hover {
+  background: #0056cc;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 122, 255, 0.4);
 }
 
-/* дополнительная информация*/
-.fuel-period {
-    font-size: 12px; /* чуть меньше чем заголовок ТОПЛИВО */
-    color: #9a9ea1; /*#9a9ea1 тот же серый что у "Текущий пробег" */
-    font-weight: 400;
-    font-family: 'Fira Sans', sans-serif !important;
-    margin-top: -2px; /* поднимаем ближе к цене */
+/* История заправок */
+.fuel-history {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
 }
 
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 
+.history-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
+.filter-btn {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-family: var(--font-family-fira);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
 
+.filter-btn:hover {
+  background: #e9ecef;
+  border-color: var(--primary-color);
+}
 
+.filter-btn.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
 
-/* === TIMELINE СТИЛИ ДЛЯ ОБСЛУЖИВАНИЯ === */
+.history-list {
+  space-y: 12px;
+}
+
+.history-item {
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+}
+
+.history-item:hover {
+  background-color: #fafafa;
+  margin: 0 -16px;
+  padding: 16px;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-date {
+  font-family: var(--font-family-fira);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.history-details {
+  font-family: var(--font-family-fira);
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.fuel-type { font-weight: 500; color: #333; }
+.fuel-amount { color: var(--primary-color); font-weight: 500; }
+.fuel-cost { color: var(--success-color); font-weight: 500; }
+.fuel-price { color: #888; font-size: 12px; }
+
+.history-comment {
+  font-family: var(--font-family-fira);
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.history-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-family: var(--font-family-fira);
+  font-size: 14px;
+}
+
+/* --- РАЗДЕЛ ОБСЛУЖИВАНИЯ (Service) --- */
 .service-timeline {
   padding: 0 8px;
 }
 
 .timeline-month {
-  font-family: 'Fira Sans', sans-serif;
+  font-family: var(--font-family-fira);
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   margin: 24px 0 12px 0;
   padding: 8px 0;
 }
 
 .timeline-entry {
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
   padding: 16px;
   margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  border-left: 4px solid #007aff;
+  border-left: 4px solid var(--primary-color);
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 16px;
   align-items: start;
 }
 
-.entry--tyre {
-  border-left-color: #34c759;
-}
-
-.entry--maintenance {
-  border-left-color: #007aff;
-}
-
-.entry--repair {
-  border-left-color: #ff3b30;
-}
-
-.entry--gas {
-  border-left-color: #5856d6;
-}
+.entry--tyre { border-left-color: var(--success-color); }
+.entry--maintenance { border-left-color: var(--primary-color); }
+.entry--repair { border-left-color: var(--error-color); }
+.entry--gas { border-left-color: #5856d6; }
 
 .entry-date-info {
   display: flex;
@@ -777,20 +625,20 @@ button[type="submit"]:active {
 }
 
 .entry-date {
-  font-family: 'Fira Sans', sans-serif;
+  font-family: var(--font-family-fira);
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .entry-km {
-  font-family: 'Fira Sans', sans-serif;
+  font-family: var(--font-family-fira);
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   background: #f8f9fa;
   padding: 2px 6px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .entry-content {
@@ -815,23 +663,278 @@ button[type="submit"]:active {
 }
 
 .entry-title {
-  font-family: 'Fira Sans', sans-serif;
+  font-family: var(--font-family-fira);
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   margin: 0 0 4px 0;
 }
 
 .entry-description {
-  font-family: 'Fira Sans', sans-serif;
+  font-family: var(--font-family-fira);
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.4;
 }
 
-/* Адаптивность для timeline */
+.service-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+/* --- ФОРМЫ (Forms) --- */
+#addFuelFormContainer {
+  max-width: 400px;
+  margin: 10px auto;
+  padding: 15px;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
+}
+
+#addFuelFormContainer h3 {
+  text-align: center;
+  color: var(--primary-color);
+  margin-bottom: 20px;
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 10px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #555;
+  font-size: 0.95em;
+}
+
+.form-group input[type="date"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+  width: calc(100% - 16px);
+  padding: 10px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 5px;
+  font-size: 0.9em;
+  color: #495057;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.2);
+  outline: none;
+}
+
+.form-group textarea {
+  min-height: 60px;
+}
+
+.form-group small {
+  margin-top: 4px;
+  font-size: 0.75em;
+}
+
+button[type="submit"] {
+  display: block;
+  width: 100%;
+  padding: 12px 15px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2);
+}
+
+button[type="submit"]:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+button[type="submit"]:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(40, 167, 69, 0.3);
+}
+
+#formMessage {
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 15px;
+  font-size: 0.9em;
+  font-weight: 500;
+  text-align: center;
+}
+
+.form-group select {
+  background-position: right 8px center;
+  background-size: 10px;
+  padding-right: 25px;
+}
+
+/* --- ТАБЛИЦЫ (Tables) --- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 24px;
+}
+
+th, td {
+  padding: 16px 20px;
+  text-align: left;
+  border: 1px solid var(--border-color);
+  font-size: 16px;
+}
+
+th {
+  background-color: #f1f1f1;
+  color: #333;
+}
+
+td {
+  background-color: var(--bg-primary);
+  color: #555;
+}
+
+.mileage { color: var(--error-color); font-weight: bold; }
+.cost { color: var(--success-color); font-weight: bold; }
+.no-comment { font-style: italic; color: #888; }
+
+/* ==========================================================================
+   4. АДАПТИВНОСТЬ (Responsive)
+   ========================================================================== */
+
+/* Планшеты и маленькие ноутбуки */
 @media (max-width: 768px) {
+  /* Общие */
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+  
+  header h1 {
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+  
+  nav {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 5px;
+  }
+  
+  nav a {
+    font-size: 13px;
+    margin-left: 0;
+    padding: 6px 12px;
+  }
+  
+  .main-content {
+    padding: 16px;
+  }
+  
+  .card {
+    padding: 16px;
+  }
+  
+  h2 {
+    font-size: 20px;
+  }
+  
+  /* Спиннер */
+  .spinner {
+    width: 25px;
+    height: 25px;
+  }
+  
+  /* Таблицы */
+  table {
+    font-size: 13px;
+  }
+  
+  table th, table td {
+    padding: 10px 8px;
+  }
+  
+  .mileage, .cost, .no-comment {
+    font-size: 13px;
+  }
+  
+  /* Раздел Топлива */
+  .fuel-stats {
+    gap: 12px;
+  }
+  
+  .stat-card {
+    padding: 16px;
+  }
+  
+  .stat-value {
+    font-size: 18px;
+    gap: 3px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  
+  .consumption-number,
+  .consumption-l100,
+  .consumption-km,
+  .fuel-amount,
+  .separator,
+  .fuel-cost {
+    font-size: 18px;
+  }
+  
+  .separator {
+    font-size: 14px;
+  }
+  
+  .fuel-trend,
+  .fuel-history {
+    padding: 16px;
+  }
+  
+  .trend-chart-container {
+    height: 200px;
+  }
+  
+  /* История заправок */
+  .history-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .history-filters {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+  
+  .filter-btn {
+    flex: 1;
+  }
+  
+  /* Обслуживание */
   .timeline-entry {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -870,394 +973,149 @@ button[type="submit"]:active {
     font-size: 14px;
     margin: 20px 0 10px 0;
   }
-}
-
-
-
-
-/* Стили для иконок обслуживания */
-.service-icon {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-}
-
-.entry-icon {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  min-height: 48px;
-  flex-shrink: 0;
-  padding-top: 2px;
-}
-
-/* Для мобильных */
-@media (max-width: 768px) {
+  
   .service-icon {
     width: 32px;
     height: 32px;
   }
-}
-
-
-
-
-/* === НОВЫЕ СТИЛИ ДЛЯ РАЗДЕЛА ТОПЛИВА === */
-
-.fuel-dashboard {
-  padding: 0 8px;
-}
-
-/* Статистические карточки */
-.fuel-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  text-align: center;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
-}
-
-.stat-label {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: #666;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stat-value {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 20px;
-  font-weight: 600;
-  color: #1c1c1c;
-  margin-bottom: 4px;
-}
-
-.stat-subvalue {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  color: #007aff;
-}
-
-/* Заголовки разделов */
-.section-title {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* Блок тренда */
-.fuel-trend {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
-}
-
-.trend-placeholder {
-  background: #f8f9fa;
-  border-radius: 12px;
-  min-height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Кнопка добавления */
-.add-fuel-btn-container {
-	 display: none !important;
-	    /* временно скрыл кнопку добавить заправку */
-  margin-bottom: 24px;
-  text-align: center;
-}
-
-.add-fuel-btn {
-  display: inline-block;
-  background: #007aff;
-  color: white;
-  padding: 16px 32px;
-  border-radius: 12px;
-  text-decoration: none;
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-}
-
-.add-fuel-btn:hover {
-  background: #0056cc;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 122, 255, 0.4);
-}
-
-/* История заправок */
-.fuel-history {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
-}
-
-.history-list {
-  space-y: 12px;
-}
-
-.history-item {
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.history-item:last-child {
-  border-bottom: none;
-}
-
-.history-date {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1c1c1c;
-  margin-bottom: 4px;
-}
-
-.history-details {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 14px;
-  color: #666;
-  line-height: 1.4;
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .fuel-stats {
-    /* Удалите grid-template-columns: 1fr; */
-    gap: 12px;
+  
+  /* Инфо блоки */
+  .info {
+    font-size: 14px;
   }
   
-  .stat-card {
-    padding: 16px;
+  .progress-label {
+    font-size: 13px;
   }
   
-.stat-value {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  flex-wrap: nowrap; /* ← Запрещаем перенос */
-  white-space: nowrap; /* ← Запрещаем перенос текста */
-  overflow: hidden; /* ← Скрываем выходящее за границы */
-  text-overflow: ellipsis; /* ← Добавляем "..." если не помещается */
-  font-size: 16px;
-}
-
-  .separator {
-    font-size: 14px; /* Уменьшаем плюс */
-  }
-  
- .add-fuel-btn {
-    padding: 12px 16px;      /* ← Значительно уменьшаем отступы */
-    font-size: 14px;         /* ← Уменьшаем шрифт */
-    width: 100%;
-    margin: 0 8px;           /* ← Добавляем отступы по бокам */
-    box-sizing: border-box;  /* ← Важно! Учитываем padding в ширине */
-  }
-  
-  .fuel-trend,
-  .fuel-history {
-    padding: 16px;
+  .home-fuel-link {
+    font-size: 14px;
+    padding: 8px 16px;
   }
 }
 
+/* Мобильные телефоны */
 @media (max-width: 480px) {
+  /* Общие */
+  header {
+    padding: 8px 12px;
+  }
+  
+  header h1 {
+    font-size: 16px;
+  }
+  
+  nav a {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+  
+  .main-content {
+    padding: 10px;
+  }
+  
+  .card {
+    padding: 12px;
+  }
+  
+  h2 {
+    font-size: 18px;
+  }
+  
+  /* Спиннер */
+  .spinner {
+    width: 20px;
+    height: 20px;
+  }
+  
+  /* Таблицы */
+  table {
+    font-size: 11px;
+  }
+  
+  table th, table td {
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+  
+  .mileage, .cost {
+    font-size: 11px;
+  }
+  
+  .no-comment {
+    font-size: 10px;
+  }
+  
+  /* Нижняя навигация */
+  .bottom-nav {
+    padding: 8px 0;
+    justify-content: space-between;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  
+  .bottom-nav-item {
+    padding: 4px 2px;
+    flex-grow: 1;
+    text-align: center;
+    min-width: 0;
+  }
+  
+  .bottom-nav-item img {
+    width: 22px;
+    height: 22px;
+    margin: 0 auto 2px;
+    display: block;
+  }
+  
+  .bottom-nav-item span {
+    font-size: 10px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
+  }
+  
+  .bottom-nav-item.add-tab {
+    flex-grow: 0;
+    flex-basis: 44px;
+  }
+  
+  .bottom-nav-item.add-tab img {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 0;
+  }
+  
+  /* Раздел Топлива */
   .fuel-dashboard {
     padding: 0 4px;
   }
   
-  .add-fuel-btn {
-    border-radius: 10px; /* Чуть меньше скругление на мобильных */
-    box-shadow: 0 3px 8px rgba(0, 122, 255, 0.3); /* Меньше тень */
+  .stat-value,
+  .consumption-number,
+  .consumption-l100,
+  .consumption-km,
+  .fuel-amount,
+  .separator,
+  .fuel-cost {
+    font-size: 16px;
   }
   
-  .add-fuel-btn:hover {
-    transform: translateY(-1px); /* Меньший подъем на мобильных */
-    box-shadow: 0 4px 10px rgba(0, 122, 255, 0.4);
-  }
-  
-  .history-date {
-    font-size: 13px;
-  }
-  
-  .history-details {
-    font-size: 13px;
-  }
-}
-
-
-@media (max-width: 360px) {
   .stat-value {
-    font-size: 14px; /* Уменьшаем шрифт */
-    gap: 2px; /* Уменьшаем расстояние */
+    gap: 2px;
   }
   
-  .separator {
-    font-size: 14px; /* Уменьшаем плюс */
-  }
-}
-
-
-/* === СТИЛИ ДЛЯ ФИЛЬТРОВ ИСТОРИИ === */
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.history-filters {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-btn {
-  background: #f8f9fa;
-  border: 1px solid #e0e0e0;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.filter-btn:hover {
-  background: #e9ecef;
-  border-color: #007aff;
-}
-
-.filter-btn.active {
-  background: #007aff;
-  border-color: #007aff;
-  color: white;
-}
-
-/* Улучшенные стили для элементов истории */
-.history-item {
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background-color 0.2s ease;
-}
-
-.history-item:hover {
-  background-color: #fafafa;
-  margin: 0 -16px;
-  padding: 16px;
-}
-
-.history-item:last-child {
-  border-bottom: none;
-}
-
-.history-date {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1c1c1c;
-  margin-bottom: 6px;
-}
-
-.history-details {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 14px;
-  color: #666;
-  line-height: 1.4;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.fuel-type {
-  font-weight: 500;
-  color: #333;
-}
-
-.fuel-amount {
-  color: #007aff;
-  font-weight: 500;
-}
-
-.fuel-cost {
-  color: #34c759;
-  font-weight: 500;
-}
-
-.fuel-price {
-  color: #888;
-  font-size: 12px;
-}
-
-.history-comment {
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 12px;
-  color: #888;
-  margin-top: 4px;
-  font-style: italic;
-}
-
-.history-empty {
-  text-align: center;
-  padding: 40px 20px;
-  color: #666;
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 14px;
-}
-
-/* Адаптивность для фильтров */
-@media (max-width: 768px) {
-  .history-header {
-    flex-direction: column;
-    align-items: stretch;
+  .trend-chart-container {
+    height: 180px;
   }
   
-  /* Или вообще убрать grid, использовать flex */
-  .history-filters {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
+  .section-title {
+    font-size: 13px;
   }
   
-  .filter-btn {
-    flex: 1; /* ← не растягивать */
-  }
-}
-
-@media (max-width: 480px) {
+  /* История заправок */
   .history-details {
     flex-direction: column;
     align-items: flex-start;
@@ -1272,75 +1130,91 @@ button[type="submit"]:active {
     font-size: 11px;
     padding: 6px 10px;
   }
-}
-
-
-
-/* Стили для графика тренда расхода */
-.fuel-trend {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
-}
-
-.trend-chart-container {
-  position: relative;
-  height: 250px; /* Фиксированная высота для графика */
-  margin-top: 10px;
-}
-
-#fuelTrendCanvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* Адаптивность для графика */
-@media (max-width: 768px) {
-  .trend-chart-container {
-    height: 200px;
-  }
   
-  .fuel-trend {
-    padding: 16px;
-  }
-}
-
-@media (max-width: 480px) {
-  .trend-chart-container {
-    height: 180px;
-  }
-  
-  .section-title {
+  .history-date {
     font-size: 13px;
   }
+  
+  .history-details {
+    font-size: 13px;
+  }
+  
+  /* Инфо блоки */
+  .info {
+    font-size: 13px;
+  }
+  
+  .progress-label {
+    font-size: 12px;
+  }
+  
+  .home-fuel-link {
+    font-size: 13px;
+    padding: 7px 14px;
+  }
 }
 
-
-
-/* Для карточки среднего расхода */
-/* Стили для среднего расхода */
-.consumption-number {
-  color: #000; /* черный */
-  font-weight: 600;
-  font-size: 20px;
+/* Очень узкие экраны (Xiaomi и т.д.) */
+@media (max-width: 360px) {
+  .stat-value,
+  .consumption-number,
+  .consumption-l100,
+  .consumption-km,
+  .fuel-amount,
+  .separator,
+  .fuel-cost {
+    font-size: 14px;
+  }
+  
+  .stat-value {
+    font-size: 14px;
+    gap: 1px;
+  }
+  
+  .separator {
+    font-size: 14px;
+  }
 }
 
-.consumption-l100 {
-  color: #34c759; /* зеленый как в последней заправке */
-  font-weight: 600;
-  font-size: 20px;
+/* ==========================================================================
+   5. УТИЛИТЫ (Utilities)
+   ========================================================================== */
+/* Прогресс бар */
+.progress-wrapper {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.consumption-km {
-  color: #000; /* черный */
-  font-weight: 600;
-  font-size: 20px;
+.progress-bar {
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  width: 100px;
 }
 
-/* Чтобы все было в одной строке */
-.stat-card--average .stat-value {
-  display: inline;
+.progress-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+/* Кнопка "Отчет по заправкам" */
+.home-fuel-link {
+  display: inline-block;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-weight: 500;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.3s, box-shadow 0.3s;
+  margin-top: 20px;
+}
+
+.home-fuel-link:hover {
+  background-color: var(--primary-hover);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
