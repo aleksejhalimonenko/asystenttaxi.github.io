@@ -346,6 +346,106 @@ h2 {
   padding: 0 8px;
 }
 
+
+/* Статистические карточки - ЗАПАС ХОДА */
+.fuel-range-stats {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card--range {
+    background: linear-gradient(135deg, var(--bg-primary) 0%, #f8fbff 100%);
+    border: 2px solid #4cd964;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card--range::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(76, 217, 100, 0.1) 0%, transparent 70%);
+    z-index: 0;
+}
+
+.stat-card--range .stat-card-content {
+    position: relative;
+    z-index: 1;
+}
+
+.stat-card--range .stat-label {
+    color: #4cd964;
+    font-weight: 600;
+}
+
+.stat-card--range .stat-value {
+    font-size: 24px;
+    color: #4cd964;
+    margin-bottom: 8px;
+}
+
+.range-km {
+    font-size: 28px;
+    font-weight: 700;
+    color: #4cd964;
+}
+
+.range-unit {
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+}
+
+.stat-card--range .stat-subvalue {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+}
+
+/* Адаптивность для карточки запаса хода */
+@media (max-width: 768px) {
+    .stat-card--range .stat-value {
+        font-size: 22px;
+    }
+    
+    .range-km {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .fuel-range-stats {
+        margin-bottom: 20px;
+    }
+    
+    .stat-card--range .stat-value {
+        font-size: 20px;
+    }
+    
+    .range-km {
+        font-size: 22px;
+    }
+    
+    .range-unit {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 360px) {
+    .stat-card--range .stat-value {
+        font-size: 18px;
+    }
+    
+    .range-km {
+        font-size: 20px;
+    }
+}
+
 /* Статистические карточки */
 .fuel-stats {
   display: grid;
@@ -888,7 +988,7 @@ td {
   }
   
   .stat-value {
-    font-size: 18px;
+    font-size: 16px;
     gap: 3px;
     flex-wrap: nowrap;
     white-space: nowrap;
@@ -901,7 +1001,7 @@ td {
   .fuel-amount,
   .separator,
   .fuel-cost {
-    font-size: 18px;
+    font-size: 16px;
   }
   
   .separator {
@@ -918,6 +1018,16 @@ td {
   }
   
   /* История заправок */
+    /* ДОБАВЬ ЭТО: */
+  .history-details {
+    font-size: 13px; /* ← для планшетов */
+  }
+  
+  .history-date {
+    font-size: 13px; /* ← дата тоже */
+  }
+  
+  
   .history-header {
     flex-direction: column;
     align-items: stretch;
@@ -1089,6 +1199,17 @@ td {
   }
   
   /* Раздел Топлива */
+   .stat-label {
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    display: block;
+  }
+  
+  
   .fuel-dashboard {
     padding: 0 4px;
   }
@@ -1100,7 +1221,7 @@ td {
   .fuel-amount,
   .separator,
   .fuel-cost {
-    font-size: 16px;
+    font-size: 14px;
   }
   
   .stat-value {
@@ -1116,11 +1237,8 @@ td {
   }
   
   /* История заправок */
-  .history-details {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
+
+  
   
   .history-filters {
     gap: 6px;
@@ -1131,12 +1249,16 @@ td {
     padding: 6px 10px;
   }
   
-  .history-date {
-    font-size: 13px;
+  .history-details {
+    font-size: 12px; /* ← для телефонов */
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
   }
   
-  .history-details {
-    font-size: 13px;
+  .history-date {
+    font-size: 12px; /* ← дата тоже */
   }
   
   /* Инфо блоки */
@@ -1166,6 +1288,7 @@ td {
     font-size: 14px;
   }
   
+  
   .stat-value {
     font-size: 14px;
     gap: 1px;
@@ -1174,7 +1297,32 @@ td {
   .separator {
     font-size: 14px;
   }
+  
+    .history-details {
+    font-size: 11px; /* ← для узких телефонов */
+    gap: 6px;
+  }
+  
+  .history-date {
+    font-size: 11px; /* ← дата тоже */
+  }
+  
+  .fuel-type,
+  .fuel-amount,
+  .fuel-cost {
+    font-size: 11px;
+  }
+  
+  .fuel-price {
+    font-size: 10px;
+  }
+  
 }
+
+
+
+
+
 
 /* ==========================================================================
    5. УТИЛИТЫ (Utilities)

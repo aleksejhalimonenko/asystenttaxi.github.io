@@ -513,7 +513,7 @@ function renderFuelData(data) {
             
             <div class="stat-card stat-card--last">
                 <div class="stat-card-icon">
-                    <img src="icons/free-icon-gas-station-1000437.png" alt="Последняя заправка" style="width:42px; height:42px;" class="stat-icon">
+                    <img src="icons/tank.png" alt="Последняя заправка" style="width:42px; height:42px;" class="stat-icon">
                 </div>
                 <div class="stat-card-content">
                     <div class="stat-label">ПОСЛЕДНЯЯ ЗАПРАВКА</div>
@@ -525,6 +525,26 @@ function renderFuelData(data) {
                 </div>
             </div>
         </div>
+		
+		  <!-- ==================== ДОБАВЛЯЕМ ЗДЕСЬ ==================== -->
+  <div class="fuel-range-stats">
+    <div class="stat-card stat-card--range">
+      <div class="stat-card-icon">
+        <img src="icons/travel.png" alt="Запас хода" style="width:42px; height:42px;" class="stat-icon">
+      </div>
+      <div class="stat-card-content">
+        <div class="stat-label">ЗАПАС ХОДА</div>
+        <div class="stat-value">
+          <span class="range-km" id="fuelRangeKm">—</span>
+          <span class="range-unit">км</span>
+        </div>
+        <div class="stat-subvalue" id="fuelRangeDetails">при полном баке (34 л)</div>
+      </div>
+    </div>
+  </div>
+  <!-- ==================== КОНЕЦ ДОБАВЛЕНИЯ ==================== -->
+		
+		
 
         <div class="fuel-trend">
             <div class="section-title">ТРЕНД РАСХОДА ГАЗА (6 МЕСЯЦЕВ)</div>
@@ -578,6 +598,13 @@ function renderFuelData(data) {
     } else {
         console.warn('Функция renderFuelChart не найдена');
     }
+	 // ============ ДОБАВЬ ЭТО В КОНЕЦ ФУНКЦИИ ============
+    // Обновляем карточку запаса хода
+    if (typeof updateFuelRangeDisplay === 'function') {
+        updateFuelRangeDisplay(sortedData);
+    }
+    // ============ КОНЕЦ ДОБАВЛЕНИЯ ============
+	
 }
 
 /**
