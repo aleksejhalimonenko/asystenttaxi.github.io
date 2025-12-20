@@ -38,7 +38,7 @@ function calculateFuelRange(fuelData, tankCapacity = 34) {
         }
 
         // 2. Берем последние 10 заправок (или меньше если их меньше)
-        const recentData = gasData.slice(-Math.min(3, gasData.length));
+        const recentData = gasData.slice(-Math.min(5, gasData.length));
         
         // 3. Рассчитываем средний расход
         let totalConsumption = 0;

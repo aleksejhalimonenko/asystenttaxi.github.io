@@ -364,6 +364,16 @@ function renderServiceData(data) {
 
     serviceContent.innerHTML = timelineHTML;
     DOM.cardElement.appendChild(serviceContent);
+	
+	
+	 // ============ ДОБАВЛЯЕМ ИНИЦИАЛИЗАЦИЮ КАРТОЧЕК ============
+    if (typeof initServiceStats === 'function') {
+        initServiceStats(data);
+    } else {
+        console.warn('Функция initServiceStats не найдена. Подключите serviceStats.js');
+    }
+    // ============ КОНЕЦ ДОБАВЛЕНИЯ ============
+	
 }
 
 /**
@@ -530,7 +540,7 @@ function renderFuelData(data) {
   <div class="fuel-range-stats">
     <div class="stat-card stat-card--range">
       <div class="stat-card-icon">
-        <img src="icons/travel.png" alt="Запас хода" style="width:42px; height:42px;" class="stat-icon">
+        <img src="icons/car.png" alt="Запас хода" style="width:42px; height:42px;" class="stat-icon">
       </div>
       <div class="stat-card-content">
         <div class="stat-label">ЗАПАС ХОДА</div>

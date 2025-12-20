@@ -1366,3 +1366,212 @@ td {
   background-color: var(--primary-hover);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
+
+
+
+
+/* ==========================================================================
+   СТИЛИ ДЛЯ КАРТОЧЕК СТАТИСТИКИ ОБСЛУЖИВАНИЯ
+   ========================================================================== */
+
+.service-stats-container {
+    margin-bottom: 32px;
+}
+
+.service-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+@media (min-width: 768px) {
+    .service-stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.service-stat-card {
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid #f0f0f0;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.service-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.service-stat-card--finance {
+    border-top: 4px solid var(--primary-color);
+}
+
+.service-stat-card--activity {
+    border-top: 4px solid var(--success-color);
+}
+
+.service-stat-card--distribution {
+    border-top: 4px solid #5856d6;
+}
+
+.service-stat-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.service-stat-card-icon img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.service-stat-card-title {
+    font-family: var(--font-family-fira);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex: 1;
+}
+
+.service-stat-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.service-stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.service-stat-label {
+    font-family: var(--font-family-fira);
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.service-stat-value {
+    font-family: var(--font-family-fira);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+    min-width: 80px;
+}
+
+.trend-up {
+    color: var(--success-color) !important;
+}
+
+.trend-down {
+    color: var(--error-color) !important;
+}
+
+/* Стили для диаграммы распределения */
+.distribution-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.distribution-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.distribution-label {
+    font-family: var(--font-family-fira);
+    font-size: 12px;
+    color: var(--text-secondary);
+    min-width: 70px;
+}
+
+.distribution-bar {
+    flex: 1;
+    height: 8px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.distribution-fill {
+    height: 100%;
+    background: var(--primary-color);
+    border-radius: 4px;
+    transition: width 1s ease;
+}
+
+.distribution-value {
+    font-family: var(--font-family-fira);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 35px;
+    text-align: right;
+}
+
+/* Адаптивность */
+@media (max-width: 767px) {
+    .service-stat-card {
+        padding: 16px;
+    }
+    
+    .service-stat-card-header {
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    
+    .service-stat-card-icon img {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .service-stat-card-title {
+        font-size: 11px;
+    }
+    
+    .service-stat-label {
+        font-size: 12px;
+    }
+    
+    .service-stat-value {
+        font-size: 13px;
+        min-width: 70px;
+    }
+    
+    .distribution-label {
+        font-size: 11px;
+        min-width: 60px;
+    }
+    
+    .distribution-value {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .service-stats-grid {
+        gap: 12px;
+    }
+    
+    .service-stat-card {
+        padding: 12px;
+    }
+    
+    .service-stat-item {
+        padding: 3px 0;
+    }
+}
