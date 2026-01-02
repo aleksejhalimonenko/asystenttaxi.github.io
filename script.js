@@ -35,7 +35,7 @@ const TAB_SELECTOR_MAP = {
 };
 
 // URL для Google Apps Script
-const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbxLYT5b2qCLXK8iLtSz-48kimWcjGYfI6r31s3sJMjPJljrVMuJqmuNIswJ7RnjiTmG/exec";
+const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbyI8Wopp--leJCvpPEu7vDLjPG52rc03ZRikOxWsqLa7WuRCiZzUeTR02Q9KnnpTGBb/exec";
 
 // ==========================================================================
 // 2. УТИЛИТЫ И ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -610,9 +610,10 @@ function renderFuelData(data) {
     }
 	 // ============ ДОБАВЬ ЭТО В КОНЕЦ ФУНКЦИИ ============
     // Обновляем карточку запаса хода
-    if (typeof updateFuelRangeDisplay === 'function') {
-        updateFuelRangeDisplay(sortedData);
-    }
+if (typeof updateFuelRangeDisplay === 'function') {
+    // Передаем исходный массив data, а не sortedData
+    updateFuelRangeDisplay(data); 
+}
     // ============ КОНЕЦ ДОБАВЛЕНИЯ ============
 	
 }

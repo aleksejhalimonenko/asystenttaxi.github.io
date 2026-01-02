@@ -77,7 +77,7 @@ function renderAddFuelData(data) {
       params.append(key, value);
     }
 
-    const gasWebAppUrl = `https://script.google.com/macros/s/AKfycbxLYT5b2qCLXK8iLtSz-48kimWcjGYfI6r31s3sJMjPJljrVMuJqmuNIswJ7RnjiTmG/exec`;
+    const gasWebAppUrl = `https://script.google.com/macros/s/AKfycbyI8Wopp--leJCvpPEu7vDLjPG52rc03ZRikOxWsqLa7WuRCiZzUeTR02Q9KnnpTGBb/exec`;
 
     try {
       const response = await fetch(gasWebAppUrl, {

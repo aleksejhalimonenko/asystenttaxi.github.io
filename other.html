@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta charset="UTF-8" />
+    <title>Раздел: Другое</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+      h2 { margin-top: 40px; }
+      canvas { max-width: 100%; }
+      table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+      th, td { border: 1px solid #ccc; padding: 8px; font-size: 14px; }
+      th { background: #eee; }
+      .chart-container { width: 100%; max-width: 800px; margin: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Раздел "Другое"</h1>
+
+    <h2>📊 Пробег по месяцам</h2>
+    <div class="chart-container">
+      <canvas id="mileageChart"></canvas>
+    </div>
+
+    <h2>🧰 Тюнинг и аксессуары</h2>
+    <table id="tuningTable">
+      <thead>
+        <tr>
+          <th>Тип</th>
+          <th>Дата</th>
+          <th>Пробег</th>
+          <th>Описание</th>
+          <th>Доставка</th>
+          <th>Стоимость деталей</th>
+          <th>С доставкой</th>
+          <th>Работы</th>
+          <th>Итого</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>📄 Штрафы и документы</h2>
+    <table id="finesTable">
+      <thead>
+        <tr>
+          <th>Тип</th>
+          <th>Дата</th>
+          <th>Пробег</th>
+          <th>Сумма</th>
+          <th>Комментарий</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <script>
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbwbIVB5WCgp5YVIZWHDiWzlX4gKtMQSwBBZhdLtH4rPdu2f9gBrzGqmF-6dy5csTaF4/exec?page=other';
+
+      fetch(scriptUrl)
+        .then(res => res.json())
+        .then(data => {
+          // --- Chart ---
+          const ctx = document.getElementById('mileageChart').getContext('2d');
+          const datasets = data.mileageChart.data.map(entry => ({
+            label: entry.label,
+            data: entry.values,
+            fill: false,
+            borderColor: getRandomColor(),
+            tension: 0.3
+          }));
+
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.mileageChart.months,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { position: 'bottom' },
+                title: { display: true, text: 'Пробег по месяцам' }
+              }
+            }
+          });
+
+          // --- Тюнинг таблица ---
+          const tuningTable = document.querySelector('#tuningTable tbody');
+          data.tuning.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${row.type}</td>
+              <td>${row.date}</td>
+              <td>${row.mileage}</td>
+              <td>${row.description}</td>
+              <td>${row.delivery}</td>
+              <td>${row.partsCost}</td>
+              <td>${row.totalWithDelivery}</td>
+              <td>${row.workCost}</td>
+              <td>${row.total}</td>
+            `;
+            tuningTable.appendChild(tr);
+          });
+
+          // --- Штрафы таблица ---
+          const finesTable = document.querySelector('#finesTable tbody');
+          data.fines.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${row.type}</td>
+              <td>${row.date}</td>
+              <td>${row.mileage}</td>
+              <td>${row.cost}</td>
+              <td>${row.comment}</td>
+            `;
+            finesTable.appendChild(tr);
+          });
+        });
+
+      function getRandomColor() {
+        return `hsl(${Math.floor(Math.random() * 360)}, 70%, 60%)`;
+      }
+    </script>
+  </body>
+</html>
