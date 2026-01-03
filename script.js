@@ -35,7 +35,7 @@ const TAB_SELECTOR_MAP = {
 };
 
 // URL для Google Apps Script
-const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbyI8Wopp--leJCvpPEu7vDLjPG52rc03ZRikOxWsqLa7WuRCiZzUeTR02Q9KnnpTGBb/exec";
+const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbxLYT5b2qCLXK8iLtSz-48kimWcjGYfI6r31s3sJMjPJljrVMuJqmuNIswJ7RnjiTmG/exec";
 
 // ==========================================================================
 // 2. УТИЛИТЫ И ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -234,51 +234,85 @@ function formatFuelDate(dateString) {
 /**
  * Основная функция загрузки данных
  */
+/**
+ * Основная функция загрузки данных (С КЭШИРОВАНИЕМ)
+ */
 async function loadData() {
     const page = getQueryParam("page") || "home";
+    const cacheKey = `cache_v1_${page}`; // Ключ для хранения данных именно этой страницы
     
     // Подготовка UI
     setActiveTab(page);
-    setLoadingState(true);
     DOM.table.style.display = "none";
-    
-    // Очистка предыдущего контента
     clearDynamicContent();
     
     // Уничтожение графика при необходимости
     if (typeof destroyFuelChart === 'function') {
         destroyFuelChart();
     }
+
+    // --- ШАГ 1: ПРОВЕРКА КЭША ---
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+        try {
+            const data = JSON.parse(cachedData);
+            setLoadingState(false); // Скрываем спиннер, так как есть что показать
+            renderByPage(page, data); // Отрисовываем старые данные
+            console.log("Отображены данные из кэша");
+        } catch (e) {
+            console.error("Ошибка кэша", e);
+        }
+    } else {
+        // Если кэша нет - показываем спиннер
+        setLoadingState(true);
+    }
     
+    // --- ШАГ 2: ЗАПРОС СВЕЖИХ ДАННЫХ ---
     try {
-        // Загрузка данных
         const url = `${GAS_BASE_URL}?page=${page}`;
         const response = await fetch(url);
         
         if (!response.ok) {
-            throw new Error(`Ошибка сети: ${response.status} ${response.statusText}`);
+            throw new Error(`Ошибка сети: ${response.status}`);
         }
         
         const data = await response.json();
+        
+        // Сохраняем свежие данные в кэш на будущее
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+        
+        // Убираем спиннер (если он был) и рисуем актуальные данные
         setLoadingState(false);
-        
-        // Маршрутизация по страницам
-        const renderMap = {
-            service: renderServiceData,
-            home: renderHomeData,
-            fuel: renderFuelData,
-            addfuel: renderAddFuelData,
-			settings: renderSettingsPage,
-            default: () => renderPlaceholder(page)
-        };
-        
-        const renderFunction = renderMap[page] || renderMap.default;
-        renderFunction(data);
+        renderByPage(page, data);
+        console.log("Данные обновлены из Google Таблиц");
         
     } catch (error) {
         setLoadingState(false);
-        showErrorMessage(error);
+        // Если в к eше ничего не было и интернет пропал - только тогда ошибка
+        if (!localStorage.getItem(cacheKey)) {
+            showErrorMessage(error);
+        }
     }
+}
+
+/**
+ * Вспомогательная функция-маршрутизатор (чтобы не дублировать код)
+ */
+function renderByPage(page, data) {
+    // Чтобы данные не накладывались друг на друга при обновлении из кэша
+    clearDynamicContent(); 
+
+    const renderMap = {
+        service: renderServiceData,
+        home: renderHomeData,
+        fuel: renderFuelData,
+        addfuel: renderAddFuelData,
+        settings: renderSettingsPage,
+        default: () => renderPlaceholder(page)
+    };
+    
+    const renderFunction = renderMap[page] || renderMap.default;
+    renderFunction(data);
 }
 
 /**
