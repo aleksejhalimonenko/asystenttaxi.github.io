@@ -1575,3 +1575,8 @@ td {
         padding: 3px 0;
     }
 }
+
+
+#appContent {
+    transition: opacity 0.3s ease-in-out;
+}
