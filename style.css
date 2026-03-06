@@ -1,1582 +1,537 @@
 /* ==========================================================================
-   ГЛАВНЫЙ ФАЙЛ СТИЛЕЙ - АВТО ОБСЛУЖИВАНИЕ
-   Структура:
-   1. БАЗОВЫЕ СТИЛИ
-   2. КОМПОНЕНТЫ ИНТЕРФЕЙСА
-   3. СТРАНИЦЫ/РАЗДЕЛЫ
-   4. АДАПТИВНОСТЬ
-   5. УТИЛИТЫ
+   AURIS БОРТОВОЙ ЖУРНАЛ — iOS 18 Design System
    ========================================================================== */
 
-/* ==========================================================================
-   1. БАЗОВЫЕ СТИЛИ (Foundation)
-   ========================================================================== */
+/* ── RESET & ROOT ──────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
 :root {
-  /* Цветовая палитра */
-  --primary-color: #007aff;
-  --primary-hover: #005bb5;
-  --success-color: #34c759;
-  --error-color: #ff3b30;
-  --warning-color: #ff9500;
-  --text-primary: #1c1c1c;
-  --text-secondary: #666;
-  --text-tertiary: #9a9ea1;
-  --bg-primary: #ffffff;
-  --bg-secondary: #f7f7f7;
-  --bg-tertiary: #e9eff3;
-  --border-color: #e0e0e0;
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 15px 35px #e9eff3;
-  
-  /* Размеры */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  
-  /* Шрифты */
-  --font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial, sans-serif;
-  --font-family-fira: 'Fira Sans', sans-serif;
+  --bg:        #f2f2f7;
+  --bg2:       #e5e5ea;
+  --grouped:   #ffffff;
+  --surface:   rgba(255,255,255,0.80);
+  --sep:       rgba(60,60,67,0.12);
+  --sep2:      rgba(60,60,67,0.06);
+  --text:      #000000;
+  --text2:     rgba(60,60,67,0.60);
+  --text3:     rgba(60,60,67,0.28);
+  --accent:    #007AFF;
+  --accent-bg: rgba(0,122,255,0.10);
+  --green:     #34C759;
+  --green-bg:  rgba(52,199,89,0.12);
+  --orange:    #FF9500;
+  --orange-bg: rgba(255,149,0,0.12);
+  --red:       #FF3B30;
+  --red-bg:    rgba(255,59,48,0.12);
+  --yellow:    #FFCC00;
+  --yellow-bg: rgba(255,204,0,0.12);
+  --indigo:    #5856D6;
+  --teal:      #30B0C7;
+
+  --nav-h:     80px;
+  --hdr-h:     80px;
+  --safe-b:    env(safe-area-inset-bottom, 0px);
+  --safe-t:    env(safe-area-inset-top, 0px);
+  --blur:      saturate(180%) blur(24px);
+
+  --font:      -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-r:    -apple-system, "SF Pro Rounded", "Helvetica Neue", sans-serif;
+  --font-d:    -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+
+  --r-sm:  8px;
+  --r-md:  12px;
+  --r-lg:  14px;
+  --r-xl:  18px;
+  --shadow: 0 1px 0 var(--sep);
 }
 
-/* Общие стили страницы */
-body {
-  font-family: var(--font-family);
-  background-color: var(--bg-secondary);
-  margin: 0;
-  padding: 0;
-  padding-bottom: 70px; /* Отступ для нижней навигации */
+@media (prefers-color-scheme: dark) { :root {
+  --bg:        #000000;
+  --bg2:       #1c1c1e;
+  --grouped:   #1c1c1e;
+  --surface:   rgba(28,28,30,0.85);
+  --sep:       rgba(84,84,88,0.55);
+  --sep2:      rgba(84,84,88,0.22);
+  --text:      #ffffff;
+  --text2:     rgba(235,235,245,0.60);
+  --text3:     rgba(235,235,245,0.18);
+  --accent:    #0A84FF;
+  --accent-bg: rgba(10,132,255,0.15);
+  --green:     #30D158;
+  --green-bg:  rgba(48,209,88,0.15);
+  --orange:    #FF9F0A;
+  --orange-bg: rgba(255,159,10,0.15);
+  --red:       #FF453A;
+  --red-bg:    rgba(255,69,58,0.15);
+  --yellow:    #FFD60A;
+  --yellow-bg: rgba(255,214,10,0.15);
+  --indigo:    #5E5CE6;
+  --teal:      #40CBE0;
+}}
+
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); }
+
+#app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── HEADER ──────────────────────────────────────── */
+.ios-hdr {
+  flex-shrink: 0;
+  padding: calc(var(--safe-t) + 12px) 20px 0;
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 0.5px solid var(--sep);
+  z-index: 50;
+}
+.ios-hdr-top {
+  display: flex; align-items: flex-end;
+  justify-content: space-between; padding-bottom: 6px;
+}
+.large-title {
+  font-size: 28px; font-weight: 700;
+  letter-spacing: -0.5px; line-height: 1;
+  font-family: var(--font-d);
+}
+.large-title em { font-style: normal; color: var(--accent); }
+.ios-hdr-sub { font-size: 13px; color: var(--text2); padding-bottom: 11px; }
+
+.km-badge {
+  background: var(--accent-bg); color: var(--accent);
+  font-size: 12px; font-weight: 600; padding: 5px 11px;
+  border-radius: 20px; display: flex; align-items: center; gap: 5px;
 }
 
-/* ==========================================================================
-   2. КОМПОНЕНТЫ ИНТЕРФЕЙСА (UI Components)
-   ========================================================================== */
-
-/* --- ШАПКА И НАВИГАЦИЯ --- */
-header {
-  background-color: var(--bg-primary);
-  padding: 16px 32px;
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-
-header h1 {
-  font-size: 22px;
-  margin: 0;
-  color: var(--text-primary);
-}
-
-/* Верхняя навигация */
-nav a {
-  text-decoration: none;
-  color: var(--primary-color);
-  font-weight: 500;
-  margin-left: 20px;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  transition: background-color 0.3s;
-}
-
-nav a:hover {
-  background-color: rgba(0, 122, 255, 0.1);
-}
-
-nav a.active {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-/* Нижняя навигация (PWA-style) */
-.bottom-nav {
-  flex-wrap: nowrap;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background-color: var(--bg-primary);
-  display: flex;
-  justify-content: space-around;
-  padding: 12px 0;
-  border-top: 1px solid var(--border-color);
-  z-index: 100;
-}
-
-.bottom-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 12px;
-  border-radius: var(--radius-md);
-  text-decoration: none;
-  color: var(--text-secondary);
-  transition: background 0.3s, color 0.3s;
-}
-
-.bottom-nav-item img {
-  width: 32px;
-  height: 32px;
-  margin-bottom: 4px;
-  transition: filter 0.3s;
-}
-
-.bottom-nav-item:hover {
-  background: rgba(0, 122, 255, 0.1);
-}
-
-.bottom-nav-item.active {
-  background: var(--primary-color);
-  color: white;
-}
-
-.bottom-nav-item.active img {
-  filter: brightness(0) invert(1);
-}
-
-.bottom-nav-item.add-tab img {
-  width: 32px;
-  height: 32px;
-}
-.bottom-nav-item.add-tab span {
-  display: none;
-}
-
-/* --- КАРТОЧКИ И КОНТЕЙНЕРЫ --- */
-.main-content {
-  padding: 32px;
-}
-
-/* Основная карточка контента */
-.card {
-  background-color: var(--bg-primary);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 24px;
-  transition: transform 0.3s ease;
-  padding-bottom: 80px; /* Для нижней навигации */
-}
-
-/* Заголовки разделов */
-h2 {
-  margin-top: 0;
-  font-size: 24px;
-  color: var(--text-primary);
-}
-
-#sectionTitle {
-  display: none;
-  margin-top: 100px;
-  margin-bottom: 10px;
-  max-width: 20px;
-  background-color: #e0f2f7;
-  color: #333;
-}
-
-/* --- СЕТКА И КАРТОЧКИ НА ГЛАВНОЙ --- */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.card2-test {
-  background-color: var(--bg-primary);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  box-shadow: var(--shadow-lg);
-  text-align: left;
-}
-
-.card2-test .card2-icon {
-  margin-bottom: 6px;
-  text-align: left;
-}
-
-.card2-test > div {
-  text-align: left;
-  margin-bottom: 2px;
-}
-
-.card-title {
-  font-family: var(--font-family-fira);
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.card-value {
-  font-family: var(--font-family-fira);
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 0;
-}
-
-.fuel-period {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  font-weight: 400;
-  font-family: var(--font-family-fira) !important;
-  margin-top: -2px;
-}
-
-/* --- СПИННЕР ЗАГРУЗКИ --- */
-.spinner-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: calc(100% - 100px);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  background-color: transparent;
-  z-index: 10000;
-}
-
-.spinner {
-  border: 5px solid #f3f3f3;
-  border-top: 5px solid var(--primary-color);
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* ==========================================================================
-   3. СТРАНИЦЫ/РАЗДЕЛЫ (Pages/Sections)
-   ========================================================================== */
-
-/* --- ГЛАВНАЯ СТРАНИЦА (Home) --- */
-.shapka-selenyj {
-  background-color: transparent;
-  color: black;
-  border-radius: var(--radius-xl);
-  text-align: center;
-  margin-bottom: 16px;
-  padding: 5px 10px;
-  margin-top: -35px;
-}
-
-.shapka-selenyj h2 {
-  font-size: 18px;
-  font-weight: 400;
-  color: var(--text-tertiary);
-  margin-bottom: 4px;
-}
-
-.shapka-selenyj h1 {
-  font-size: 48px;
-  font-weight: 600;
-  font-family: var(--font-family-fira);
-  color: black;
-  margin-top: 4px;
-}
-
-/* Обзор расходов */
-.expenses-summary {
-  background-color: var(--bg-tertiary);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  box-shadow: var(--shadow-sm);
-  font-family: var(--font-family-fira);
-}
-
-.expenses-items {
-  display: flex;
-  justify-content: space-around;
-  margin-top: 8px;
-}
-
-.expenses-item {
-  text-align: center;
-  max-width: 70px;
-}
-
-/* Круглые иконки */
-.icon-circle {
-  width: 64px;
-  height: 64px;
-  border: 2px solid #ccc;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: white;
-}
-.icon-circle.green { border-color: #00c853; }
-.icon-circle.red { border-color: #d50000; }
-.icon-circle.yellow { border-color: #fbc02d; }
-.icon-circle.orange { border-color: #fb862d; }
-
-/* Информационные блоки */
-.info {
-  margin-bottom: 10px;
-  line-height: 1.6;
-  font-size: 13px;
-  color: #333;
-}
-
-.info strong {
-  font-weight: 600;
-  color: #000;
-}
-
-.infoniz {
-  margin-bottom: 10px;
-  line-height: 1.6;
-  font-size: 10px;
-  color: #333;
-}
-
-/* --- РАЗДЕЛ ТОПЛИВА (Fuel) --- */
-.fuel-dashboard {
-  padding: 0 8px;
-}
-
-
-/* Статистические карточки - ЗАПАС ХОДА */
-.fuel-range-stats {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-bottom: 24px;
-}
-
-.stat-card--range {
-    background: linear-gradient(135deg, var(--bg-primary) 0%, #f8fbff 100%);
-    border: 2px solid #4cd964;
-    position: relative;
-    overflow: hidden;
-}
-
-.stat-card--range::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 100%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(76, 217, 100, 0.1) 0%, transparent 70%);
-    z-index: 0;
-}
-
-.stat-card--range .stat-card-content {
-    position: relative;
-    z-index: 1;
-}
-
-.stat-card--range .stat-label {
-    color: #4cd964;
-    font-weight: 600;
-}
-
-.stat-card--range .stat-value {
-    font-size: 24px;
-    color: #4cd964;
-    margin-bottom: 8px;
-}
-
-.range-km {
-    font-size: 28px;
-    font-weight: 700;
-    color: #4cd964;
-}
-
-.range-unit {
-    font-size: 18px;
-    color: var(--text-secondary);
-    margin-left: 4px;
-}
-
-.stat-card--range .stat-subvalue {
-    font-size: 12px;
-    color: var(--text-tertiary);
-    font-weight: 400;
-}
-
-/* Адаптивность для карточки запаса хода */
-@media (max-width: 768px) {
-    .stat-card--range .stat-value {
-        font-size: 22px;
-    }
-    
-    .range-km {
-        font-size: 24px;
-    }
-}
-
-@media (max-width: 480px) {
-    .fuel-range-stats {
-        margin-bottom: 20px;
-    }
-    
-    .stat-card--range .stat-value {
-        font-size: 20px;
-    }
-    
-    .range-km {
-        font-size: 22px;
-    }
-    
-    .range-unit {
-        font-size: 16px;
-    }
-}
-
-@media (max-width: 360px) {
-    .stat-card--range .stat-value {
-        font-size: 18px;
-    }
-    
-    .range-km {
-        font-size: 20px;
-    }
-}
-
-/* Статистические карточки */
-.fuel-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  text-align: center;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
-}
-
-.stat-label {
-  font-family: var(--font-family-fira);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* ОБЩИЕ СТИЛИ ДЛЯ СТАТИСТИЧЕСКИХ ЗНАЧЕНИЙ */
-.stat-value {
-  font-family: var(--font-family-fira);
-  font-weight: 600;
-  font-size: 20px;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-bottom: 4px;
-}
-
-/* Для карточки СРЕДНИЙ РАСХОД - inline вместо flex */
-.stat-card--average .stat-value {
-  display: inline;
-}
-
-/* Стили для СРЕДНЕГО РАСХОДА */
-.consumption-number { color: #000; }
-.consumption-l100 { color: var(--success-color); }
-.consumption-km { color: #000; }
-
-/* Стили для ПОСЛЕДНЕЙ ЗАПРАВКИ */
-.fuel-amount { color: var(--primary-color); }
-.separator { color: #000; opacity: 0.7; }
-.fuel-cost { color: var(--success-color); }
-
-.stat-subvalue {
-  font-family: var(--font-family-fira);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--primary-color);
-}
-
-/* Блок тренда */
-.fuel-trend {
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
-}
-
-.section-title {
-  font-family: var(--font-family-fira);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.trend-placeholder {
-  background: #f8f9fa;
-  border-radius: var(--radius-md);
-  min-height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.trend-chart-container {
+/* ── CONTENT AREA ────────────────────────────────── */
+.content-area {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+  padding: 20px 16px calc(var(--nav-h) + 16px + var(--safe-b));
   position: relative;
-  height: 250px;
-  margin-top: 10px;
 }
+.content-area::-webkit-scrollbar { display: none; }
+.content-area { scrollbar-width: none; }
 
-#fuelTrendCanvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* Кнопка добавления (скрыта) */
-.add-fuel-btn-container {
-  display: none !important;
-  margin-bottom: 24px;
-  text-align: center;
-}
-
-.add-fuel-btn {
-  display: inline-block;
-  background: var(--primary-color);
-  color: white;
-  padding: 16px 32px;
-  border-radius: var(--radius-md);
+/* ── TAB BAR ─────────────────────────────────────── */
+.tab-bar {
+  flex-shrink: 0;
+  height: calc(var(--nav-h) + var(--safe-b));
+  padding-bottom: var(--safe-b);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top: 0.5px solid var(--sep);
+  display: flex; z-index: 100;
   text-decoration: none;
-  font-family: var(--font-family-fira);
-  font-size: 16px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+.tab {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; padding-top: 6px;
+  text-decoration: none; position: relative;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.tab:active { transform: scale(0.88); opacity: 0.6; }
+.tab-icon-wrap { color: var(--text3); transition: color 0.2s, transform 0.22s cubic-bezier(.34,1.56,.64,1); }
+.tab.active .tab-icon-wrap { color: var(--accent); transform: scale(1.1); }
+.tab-lbl { font-size: 10px; font-weight: 500; color: var(--text3); letter-spacing: 0.1px; }
+.tab.active .tab-lbl { color: var(--accent); }
+.tab.active::before {
+  content: ''; position: absolute; top: 0; left: 22%; right: 22%;
+  height: 1.5px; background: var(--accent); border-radius: 0 0 2px 2px;
 }
 
-.add-fuel-btn:hover {
-  background: #0056cc;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 122, 255, 0.4);
+.add-icon-wrap {
+  color: var(--accent) !important;
 }
+.tab.add-tab .tab-icon-wrap { color: var(--accent); }
+.tab.add-tab .tab-lbl { color: var(--accent); }
+.tab.add-tab::before { display: none; }
 
-/* История заправок */
-.fuel-history {
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid #f0f0f0;
+/* ── SECTION LABEL ───────────────────────────────── */
+.slbl {
+  font-size: 13px; font-weight: 600; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 0 4px; margin-bottom: 8px; margin-top: 24px;
 }
+.slbl:first-child { margin-top: 4px; }
 
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.history-filters {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-btn {
-  background: #f8f9fa;
-  border: 1px solid #e0e0e0;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-family: var(--font-family-fira);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.filter-btn:hover {
-  background: #e9ecef;
-  border-color: var(--primary-color);
-}
-
-.filter-btn.active {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: white;
-}
-
-.history-list {
-  space-y: 12px;
-}
-
-.history-item {
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background-color 0.2s ease;
-}
-
-.history-item:hover {
-  background-color: #fafafa;
-  margin: 0 -16px;
-  padding: 16px;
-}
-
-.history-item:last-child {
-  border-bottom: none;
-}
-
-.history-date {
-  font-family: var(--font-family-fira);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.history-details {
-  font-family: var(--font-family-fira);
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.4;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.fuel-type { font-weight: 500; color: #333; }
-.fuel-amount { color: var(--primary-color); font-weight: 500; }
-.fuel-cost { color: var(--success-color); font-weight: 500; }
-.fuel-price { color: #888; font-size: 12px; }
-
-.history-comment {
-  font-family: var(--font-family-fira);
-  font-size: 12px;
-  color: #888;
-  margin-top: 4px;
-  font-style: italic;
-}
-
-.history-empty {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--text-secondary);
-  font-family: var(--font-family-fira);
-  font-size: 14px;
-}
-
-/* --- РАЗДЕЛ ОБСЛУЖИВАНИЯ (Service) --- */
-.service-timeline {
-  padding: 0 8px;
-}
-
-.timeline-month {
-  font-family: var(--font-family-fira);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 24px 0 12px 0;
-  padding: 8px 0;
-}
-
-.timeline-entry {
-  background: var(--bg-primary);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  border-left: 4px solid var(--primary-color);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.entry--tyre { border-left-color: var(--success-color); }
-.entry--maintenance { border-left-color: var(--primary-color); }
-.entry--repair { border-left-color: var(--error-color); }
-.entry--gas { border-left-color: #5856d6; }
-
-.entry-date-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 80px;
-  flex-shrink: 0;
-}
-
-.entry-date {
-  font-family: var(--font-family-fira);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.entry-km {
-  font-family: var(--font-family-fira);
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: #f8f9fa;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-}
-
-.entry-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  flex: 1;
-}
-
-.entry-icon {
-  font-size: 24px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  min-height: 48px;
-  flex-shrink: 0;
-  padding-top: 2px;
-}
-
-.entry-text {
-  flex: 1;
-}
-
-.entry-title {
-  font-family: var(--font-family-fira);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 4px 0;
-}
-
-.entry-description {
-  font-family: var(--font-family-fira);
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.service-icon {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-}
-
-/* --- ФОРМЫ (Forms) --- */
-#addFuelFormContainer {
-  max-width: 400px;
-  margin: 10px auto;
-  padding: 15px;
-  background-color: var(--bg-primary);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #333;
-}
-
-#addFuelFormContainer h3 {
-  text-align: center;
-  color: var(--primary-color);
-  margin-bottom: 20px;
-  font-size: 1.5em;
-  font-weight: 600;
-}
-
-.form-group {
+/* ── GROUPED LIST ────────────────────────────────── */
+.group {
+  background: var(--grouped);
+  border-radius: var(--r-lg);
+  overflow: hidden;
   margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+.row {
+  display: flex; align-items: center;
+  padding: 11px 16px; gap: 13px;
+  position: relative; background: var(--grouped);
+  min-height: 50px; transition: background 0.12s;
+}
+.row:active { background: var(--bg2); }
+.row + .row::before {
+  content: ''; position: absolute;
+  top: 0; left: 57px; right: 0;
+  height: 0.5px; background: var(--sep);
+}
+.row-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.row-body { flex: 1; min-width: 0; }
+.row-title { font-size: 16px; color: var(--text); letter-spacing: -0.2px; }
+.row-sub { font-size: 13px; color: var(--text2); margin-top: 1px; }
+.row-right { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.row-val { font-size: 16px; font-weight: 500; color: var(--text2); }
+.row-val.green  { color: var(--green); }
+.row-val.orange { color: var(--orange); }
+.row-val.red    { color: var(--red); }
+.row-val.accent { color: var(--accent); }
+.chevron { display: flex; opacity: 0.28; }
+
+/* ── HERO CARD ───────────────────────────────────── */
+.hero {
+  border-radius: var(--r-xl); padding: 22px 20px 18px;
+  margin-bottom: 10px; position: relative; overflow: hidden;
+}
+.hero.blue   { background: linear-gradient(140deg, #0071ef 0%, #30B0C7 100%); }
+.hero.green  { background: linear-gradient(140deg, #1e9e3e 0%, #34C759 55%, #30B0C7 100%); }
+.hero.orange { background: linear-gradient(140deg, #d07000 0%, #FF9500 55%, #FF6B35 100%); }
+.hero.red    { background: linear-gradient(140deg, #c0392b 0%, #FF3B30 55%, #FF9500 100%); }
+.hero.indigo { background: linear-gradient(140deg, #3634A3 0%, #5856D6 55%, #30B0C7 100%); }
+.hero-lbl  { font-size: 13px; font-weight: 500; color: rgba(255,255,255,.72); margin-bottom: 4px; }
+.hero-val  { font-size: 44px; font-weight: 700; color: #fff; letter-spacing: -2px; line-height: 1; font-family: var(--font-r); }
+.hero-unit { font-size: 22px; font-weight: 400; letter-spacing: -0.5px; opacity: 0.8; }
+.hero-sub  { font-size: 13px; color: rgba(255,255,255,.65); margin-top: 6px; }
+.hero-icon {
+  position: absolute; right: 18px; bottom: 14px;
+  opacity: 0.14; color: #fff; pointer-events: none;
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
+/* ── MINI GRID ───────────────────────────────────── */
+.mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.mini {
+  background: var(--grouped); border-radius: var(--r-md);
+  padding: 14px 14px 13px; box-shadow: var(--shadow);
+}
+.mini-lbl {
+  font-size: 12px; font-weight: 500; color: var(--text2);
+  margin-bottom: 5px; display: flex; align-items: center; gap: 5px;
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.mini-val { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; font-family: var(--font-r); }
+.mini-val .u { font-size: 13px; font-weight: 400; color: var(--text2); letter-spacing: 0; }
+.mini-sub { font-size: 11px; color: var(--text2); margin-top: 3px; }
+
+/* ── REMINDER CIRCLES ────────────────────────────── */
+.reminders-row {
+  display: flex; gap: 10px; margin-bottom: 10px; overflow-x: auto;
+  padding-bottom: 2px; -webkit-overflow-scrolling: touch;
+}
+.reminders-row::-webkit-scrollbar { display: none; }
+.reminder-item {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 7px; min-width: 72px;
+}
+.reminder-circle {
+  width: 56px; height: 56px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.reminder-circle.red    { background: var(--red-bg);    color: var(--red); }
+.reminder-circle.orange { background: var(--orange-bg); color: var(--orange); }
+.reminder-circle.yellow { background: var(--yellow-bg); color: var(--yellow); }
+.reminder-circle.green  { background: var(--green-bg);  color: var(--green); }
+.reminder-circle.accent { background: var(--accent-bg); color: var(--accent); }
+.reminder-val  { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; text-align: center; line-height: 1.2; }
+.reminder-name { font-size: 10px; color: var(--text2); text-align: center; text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* ── KV TABLE ────────────────────────────────────── */
+.kv { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 0.5px solid var(--sep); }
+.kv:last-child { border-bottom: none; }
+.kv-k { font-size: 15px; color: var(--text); }
+.kv-v { font-size: 15px; font-weight: 600; color: var(--text2); letter-spacing: -0.2px; }
+.kv-v.green { color: var(--green); }
+.kv-v.red   { color: var(--red); }
+.kv-v.orange { color: var(--orange); }
+
+/* ── TIMELINE ────────────────────────────────────── */
+.tl-row {
+  display: flex; gap: 13px; padding: 13px 0;
+  border-bottom: 0.5px solid var(--sep); align-items: flex-start;
+}
+.tl-row:last-child { border-bottom: none; }
+.tl-icon {
+  width: 32px; height: 32px; border-radius: 9px;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+.tl-icon.b  { background: var(--accent-bg); color: var(--accent); }
+.tl-icon.r  { background: var(--red-bg);    color: var(--red); }
+.tl-icon.g  { background: var(--green-bg);  color: var(--green); }
+.tl-icon.o  { background: var(--orange-bg); color: var(--orange); }
+.tl-icon.i  { background: rgba(88,86,214,.12); color: var(--indigo); }
+.tl-body { flex: 1; min-width: 0; }
+.tl-title { font-size: 15px; color: var(--text); letter-spacing: -0.2px; line-height: 1.35; }
+.tl-meta  { font-size: 12px; color: var(--text2); margin-top: 3px; }
+.tl-price { font-size: 15px; font-weight: 600; color: var(--text); flex-shrink: 0; }
+
+/* ── MONTH HEADER ────────────────────────────────── */
+.month-header {
+  font-size: 20px; font-weight: 700; color: var(--text);
+  letter-spacing: -0.4px; margin: 20px 0 10px;
+  font-family: var(--font-d);
+}
+.month-header:first-child { margin-top: 0; }
+
+/* ── SEARCH BAR ──────────────────────────────────── */
+.search-wrap {
+  display: flex; align-items: center;
+  background: var(--bg2); border-radius: var(--r-md);
+  padding: 9px 13px; gap: 8px; margin-bottom: 12px;
+}
+.search-wrap input {
+  background: none; border: none; outline: none;
+  font-size: 16px; color: var(--text); flex: 1; font-family: var(--font);
+}
+.search-wrap input::placeholder { color: var(--text3); }
+
+/* ── CHIPS ───────────────────────────────────────── */
+.chips {
+  display: flex; gap: 6px; margin-bottom: 14px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+  white-space: nowrap; cursor: pointer; transition: all 0.15s;
+  border: 0.5px solid var(--sep); background: var(--grouped); color: var(--text2);
+  display: flex; align-items: center; gap: 5px;
+}
+.chip.active { background: var(--accent); color: #fff; border-color: transparent; }
+
+/* ── PROGRESS BAR ────────────────────────────────── */
+.prog { margin-bottom: 14px; }
+.prog:last-child { margin-bottom: 0; }
+.prog-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+.prog-name { font-size: 14px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.prog-amt  { font-size: 14px; font-weight: 600; }
+.prog-track { height: 7px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+.prog-fill  { height: 100%; border-radius: 4px; }
+.prog-sub  { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+/* ── CHART ───────────────────────────────────────── */
+.chart-wrap { position: relative; }
+.chart-svg  { width: 100%; overflow: visible; display: block; }
+.chart-tooltip {
+  position: absolute; background: var(--grouped); border: 0.5px solid var(--sep);
+  border-radius: var(--r-md); padding: 9px 13px; font-size: 12px; pointer-events: none;
+  display: none; box-shadow: 0 6px 24px rgba(0,0,0,0.13); z-index: 10; min-width: 120px;
+}
+.chart-tooltip b { font-size: 15px; font-weight: 700; display: block; margin-bottom: 1px; color: var(--text); }
+.chart-tooltip span { color: var(--text2); }
+.chart-legend { display: flex; gap: 18px; margin-top: 12px; padding-top: 11px; border-top: 0.5px solid var(--sep); }
+.cl { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+.cl-sw { width: 18px; height: 3px; border-radius: 2px; }
+.trend-chart-container { position: relative; height: 180px; }
+
+/* Chart.js container */
+#fuelTrendCanvas { border-radius: var(--r-md); }
+
+/* ── FUEL HISTORY ROW ────────────────────────────── */
+.fill-row {
+  display: flex; align-items: flex-start;
+  padding: 12px 16px; gap: 12px;
+  position: relative; background: var(--grouped);
+}
+.fill-row + .fill-row::before {
+  content: ''; position: absolute; top: 0; left: 56px; right: 0;
+  height: 0.5px; background: var(--sep);
+}
+.fill-badge {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.fill-badge.gas    { background: var(--orange-bg); color: var(--orange); }
+.fill-badge.petrol { background: var(--red-bg);    color: var(--red); }
+.fill-body { flex: 1; min-width: 0; }
+.fill-top  { display: flex; justify-content: space-between; align-items: baseline; }
+.fill-date { font-size: 15px; font-weight: 500; color: var(--text); }
+.fill-cost { font-size: 15px; font-weight: 600; color: var(--text); }
+.fill-meta { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+.fill-chip { font-size: 12px; color: var(--text2); }
+.fill-chip b { color: var(--text); font-weight: 500; }
+.fill-km { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.cons-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-top: 5px;
+}
+.cons-badge.good   { background: var(--green-bg);  color: var(--green); }
+.cons-badge.mid    { background: var(--yellow-bg); color: #9a7800; }
+.cons-badge.bad    { background: var(--red-bg);    color: var(--red); }
+@media (prefers-color-scheme: dark) { .cons-badge.mid { color: var(--yellow); } }
+
+/* ── FORM ────────────────────────────────────────── */
+.ios-form { display: flex; flex-direction: column; gap: 0; }
+.form-section-label {
+  font-size: 13px; font-weight: 600; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 0 4px; margin: 20px 0 8px;
+}
+.form-section-label:first-child { margin-top: 0; }
+.form-row {
+  display: flex; align-items: center;
+  padding: 12px 16px; gap: 12px;
+  background: var(--grouped); position: relative;
+  min-height: 50px;
+}
+.form-row + .form-row::before {
+  content: ''; position: absolute;
+  top: 0; left: 16px; right: 0;
+  height: 0.5px; background: var(--sep);
+}
+.form-lbl { font-size: 16px; color: var(--text); flex: 0 0 auto; min-width: 120px; }
+.form-inp {
+  flex: 1; background: none; border: none; outline: none;
+  font-size: 16px; color: var(--text); text-align: right;
+  font-family: var(--font); padding: 0;
+}
+.form-inp::placeholder { color: var(--text3); }
+.form-select {
+  flex: 1; background: none; border: none; outline: none;
+  font-size: 16px; color: var(--text); text-align: right;
+  font-family: var(--font); padding: 0; -webkit-appearance: none; appearance: none;
+}
+.form-group-box {
+  background: var(--grouped); border-radius: var(--r-lg);
+  overflow: hidden; margin-bottom: 10px; box-shadow: var(--shadow);
+}
+.form-hint { font-size: 12px; color: var(--text2); margin-top: 6px; padding: 0 4px; }
+.ios-btn-primary {
+  width: 100%; padding: 15px; border-radius: var(--r-lg);
+  background: var(--accent); color: #fff; border: none;
+  font-size: 17px; font-weight: 600; font-family: var(--font);
+  cursor: pointer; margin-top: 8px; transition: opacity 0.15s;
+}
+.ios-btn-primary:active { opacity: 0.75; }
+.ios-btn-primary:disabled { opacity: 0.4; }
+
+.form-message {
+  text-align: center; font-size: 15px; padding: 12px;
+  border-radius: var(--r-md); margin-top: 10px;
   font-weight: 500;
-  color: #555;
-  font-size: 0.95em;
+}
+.form-message.success { background: var(--green-bg); color: var(--green); }
+.form-message.error   { background: var(--red-bg);   color: var(--red); }
+
+/* ── STAT CARDS (service) ────────────────────────── */
+.stat-cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.stat-card-ios {
+  background: var(--grouped); border-radius: var(--r-md);
+  padding: 14px; box-shadow: var(--shadow);
+}
+.stat-card-ios .sc-label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+.stat-card-ios .sc-value { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; font-family: var(--font-r); }
+.stat-card-ios .sc-value .u { font-size: 13px; font-weight: 400; color: var(--text2); }
+.stat-card-ios .sc-sub { font-size: 11px; color: var(--text2); margin-top: 3px; }
+.trend-up   { color: var(--red); }
+.trend-down { color: var(--green); }
+
+/* Distribution bars */
+.dist-item { margin-bottom: 10px; }
+.dist-item:last-child { margin-bottom: 0; }
+.dist-head { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.dist-name { font-size: 13px; color: var(--text); }
+.dist-pct  { font-size: 13px; font-weight: 600; color: var(--text2); }
+.dist-track { height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+.dist-fill  { height: 100%; border-radius: 3px; background: var(--accent); }
+
+/* ── SETTINGS ────────────────────────────────────── */
+.setting-toggle-row {
+  display: flex; align-items: center; padding: 12px 16px;
+  background: var(--grouped); position: relative; min-height: 50px;
+}
+.setting-toggle-row + .setting-toggle-row::before {
+  content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 0.5px; background: var(--sep);
+}
+.setting-toggle-lbl { flex: 1; font-size: 16px; color: var(--text); }
+/* Native iOS toggle via checkbox */
+.ios-toggle { width: 51px; height: 31px; position: relative; appearance: none; -webkit-appearance: none; }
+.ios-toggle::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--bg2); border-radius: 20px; transition: background 0.2s;
+}
+.ios-toggle::after {
+  content: ''; position: absolute;
+  width: 27px; height: 27px; background: #fff;
+  border-radius: 50%; top: 2px; left: 2px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  transition: transform 0.2s cubic-bezier(.34,1.56,.64,1);
+}
+.ios-toggle:checked::before { background: var(--green); }
+.ios-toggle:checked::after  { transform: translateX(20px); }
+
+/* ── SKELETON ────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skel {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--bg2) 25%, var(--sep2) 37%, var(--bg2) 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.skel-hero   { height: 112px; border-radius: var(--r-xl); margin-bottom: 10px; }
+.skel-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.skel-mini   { height: 80px; border-radius: var(--r-md); }
+.skel-group  { border-radius: var(--r-lg); overflow: hidden; margin-bottom: 10px; }
+.skel-row    { height: 50px; }
+.skel-row + .skel-row { margin-top: 1px; }
+.skel-label  { height: 12px; width: 110px; border-radius: 6px; margin: 24px 0 10px 4px; }
+
+.skel-screen {
+  position: absolute; inset: 0;
+  padding: 20px 16px;
+  background: var(--bg);
+  z-index: 5;
+  transition: opacity 0.35s ease;
+}
+.skel-screen.hidden { opacity: 0; pointer-events: none; }
+
+/* ── ERROR ───────────────────────────────────────── */
+.error-card {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; padding: 60px 32px; text-align: center;
+}
+.error-title { font-size: 20px; font-weight: 700; color: var(--text); }
+.error-sub   { font-size: 14px; color: var(--text2); }
+
+/* ── EMPTY STATE ─────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--text2); font-size: 15px;
 }
 
-.form-group input[type="date"],
-.form-group input[type="number"],
-.form-group select,
-.form-group textarea {
-  width: calc(100% - 16px);
-  padding: 10px 8px;
-  border: 1px solid #ced4da;
-  border-radius: 5px;
-  font-size: 0.9em;
-  color: #495057;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  box-sizing: border-box;
+/* ── ANIMATIONS ──────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.2);
-  outline: none;
-}
-
-.form-group textarea {
-  min-height: 60px;
-}
-
-.form-group small {
-  margin-top: 4px;
-  font-size: 0.75em;
-}
-
-button[type="submit"] {
-  display: block;
-  width: 100%;
-  padding: 12px 15px;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 1em;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2);
-}
-
-button[type="submit"]:hover {
-  background-color: #218838;
-  transform: translateY(-1px);
-}
-
-button[type="submit"]:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(40, 167, 69, 0.3);
-}
-
-#formMessage {
-  padding: 10px;
-  border-radius: 6px;
-  margin-top: 15px;
-  font-size: 0.9em;
-  font-weight: 500;
-  text-align: center;
-}
-
-.form-group select {
-  background-position: right 8px center;
-  background-size: 10px;
-  padding-right: 25px;
-}
-
-/* --- ТАБЛИЦЫ (Tables) --- */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 24px;
-}
-
-th, td {
-  padding: 16px 20px;
-  text-align: left;
-  border: 1px solid var(--border-color);
-  font-size: 16px;
-}
-
-th {
-  background-color: #f1f1f1;
-  color: #333;
-}
-
-td {
-  background-color: var(--bg-primary);
-  color: #555;
-}
-
-.mileage { color: var(--error-color); font-weight: bold; }
-.cost { color: var(--success-color); font-weight: bold; }
-.no-comment { font-style: italic; color: #888; }
-
-/* ==========================================================================
-   4. АДАПТИВНОСТЬ (Responsive)
-   ========================================================================== */
-
-/* Планшеты и маленькие ноутбуки */
-@media (max-width: 768px) {
-  /* Общие */
-  header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 12px 16px;
-  }
-  
-  header h1 {
-    font-size: 18px;
-    margin-bottom: 10px;
-  }
-  
-  nav {
-    width: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 5px;
-  }
-  
-  nav a {
-    font-size: 13px;
-    margin-left: 0;
-    padding: 6px 12px;
-  }
-  
-  .main-content {
-    padding: 16px;
-  }
-  
-  .card {
-    padding: 16px;
-  }
-  
-  h2 {
-    font-size: 20px;
-  }
-  
-  /* Спиннер */
-  .spinner {
-    width: 25px;
-    height: 25px;
-  }
-  
-  /* Таблицы */
-  table {
-    font-size: 13px;
-  }
-  
-  table th, table td {
-    padding: 10px 8px;
-  }
-  
-  .mileage, .cost, .no-comment {
-    font-size: 13px;
-  }
-  
-  /* Раздел Топлива */
-  .fuel-stats {
-    gap: 12px;
-  }
-  
-  .stat-card {
-    padding: 16px;
-  }
-  
-  .stat-value {
-    font-size: 16px;
-    gap: 3px;
-    flex-wrap: nowrap;
-    white-space: nowrap;
-    overflow: hidden;
-  }
-  
-  .consumption-number,
-  .consumption-l100,
-  .consumption-km,
-  .fuel-amount,
-  .separator,
-  .fuel-cost {
-    font-size: 16px;
-  }
-  
-  .separator {
-    font-size: 14px;
-  }
-  
-  .fuel-trend,
-  .fuel-history {
-    padding: 16px;
-  }
-  
-  .trend-chart-container {
-    height: 200px;
-  }
-  
-  /* История заправок */
-    /* ДОБАВЬ ЭТО: */
-  .history-details {
-    font-size: 13px; /* ← для планшетов */
-  }
-  
-  .history-date {
-    font-size: 13px; /* ← дата тоже */
-  }
-  
-  
-  .history-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .history-filters {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
-  }
-  
-  .filter-btn {
-    flex: 1;
-  }
-  
-  /* Обслуживание */
-  .timeline-entry {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .entry-date-info {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    gap: 8px;
-  }
-  
-  .entry-date {
-    margin-bottom: 0;
-    flex: 1;
-  }
-  
-  .entry-km {
-    flex-shrink: 0;
-  }
-  
-  .entry-content {
-    width: 100%;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-  }
-  
-  .entry-icon {
-    align-items: flex-start;
-    min-height: auto;
-  }
-  
-  .timeline-month {
-    font-size: 14px;
-    margin: 20px 0 10px 0;
-  }
-  
-  .service-icon {
-    width: 32px;
-    height: 32px;
-  }
-  
-  /* Инфо блоки */
-  .info {
-    font-size: 14px;
-  }
-  
-  .progress-label {
-    font-size: 13px;
-  }
-  
-  .home-fuel-link {
-    font-size: 14px;
-    padding: 8px 16px;
-  }
-}
-
-/* Мобильные телефоны */
-@media (max-width: 480px) {
-  /* Общие */
-  header {
-    padding: 8px 12px;
-  }
-  
-  header h1 {
-    font-size: 16px;
-  }
-  
-  nav a {
-    font-size: 12px;
-    padding: 5px 10px;
-  }
-  
-  .main-content {
-    padding: 10px;
-  }
-  
-  .card {
-    padding: 12px;
-  }
-  
-  h2 {
-    font-size: 18px;
-  }
-  
-  /* Спиннер */
-  .spinner {
-    width: 20px;
-    height: 20px;
-  }
-  
-  /* Таблицы */
-  table {
-    font-size: 11px;
-  }
-  
-  table th, table td {
-    padding: 8px 6px;
-    font-size: 11px;
-  }
-  
-  .mileage, .cost {
-    font-size: 11px;
-  }
-  
-  .no-comment {
-    font-size: 10px;
-  }
-  
-  /* Нижняя навигация */
-  .bottom-nav {
-    padding: 8px 0;
-    justify-content: space-between;
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-  
-  .bottom-nav-item {
-    padding: 4px 2px;
-    flex-grow: 1;
-    text-align: center;
-    min-width: 0;
-  }
-  
-  .bottom-nav-item img {
-    width: 22px;
-    height: 22px;
-    margin: 0 auto 2px;
-    display: block;
-  }
-  
-  .bottom-nav-item span {
-    font-size: 10px;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 60px;
-  }
-  
-  .bottom-nav-item.add-tab {
-    flex-grow: 0;
-    flex-basis: 44px;
-  }
-  
-  .bottom-nav-item.add-tab img {
-    width: 28px;
-    height: 28px;
-    margin-bottom: 0;
-  }
-  
-  /* Раздел Топлива */
-   .stat-label {
-    font-size: 11px;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    display: block;
-  }
-  
-  
-  .fuel-dashboard {
-    padding: 0 4px;
-  }
-  
-  .stat-value,
-  .consumption-number,
-  .consumption-l100,
-  .consumption-km,
-  .fuel-amount,
-  .separator,
-  .fuel-cost {
-    font-size: 14px;
-  }
-  
-  .stat-value {
-    gap: 2px;
-  }
-  
-  .trend-chart-container {
-    height: 180px;
-  }
-  
-  .section-title {
-    font-size: 13px;
-  }
-  
-  /* История заправок */
-
-  
-  
-  .history-filters {
-    gap: 6px;
-  }
-  
-  .filter-btn {
-    font-size: 11px;
-    padding: 6px 10px;
-  }
-  
-  .history-details {
-    font-size: 12px; /* ← для телефонов */
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .history-date {
-    font-size: 12px; /* ← дата тоже */
-  }
-  
-  /* Инфо блоки */
-  .info {
-    font-size: 13px;
-  }
-  
-  .progress-label {
-    font-size: 12px;
-  }
-  
-  .home-fuel-link {
-    font-size: 13px;
-    padding: 7px 14px;
-  }
-}
-
-/* Очень узкие экраны (Xiaomi и т.д.) */
-@media (max-width: 360px) {
-  .stat-value,
-  .consumption-number,
-  .consumption-l100,
-  .consumption-km,
-  .fuel-amount,
-  .separator,
-  .fuel-cost {
-    font-size: 14px;
-  }
-  
-  
-  .stat-value {
-    font-size: 14px;
-    gap: 1px;
-  }
-  
-  .separator {
-    font-size: 14px;
-  }
-  
-    .history-details {
-    font-size: 11px; /* ← для узких телефонов */
-    gap: 6px;
-  }
-  
-  .history-date {
-    font-size: 11px; /* ← дата тоже */
-  }
-  
-  .fuel-type,
-  .fuel-amount,
-  .fuel-cost {
-    font-size: 11px;
-  }
-  
-  .fuel-price {
-    font-size: 10px;
-  }
-  
-}
-
-
-
-
-
-
-/* ==========================================================================
-   5. УТИЛИТЫ (Utilities)
-   ========================================================================== */
-/* Прогресс бар */
-.progress-wrapper {
-  margin-top: 5px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.progress-bar {
-  height: 8px;
-  background-color: #e0e0e0;
-  border-radius: 4px;
-  width: 100px;
-}
-
-.progress-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--primary-color);
-}
-
-/* Кнопка "Отчет по заправкам" */
-.home-fuel-link {
-  display: inline-block;
-  background-color: var(--primary-color);
-  color: white;
-  padding: 10px 20px;
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  font-weight: 500;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-  transition: background-color 0.3s, box-shadow 0.3s;
-  margin-top: 20px;
-}
-
-.home-fuel-link:hover {
-  background-color: var(--primary-hover);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-
-
-
-/* ==========================================================================
-   СТИЛИ ДЛЯ КАРТОЧЕК СТАТИСТИКИ ОБСЛУЖИВАНИЯ
-   ========================================================================== */
-
-.service-stats-container {
-    margin-bottom: 32px;
-}
-
-.service-stats-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-bottom: 24px;
-}
-
-@media (min-width: 768px) {
-    .service-stats-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-.service-stat-card {
-    background: var(--bg-primary);
-    border-radius: var(--radius-lg);
-    padding: 20px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    border: 1px solid #f0f0f0;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.service-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-}
-
-.service-stat-card--finance {
-    border-top: 4px solid var(--primary-color);
-}
-
-.service-stat-card--activity {
-    border-top: 4px solid var(--success-color);
-}
-
-.service-stat-card--distribution {
-    border-top: 4px solid #5856d6;
-}
-
-.service-stat-card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.service-stat-card-icon img {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-}
-
-.service-stat-card-title {
-    font-family: var(--font-family-fira);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    flex: 1;
-}
-
-.service-stat-card-content {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.service-stat-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-}
-
-.service-stat-label {
-    font-family: var(--font-family-fira);
-    font-size: 13px;
-    color: var(--text-secondary);
-    flex: 1;
-}
-
-.service-stat-value {
-    font-family: var(--font-family-fira);
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-align: right;
-    min-width: 80px;
-}
-
-.trend-up {
-    color: var(--success-color) !important;
-}
-
-.trend-down {
-    color: var(--error-color) !important;
-}
-
-/* Стили для диаграммы распределения */
-.distribution-chart {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.distribution-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.distribution-label {
-    font-family: var(--font-family-fira);
-    font-size: 12px;
-    color: var(--text-secondary);
-    min-width: 70px;
-}
-
-.distribution-bar {
-    flex: 1;
-    height: 8px;
-    background: #f0f0f0;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.distribution-fill {
-    height: 100%;
-    background: var(--primary-color);
-    border-radius: 4px;
-    transition: width 1s ease;
-}
-
-.distribution-value {
-    font-family: var(--font-family-fira);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-primary);
-    min-width: 35px;
-    text-align: right;
-}
-
-/* Адаптивность */
-@media (max-width: 767px) {
-    .service-stat-card {
-        padding: 16px;
-    }
-    
-    .service-stat-card-header {
-        gap: 8px;
-        margin-bottom: 12px;
-    }
-    
-    .service-stat-card-icon img {
-        width: 24px;
-        height: 24px;
-    }
-    
-    .service-stat-card-title {
-        font-size: 11px;
-    }
-    
-    .service-stat-label {
-        font-size: 12px;
-    }
-    
-    .service-stat-value {
-        font-size: 13px;
-        min-width: 70px;
-    }
-    
-    .distribution-label {
-        font-size: 11px;
-        min-width: 60px;
-    }
-    
-    .distribution-value {
-        font-size: 11px;
-    }
-}
-
-@media (max-width: 480px) {
-    .service-stats-grid {
-        gap: 12px;
-    }
-    
-    .service-stat-card {
-        padding: 12px;
-    }
-    
-    .service-stat-item {
-        padding: 3px 0;
-    }
-}
-
-
-#appContent {
-    transition: opacity 0.3s ease-in-out;
-}
+.anim > * { animation: fadeUp 0.3s ease both; }
+.anim > *:nth-child(1) { animation-delay: 0.02s; }
+.anim > *:nth-child(2) { animation-delay: 0.06s; }
+.anim > *:nth-child(3) { animation-delay: 0.10s; }
+.anim > *:nth-child(4) { animation-delay: 0.14s; }
+.anim > *:nth-child(5) { animation-delay: 0.18s; }
+.anim > *:nth-child(6) { animation-delay: 0.22s; }
+.anim > *:nth-child(7) { animation-delay: 0.26s; }
+.anim > *:nth-child(8) { animation-delay: 0.30s; }
+.anim > *:nth-child(9) { animation-delay: 0.34s; }

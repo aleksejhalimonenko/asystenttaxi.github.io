@@ -1,67 +1,102 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Авто: Обслуживание</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <title>Auris · Журнал</title>
   <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  
-<div id="appContent">
-  <div class="main-content">
-    <div class="card">
-      <h2 id="sectionTitle">Загрузка данных...</h2>
-      <table id="dataTable">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
+<div id="app">
+
+  <!-- ── HEADER ─────────────────────────── -->
+  <div class="ios-hdr" id="iosHeader">
+    <div class="ios-hdr-top">
+      <div class="large-title" id="headerTitle">Главная</div>
+      <div class="km-badge" id="kmBadge" style="display:none">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span id="kmBadgeVal">—</span>
+      </div>
+    </div>
+    <div class="ios-hdr-sub" id="headerSub">Бортовой журнал</div>
+  </div>
+
+  <!-- ── CONTENT AREA ───────────────────── -->
+  <div class="content-area" id="appContent">
+
+    <!-- SKELETON -->
+    <div class="skel-screen" id="skelScreen">
+      <div class="skel skel-hero"></div>
+      <div class="skel-grid">
+        <div class="skel skel-mini"></div><div class="skel skel-mini"></div>
+        <div class="skel skel-mini"></div><div class="skel skel-mini"></div>
+      </div>
+      <div class="skel skel-label"></div>
+      <div class="skel-group">
+        <div class="skel skel-row"></div><div class="skel skel-row"></div>
+        <div class="skel skel-row"></div>
+      </div>
+    </div>
+
+    <!-- Dynamic page content injected here -->
+    <div id="pageContent" style="opacity:0;transition:opacity .3s ease"></div>
+
+    <!-- Error state -->
+    <div class="error-card" id="errorCard" style="display:none">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p class="error-title">Нет подключения</p>
+      <p class="error-sub" id="errorMsg">Проверьте интернет-соединение</p>
+      <button class="ios-btn-primary" onclick="loadData()">Повторить</button>
+    </div>
+
+  </div>
+
+  <!-- ── TAB BAR ────────────────────────── -->
+  <nav class="tab-bar">
+    <a href="?page=home" class="tab home-tab" data-page="home">
+      <div class="tab-icon-wrap">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      </div>
+      <span class="tab-lbl">Главная</span>
+    </a>
+    <a href="?page=fuel" class="tab fuel-tab" data-page="fuel">
+      <div class="tab-icon-wrap">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M17 12h1a2 2 0 0 1 2 2v1a2 2 0 0 0 4 0V9l-3-3"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>
+      </div>
+      <span class="tab-lbl">Топливо</span>
+    </a>
+    <a href="?page=addfuel" class="tab add-tab" data-page="addfuel">
+      <div class="tab-icon-wrap add-icon-wrap">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      </div>
+      <span class="tab-lbl">Добавить</span>
+    </a>
+    <a href="?page=service" class="tab service-tab" data-page="service">
+      <div class="tab-icon-wrap">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      </div>
+      <span class="tab-lbl">Обслуживание</span>
+    </a>
+    <a href="?page=settings" class="tab settings-tab" data-page="settings">
+<div class="tab-icon-wrap">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
 </div>
-  
-<div class="spinner-overlay" id="spinnerOverlay">
-  <div class="spinner"></div>
-</div> 
-  
-<nav class="bottom-nav">
-  <a href="?page=home" class="home-tab bottom-nav-item">
-    <img src="icons/free-icon-grid-9478349.png" alt="Главная">
-    <span>Главная</span>
-  </a>
+      <span class="tab-lbl">Настройки</span>
+    </a>
+  </nav>
 
-  <a href="?page=fuel" class="fuel-tab bottom-nav-item">
-    <img src="icons/free-icon-fuel-1505581.png" alt="Топливо" >
-    <span>Топливо</span>
-  </a>
+</div><!-- /app -->
 
-  <a href="?page=addfuel" class="add-tab bottom-nav-item ">
-    <img src="icons/free-icon-add-button-5974633.png" alt="Добавить">
-  </a>
-
-  <a href="?page=service" class="service-tab bottom-nav-item">
-    <img src="icons/free-icon-service-2320897.png" alt="Обслуживание">
-    <span>Обслуживание</span>
-  </a>
-
-  <a href="?page=settings" class="settings-tab bottom-nav-item">
-    <img src="icons/free-icon-settings-7788081.png" alt="Настройки">
-    <span>Настройки</span>
-  </a>
-</nav>
-
-
-<!-- После ваших скриптов -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script src="fuelRange.js"></script>
 <script src="settings.js"></script>
 <script src="addFuel.js"></script>
 <script src="fuelChart.js"></script>
 <script src="serviceStats.js"></script>
-
 <script src="script.js"></script>
 </body>
 </html>
