@@ -157,159 +157,160 @@ function renderByPage(page, data) {
 }
 
 // ── HOME ───────────────────────────────────────────────
-
-// ── HOME LAYOUT ────────────────────────────────────────────
-// Виджеты главной страницы с настройками по умолчанию
-const HOME_LAYOUT_DEFAULTS = {
-  reminders: [
-    { id: 'oil',   label: 'Масло',       enabled: true },
-    { id: 'diag',  label: 'Диагностика', enabled: true },
-    { id: 'insur', label: 'Страховка',   enabled: true },
-    { id: 'gbo',   label: 'ГБО',         enabled: true },
-    { id: 'kpp',   label: 'КПП',         enabled: true },
-  ],
-  minicards: [
-    { id: 'to',       label: 'До ТО',             enabled: true },
-    { id: 'fuel_week',label: 'Топливо / нед.',     enabled: true },
-    { id: 'total',    label: 'Всего расходов',     enabled: true },
-    { id: 'last_fuel',label: 'Последняя заправка', enabled: true },
-  ],
-  sections: [
-    { id: 'spark',  label: 'Тренд расхода газа', enabled: true },
-    { id: 'quick',  label: 'Быстрый доступ',     enabled: true },
-  ]
-};
-
-function getHomeLayout() {
-  try {
-    const saved = localStorage.getItem('home_layout');
-    if (!saved) return JSON.parse(JSON.stringify(HOME_LAYOUT_DEFAULTS));
-    const parsed = JSON.parse(saved);
-    // Merge: add any new defaults that aren't saved yet
-    ['reminders','minicards','sections'].forEach(function(group) {
-      if (!parsed[group]) parsed[group] = JSON.parse(JSON.stringify(HOME_LAYOUT_DEFAULTS[group]));
-    });
-    return parsed;
-  } catch(e) { return JSON.parse(JSON.stringify(HOME_LAYOUT_DEFAULTS)); }
-}
-
-function saveHomeLayout(layout) {
-  localStorage.setItem('home_layout', JSON.stringify(layout));
-}
-
 function renderHome(data) {
   if (!data || typeof data !== 'object') return;
 
+  // Show km in header
   if (data.endKm) {
     DOM.kmBadge.style.display = 'flex';
     DOM.kmBadgeVal.textContent = Number(data.endKm).toLocaleString('ru') + ' км';
   }
 
-  const urgency = function(km) {
+  const urgency = (km) => {
     if (!km) return 'accent';
-    const v = parseInt(km);
-    if (v < 1000) return 'red';
-    if (v < 3000) return 'orange';
+    const n = parseInt(km);
+    if (n < 1000) return 'red';
+    if (n < 3000) return 'orange';
     return 'green';
   };
 
-  const oilKm  = data.nextOilChange;
+  const oilKm = data.nextOilChange;
   const diagKm = data.nextDiagnostic;
   const insur  = data.insuranceEnds;
   const gboKm  = data.gasServiceDue;
 
-  const layout = getHomeLayout();
+  DOM.pageContent.innerHTML = `
+    <div class="anim">
 
-  // ── Reminder circles data map ──────────────────────
-  const REMINDER_MAP = {
-    oil:   { val: oilKm  || '—', unit: ' км', name: 'Масло',       urgCls: urgency(oilKm),
-              svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3h18v4H3z"/><path d="M3 7l2 14h14l2-14"/><path d="M12 11v6"/><path d="M9 11v6"/><path d="M15 11v6"/></svg>' },
-    diag:  { val: diagKm || '—', unit: ' км', name: 'Диагностика', urgCls: urgency(diagKm),
-              svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>' },
-    insur: { val: insur  || '—', unit: ' дн.', name: 'Страховка',  urgCls: (insur && parseInt(insur) < 30 ? 'red' : insur && parseInt(insur) < 60 ? 'orange' : 'green'),
-              svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
-    gbo:   { val: gboKm  || '—', unit: ' км', name: 'ГБО',         urgCls: urgency(gboKm),
-              svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 11h1a2 2 0 0 1 2 2v3a1.5 1.5 0 0 0 3 0v-7l-3-3"/><path d="M4 20v-14a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v14"/><path d="M3 20l12 0"/><path d="M18 7v1a1 1 0 0 0 1 1h1"/><path d="M4 11l10 0"/></svg>' },
-    kpp:   { val: data.nextGearboxOilChange || '—', unit: ' км', name: 'КПП', urgCls: urgency(data.nextGearboxOilChange),
-              svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>' },
-  };
-
-  // ── Mini-cards data map ────────────────────────────
-  const MINI_MAP = {
-    to: '<div class="mini"><div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> До ТО</div><div class="mini-val">' + (data.nextDiagnostic||'—') + '<span class="u"> км</span></div><div class="mini-sub">следующая диагностика</div></div>',
-    fuel_week: '<div class="mini"><div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg> Топливо / нед.</div><div class="mini-val">' + (data.weeklyFuelCost||'—') + '<span class="u"> zł</span></div><div class="mini-sub">' + (data.weeklyFuelPeriod||'текущая неделя') + '</div></div>',
-    total: '<div class="mini"><div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg> Всего расходов</div><div class="mini-val">' + (data.totalCost !== undefined ? String(data.totalCost).replace(/\s*zł\s*$/i,'') : '—') + '<span class="u"> zł</span></div><div class="mini-sub">за всё время</div></div>',
-    last_fuel: '<div class="mini" onclick="location.href=\'?page=fuel\'" style="cursor:pointer"><div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg> Последняя заправка</div><div class="mini-val" id="homeLastFuelVal">—</div><div class="mini-sub" id="homeLastFuelSub">загрузка…</div></div>',
-  };
-
-  // ── Build reminders HTML ───────────────────────────
-  const activeReminders = layout.reminders.filter(function(r){ return r.enabled; });
-  let remindersHTML = '';
-  if (activeReminders.length) {
-    remindersHTML = '<div class="slbl">Ближайшие сроки</div><div class="group" style="padding:16px"><div class="reminders-row">';
-    activeReminders.forEach(function(r) {
-      const d = REMINDER_MAP[r.id];
-      if (!d) return;
-      remindersHTML += '<div class="reminder-item"><div class="reminder-circle ' + d.urgCls + '">' + d.svg + '</div><div class="reminder-val">' + d.val + d.unit + '</div><div class="reminder-name">' + d.name + '</div></div>';
-    });
-    remindersHTML += '</div></div>';
-  }
-
-  // ── Build mini-cards HTML ──────────────────────────
-  const activeMinis = layout.minicards.filter(function(m){ return m.enabled; });
-  let miniHTML = '';
-  if (activeMinis.length) {
-    miniHTML = '<div class="mini-grid">';
-    activeMinis.forEach(function(m) { miniHTML += (MINI_MAP[m.id] || ''); });
-    miniHTML += '</div>';
-  }
-
-  // ── Build sections HTML ────────────────────────────
-  const sectionEnabled = {};
-  layout.sections.forEach(function(s){ sectionEnabled[s.id] = s.enabled; });
-
-  const sparkHTML = sectionEnabled['spark'] ? `
-    <div class="slbl">Тренд расхода газа · 7 заправок</div>
-    <div class="group" style="padding:14px 16px 16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <span style="font-size:12px;color:var(--text2)">последние 7 газовых заправок</span>
-        <span style="font-size:12px;color:var(--text2);font-weight:600" id="homeSparkAvg"></span>
+      <!-- Hero -->
+      <div class="hero blue">
+        <div class="hero-lbl">Текущий пробег</div>
+        <div class="hero-val">${data.endKm ? Number(data.endKm).toLocaleString('ru') : '—'} <span class="hero-unit">км</span></div>
+        <div class="hero-sub">за период наблюдения ${data.distance || '—'} км</div>
+        <div class="hero-icon">
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </div>
       </div>
-      <div id="homeSparkWrap" style="position:relative">
-        <svg id="homeSparkSvg" width="100%" height="80" style="display:block;overflow:visible"></svg>
-        <div id="homeSparkEmpty" style="display:none;text-align:center;padding:20px 0;font-size:13px;color:var(--text2)">Нет данных о расходе</div>
-      </div>
-    </div>` : '';
 
-  const quickHTML = sectionEnabled['quick'] ? `
-    <div class="slbl">Быстрый доступ</div>
-    <div class="group">
-      <div class="row" onclick="location.href='?page=addfuel'" style="cursor:pointer">
-        <div class="row-icon" style="background:var(--accent-bg)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
-        <div class="row-body"><div class="row-title">Добавить заправку</div></div>
-        <div class="row-right"><div class="chevron">${CHV}</div></div>
+      <!-- Mini stats -->
+      <div class="mini-grid">
+        <div class="mini">
+          <div class="mini-lbl">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            До ТО
+          </div>
+          <div class="mini-val">${data.nextDiagnostic || '—'}<span class="u"> км</span></div>
+          <div class="mini-sub">следующая диагностика</div>
+        </div>
+        <div class="mini">
+          <div class="mini-lbl">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            Топливо / нед.
+          </div>
+          <div class="mini-val">${data.weeklyFuelCost || '—'}<span class="u"> zł</span></div>
+          <div class="mini-sub">${data.weeklyFuelPeriod || 'текущая неделя'}</div>
+        </div>
+        <div class="mini">
+          <div class="mini-lbl">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+            Всего расходов
+          </div>
+          <div class="mini-val">${data.totalCost !== undefined ? String(data.totalCost).replace(/\s*zł\s*$/i,'') : '—'}<span class="u"> zł</span></div>
+          <div class="mini-sub">за всё время</div>
+        </div>
+        <div class="mini" onclick="location.href='?page=fuel'" style="cursor:pointer">
+          <div class="mini-lbl">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+            Последняя заправка
+          </div>
+          <div class="mini-val" id="homeLastFuelVal">—</div>
+          <div class="mini-sub" id="homeLastFuelSub">загрузка…</div>
+        </div>
       </div>
-      <div class="row" onclick="location.href='?page=fuel'" style="cursor:pointer">
-        <div class="row-icon" style="background:var(--orange-bg)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg></div>
-        <div class="row-body"><div class="row-title">История заправок</div></div>
-        <div class="row-right"><div class="chevron">${CHV}</div></div>
-      </div>
-      <div class="row" onclick="location.href='?page=service'" style="cursor:pointer">
-        <div class="row-icon" style="background:var(--green-bg)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
-        <div class="row-body"><div class="row-title">Обслуживание и ремонт</div></div>
-        <div class="row-right"><div class="chevron">${CHV}</div></div>
-      </div>
-    </div>` : '';
 
-  DOM.pageContent.innerHTML =
-    '<div class="anim">' +
-    '<div class="hero blue"><div class="hero-lbl">Текущий пробег</div>' +
-    '<div class="hero-val">' + (data.endKm ? Number(data.endKm).toLocaleString('ru') : '—') + ' <span class="hero-unit">км</span></div>' +
-    '<div class="hero-sub">за период наблюдения ' + (data.distance||'—') + ' км</div>' +
-    '<div class="hero-icon"><svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>' +
-    '</div>' +
-    miniHTML + remindersHTML + sparkHTML + quickHTML +
-    '</div>';
+      <!-- Reminders -->
+      <div class="slbl">Ближайшие сроки</div>
+      <div class="group" style="padding: 16px">
+        <div class="reminders-row">
+          <div class="reminder-item">
+            <div class="reminder-circle ${urgency(oilKm)}">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3h18v4H3z"/><path d="M3 7l2 14h14l2-14"/><path d="M12 11v6"/><path d="M9 11v6"/><path d="M15 11v6"/></svg>
+            </div>
+            <div class="reminder-val">${oilKm || '—'} км</div>
+            <div class="reminder-name">Масло</div>
+          </div>
+          <div class="reminder-item">
+            <div class="reminder-circle ${urgency(diagKm)}">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <div class="reminder-val">${diagKm || '—'} км</div>
+            <div class="reminder-name">Диагностика</div>
+          </div>
+          <div class="reminder-item">
+            <div class="reminder-circle ${insur && parseInt(insur) < 30 ? 'red' : insur && parseInt(insur) < 60 ? 'orange' : 'green'}">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="reminder-val">${insur || '—'} дн.</div>
+            <div class="reminder-name">Страховка</div>
+          </div>
+          <div class="reminder-item">
+            <div class="reminder-circle ${urgency(gboKm)}">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-gas-station"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 11h1a2 2 0 0 1 2 2v3a1.5 1.5 0 0 0 3 0v-7l-3 -3" /><path d="M4 20v-14a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v14" /><path d="M3 20l12 0" /><path d="M18 7v1a1 1 0 0 0 1 1h1" /><path d="M4 11l10 0" /></svg>
+            </div>
+            <div class="reminder-val">${gboKm || '—'} км</div>
+            <div class="reminder-name">ГБО</div>
+          </div>
+          <div class="reminder-item">
+            <div class="reminder-circle accent">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            </div>
+            <div class="reminder-val">${data.nextGearboxOilChange || '—'} км</div>
+            <div class="reminder-name">КПП</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sparkline: 7 последних газовых записей -->
+      <div class="slbl">Тренд расхода газа · 7 заправок</div>
+      <div class="group" style="padding:14px 16px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--text2)">последние 7 газовых заправок</span>
+          <span style="font-size:12px;color:var(--text2);font-weight:600" id="homeSparkAvg"></span>
+        </div>
+        <div id="homeSparkWrap" style="position:relative">
+          <svg id="homeSparkSvg" width="100%" height="80" style="display:block;overflow:visible"></svg>
+          <div id="homeSparkEmpty" style="display:none;text-align:center;padding:20px 0;font-size:13px;color:var(--text2)">Нет данных о расходе</div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="slbl">Быстрый доступ</div>
+      <div class="group">
+        <div class="row" onclick="location.href='?page=addfuel'" style="cursor:pointer">
+          <div class="row-icon" style="background:var(--accent-bg)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+          <div class="row-body"><div class="row-title">Добавить заправку</div></div>
+          <div class="row-right"><div class="chevron">${CHV}</div></div>
+        </div>
+        <div class="row" onclick="location.href='?page=fuel'" style="cursor:pointer">
+          <div class="row-icon" style="background:var(--orange-bg)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>
+          </div>
+          <div class="row-body"><div class="row-title">История заправок</div></div>
+          <div class="row-right"><div class="chevron">${CHV}</div></div>
+        </div>
+        <div class="row" onclick="location.href='?page=service'" style="cursor:pointer">
+          <div class="row-icon" style="background:var(--green-bg)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <div class="row-body"><div class="row-title">Обслуживание и ремонт</div></div>
+          <div class="row-right"><div class="chevron">${CHV}</div></div>
+        </div>
+      </div>
+
+    </div>
+  `;
 
   _populateHomeFromFuelCache();
 }
@@ -1331,85 +1332,114 @@ function _applySvcFilters() {
 }
 
 // ── SETTINGS ───────────────────────────────────────────
+// ── HOME LAYOUT ────────────────────────────────────────
+const HOME_LAYOUT_DEFAULTS = {
+  reminders: [
+    { id:'oil',   label:'Масло',        enabled:true },
+    { id:'diag',  label:'Диагностика',  enabled:true },
+    { id:'insur', label:'Страховка',    enabled:true },
+    { id:'gbo',   label:'ГБО',          enabled:true },
+    { id:'kpp',   label:'КПП',          enabled:true },
+  ],
+  minicards: [
+    { id:'to',        label:'До ТО',              enabled:true },
+    { id:'fuel_week', label:'Топливо / нед.',      enabled:true },
+    { id:'total',     label:'Всего расходов',      enabled:true },
+    { id:'last_fuel', label:'Последняя заправка',  enabled:true },
+  ],
+  sections: [
+    { id:'spark', label:'Тренд расхода газа', enabled:true },
+    { id:'quick', label:'Быстрый доступ',     enabled:true },
+  ]
+};
+
+function getHomeLayout() {
+  try {
+    const s = localStorage.getItem('home_layout');
+    if (!s) return JSON.parse(JSON.stringify(HOME_LAYOUT_DEFAULTS));
+    const p = JSON.parse(s);
+    ['reminders','minicards','sections'].forEach(function(g) {
+      if (!p[g]) p[g] = JSON.parse(JSON.stringify(HOME_LAYOUT_DEFAULTS[g]));
+    });
+    return p;
+  } catch(e) { return JSON.parse(JSON.stringify(HOME_LAYOUT_DEFAULTS)); }
+}
+function saveHomeLayout(layout) { localStorage.setItem('home_layout', JSON.stringify(layout)); }
+
+// ── SETTINGS ───────────────────────────────────────────
 function renderSettings(data) {
   const count = Array.isArray(data) ? data.length : (data ? Object.keys(data).length : 0);
   const layout = getHomeLayout();
 
-  // Icon colors per item id
-  const ITEM_COLORS = {
+  const COLORS = {
     oil:'#ff9500', diag:'#007aff', insur:'#ff3b30', gbo:'#34c759', kpp:'#5856d6',
     to:'#007aff', fuel_week:'#ff9500', total:'#34c759', last_fuel:'#ff6b00',
     spark:'#007aff', quick:'#34c759'
   };
 
-  function buildLayoutSection(title, items, groupId, resetBtn) {
-    let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px">';
-    html += '<div class="slbl" style="margin:0">' + title + '</div>';
-    if (resetBtn) html += '<button class="layout-reset-btn" onclick="_layoutReset()">Сбросить</button>';
-    html += '</div>';
-    html += '<div id="' + groupId + '">';
+  function buildGroup(title, items, gid, showReset) {
+    let h = '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px">';
+    h += '<div class="slbl" style="margin:0">' + title + '</div>';
+    if (showReset) h += '<button class="layout-reset-btn" onclick="_layoutReset()">Сбросить всё</button>';
+    h += '</div><div id="' + gid + '">';
     items.forEach(function(item) {
-      const color = ITEM_COLORS[item.id] || '#8e8e93';
-      html += '<div class="layout-item" data-id="' + item.id + '" data-group="' + groupId + '">' +
-        '<div class="layout-drag-handle">' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>' +
+      const c = COLORS[item.id] || '#8e8e93';
+      h += '<div class="layout-item" data-id="' + item.id + '">' +
+        '<div class="layout-drag-handle" title="Перетащить">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>' +
         '</div>' +
-        '<div class="layout-item-icon" style="background:' + color + '22">' +
-          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/></svg>' +
+        '<div class="layout-item-icon" style="background:' + c + '22">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="' + c + '" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="5"/></svg>' +
         '</div>' +
         '<div class="layout-item-name">' + item.label + '</div>' +
         '<label style="position:relative;display:inline-block;width:51px;height:31px;flex-shrink:0">' +
-          '<input type="checkbox" class="ios-toggle layout-toggle" data-id="' + item.id + '" data-group="' + groupId + '"' + (item.enabled ? ' checked' : '') + '>' +
-        '</label>' +
-        '</div>';
+          '<input type="checkbox" class="ios-toggle layout-toggle" data-id="' + item.id + '" data-gid="' + gid + '"' + (item.enabled ? ' checked' : '') + '>' +
+        '</label></div>';
     });
-    html += '</div>';
-    return html;
+    return h + '</div>';
   }
 
   DOM.pageContent.innerHTML =
     '<div class="anim">' +
-
     '<div class="slbl">Автомобиль</div>' +
-    '<div class="form-group-box">' +
-      '<div class="form-row"><label class="form-lbl" for="currentMileage">Текущий пробег</label>' +
-      '<input class="form-inp" type="number" id="currentMileage" placeholder="км"></div>' +
-    '</div>' +
+    '<div class="form-group-box"><div class="form-row">' +
+      '<label class="form-lbl" for="currentMileage">Текущий пробег</label>' +
+      '<input class="form-inp" type="number" id="currentMileage" placeholder="км">' +
+    '</div></div>' +
     '<button class="ios-btn-primary" onclick="saveMileage()">Обновить пробег</button>' +
 
     '<div class="slbl" style="margin-top:24px">Настройка главной страницы</div>' +
-    '<p style="font-size:13px;color:var(--text2);margin:0 0 12px;padding:0 4px">Зажмите ≡ чтобы изменить порядок. Тоггл — показать/скрыть.</p>' +
+    '<p style="font-size:13px;color:var(--text2);margin:0 0 4px;padding:0 4px">' +
+      'Перетащите <b>⠿</b> для изменения порядка. Тоггл — скрыть/показать.</p>' +
 
-    buildLayoutSection('Ближайшие сроки', layout.reminders, 'layout-reminders', false) +
-    buildLayoutSection('Мини-карточки',   layout.minicards,  'layout-minicards',  false) +
-    buildLayoutSection('Секции',          layout.sections,   'layout-sections',   true)  +
+    buildGroup('Ближайшие сроки', layout.reminders, 'lg-reminders', false) +
+    buildGroup('Мини-карточки',   layout.minicards,  'lg-minicards',  false) +
+    buildGroup('Секции',          layout.sections,   'lg-sections',   true)  +
 
     '<div class="slbl" style="margin-top:24px">О приложении</div>' +
     '<div class="group">' +
       '<div class="row"><div class="row-body"><div class="row-title">Версия</div></div><div class="row-right"><div class="row-val">1.0.0</div></div></div>' +
-      '<div class="row"><div class="row-body"><div class="row-title">Всего записей</div></div><div class="row-right"><div class="row-val">' + count + '</div></div></div>' +
-      '<div class="row" style="cursor:pointer" onclick="_clearCache()"><div class="row-body"><div class="row-title" style="color:var(--red)">Очистить кэш</div></div><div class="row-right"><div class="chevron">' + (typeof CHV !== 'undefined' ? CHV : '') + '</div></div></div>' +
-    '</div>' +
-    '</div>';
+      '<div class="row"><div class="row-body"><div class="row-title">Записей обслуживания</div></div><div class="row-right"><div class="row-val">' + count + '</div></div></div>' +
+      '<div class="row" style="cursor:pointer" onclick="_clearCache(event)"><div class="row-body"><div class="row-title" style="color:var(--red)">Очистить кэш</div></div><div class="row-right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>' +
+    '</div></div>';
 
   const saved = localStorage.getItem('currentMileage');
   if (saved) document.getElementById('currentMileage').value = saved;
 
-  // Attach toggle listeners
+  // Toggle listeners
   document.querySelectorAll('.layout-toggle').forEach(function(chk) {
     chk.addEventListener('change', function() {
-      const id = this.dataset.id;
-      const grp = this.dataset.group;
       const layout = getHomeLayout();
-      const groupKey = grp === 'layout-reminders' ? 'reminders' : grp === 'layout-minicards' ? 'minicards' : 'sections';
-      const item = layout[groupKey].find(function(x){ return x.id === id; });
+      const gid = this.dataset.gid;
+      const key  = gid === 'lg-reminders' ? 'reminders' : gid === 'lg-minicards' ? 'minicards' : 'sections';
+      const item = layout[key].find(function(x){ return x.id === this.dataset.id; }, this);
       if (item) item.enabled = this.checked;
       saveHomeLayout(layout);
     });
   });
 
-  // Init drag-and-drop for each group
-  ['layout-reminders','layout-minicards','layout-sections'].forEach(function(gid) {
+  // Init drag for each group
+  ['lg-reminders','lg-minicards','lg-sections'].forEach(function(gid) {
     _initDragGroup(document.getElementById(gid));
   });
 }
@@ -1429,91 +1459,104 @@ function saveIntervals() {
   setTimeout(function(){ btn.textContent = 'Сохранить интервалы'; }, 1500);
 }
 
-function _clearCache() {
+function _clearCache(e) {
   ['cache_v2_home','cache_v2_fuel','cache_v2_service','cache_v2_settings'].forEach(function(k){
     localStorage.removeItem(k);
   });
-  const row = event.currentTarget;
-  if (row) { row.querySelector('.row-title').textContent = '✓ Кэш очищен'; setTimeout(function(){ row.querySelector('.row-title').textContent = 'Очистить кэш'; row.querySelector('.row-title').style.color = 'var(--red)'; }, 1500); }
+  const title = e.currentTarget.querySelector('.row-title');
+  if (title) {
+    title.textContent = '✓ Кэш очищен';
+    setTimeout(function(){ title.textContent = 'Очистить кэш'; }, 1500);
+  }
 }
 
 function _layoutReset() {
   saveHomeLayout(JSON.parse(JSON.stringify(HOME_LAYOUT_DEFAULTS)));
-  // Re-render settings
-  const page = getQueryParam('page') || 'home';
   loadData();
 }
 
-// ── DRAG AND DROP ──────────────────────────────────────
+// ── DRAG AND DROP (mouse + touch) ──────────────────────
 function _initDragGroup(container) {
   if (!container) return;
-  const groupKey = container.id === 'layout-reminders' ? 'reminders'
-                 : container.id === 'layout-minicards'  ? 'minicards' : 'sections';
+  const gid    = container.id;
+  const gKey   = gid === 'lg-reminders' ? 'reminders' : gid === 'lg-minicards' ? 'minicards' : 'sections';
+  let dragEl   = null;
+  let placeholder = null;
 
-  let dragEl = null, startY = 0, startIdx = 0, ghost = null;
-
+  function getY(e)    { return e.touches ? e.touches[0].clientY : e.clientY; }
   function getItems() { return Array.from(container.querySelectorAll('.layout-item')); }
-  function getIdx(el) { return getItems().indexOf(el); }
 
-  container.addEventListener('touchstart', function(e) {
-    const handle = e.target.closest('.layout-drag-handle');
-    if (!handle) return;
-    dragEl = handle.closest('.layout-item');
+  function onStart(e) {
+    if (!e.target.closest('.layout-drag-handle')) return;
+    dragEl = e.target.closest('.layout-item');
     if (!dragEl) return;
-    startY  = e.touches[0].clientY;
-    startIdx = getIdx(dragEl);
-    dragEl.classList.add('dragging');
-    e.preventDefault();
-  }, { passive: false });
 
-  container.addEventListener('touchmove', function(e) {
+    // Create placeholder (ghost slot)
+    placeholder = document.createElement('div');
+    placeholder.style.cssText = 'height:' + dragEl.offsetHeight + 'px;' +
+      'border-radius:12px;background:var(--sep);margin-bottom:6px;transition:none';
+    dragEl.parentNode.insertBefore(placeholder, dragEl.nextSibling);
+
+    dragEl.style.cssText = 'position:fixed;z-index:999;width:' + dragEl.offsetWidth + 'px;' +
+      'left:' + dragEl.getBoundingClientRect().left + 'px;' +
+      'top:' + dragEl.getBoundingClientRect().top + 'px;' +
+      'box-shadow:0 10px 30px rgba(0,0,0,0.22);transition:none;touch-action:none;' +
+      'background:var(--grouped);border-radius:12px;opacity:0.97';
+
+    dragEl._startY    = getY(e);
+    dragEl._offsetTop = dragEl.getBoundingClientRect().top;
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onEnd);
+    document.addEventListener('touchmove', onMove, { passive:false });
+    document.addEventListener('touchend',  onEnd);
+    e.preventDefault();
+  }
+
+  function onMove(e) {
     if (!dragEl) return;
-    e.preventDefault();
-    const y = e.touches[0].clientY;
-    const items = getItems();
+    if (e.cancelable) e.preventDefault();
+    const y    = getY(e);
+    const dy   = y - dragEl._startY;
+    dragEl.style.top = (dragEl._offsetTop + dy) + 'px';
 
-    // Find which item we're hovering over
-    let targetEl = null;
-    items.forEach(function(item) {
-      if (item === dragEl) return;
-      const rect = item.getBoundingClientRect();
-      const mid  = rect.top + rect.height / 2;
-      if (y < mid) {
-        if (!targetEl) targetEl = item;
-      }
-    });
-
-    // Clear all drag-over
-    items.forEach(function(i){ i.classList.remove('drag-over'); });
-    if (targetEl) targetEl.classList.add('drag-over');
-
-    // Live reorder
-    if (targetEl && targetEl !== dragEl) {
-      const targetIdx = getIdx(targetEl);
-      if (targetIdx < getIdx(dragEl)) {
-        container.insertBefore(dragEl, targetEl);
-      } else {
-        container.insertBefore(dragEl, targetEl.nextSibling);
-      }
-    } else if (!targetEl) {
-      container.appendChild(dragEl);
+    // Find insertion point
+    const items = getItems().filter(function(el){ return el !== dragEl; });
+    let insertBefore = null;
+    for (let i = 0; i < items.length; i++) {
+      const r = items[i].getBoundingClientRect();
+      if (y < r.top + r.height / 2) { insertBefore = items[i]; break; }
     }
-  }, { passive: false });
+    if (insertBefore) {
+      container.insertBefore(placeholder, insertBefore);
+    } else {
+      container.appendChild(placeholder);
+    }
+  }
 
-  container.addEventListener('touchend', function(e) {
+  function onEnd(e) {
     if (!dragEl) return;
-    dragEl.classList.remove('dragging');
-    container.querySelectorAll('.layout-item').forEach(function(i){ i.classList.remove('drag-over'); });
+    // Snap to placeholder position
+    dragEl.style.cssText = '';
+    container.insertBefore(dragEl, placeholder);
+    placeholder.remove();
+    placeholder = null;
 
     // Save new order
     const newOrder = getItems().map(function(el){ return el.dataset.id; });
-    const layout = getHomeLayout();
-    const arr = layout[groupKey];
-    arr.sort(function(a, b){ return newOrder.indexOf(a.id) - newOrder.indexOf(b.id); });
+    const layout   = getHomeLayout();
+    layout[gKey].sort(function(a,b){ return newOrder.indexOf(a.id) - newOrder.indexOf(b.id); });
     saveHomeLayout(layout);
 
     dragEl = null;
-  });
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup',   onEnd);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend',  onEnd);
+  }
+
+  container.addEventListener('mousedown',  onStart);
+  container.addEventListener('touchstart', onStart, { passive:false });
 }
 
 // ── PLACEHOLDER ────────────────────────────────────────
