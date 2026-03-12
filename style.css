@@ -535,3 +535,35 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .anim > *:nth-child(7) { animation-delay: 0.26s; }
 .anim > *:nth-child(8) { animation-delay: 0.30s; }
 .anim > *:nth-child(9) { animation-delay: 0.34s; }
+
+/* ── LAYOUT EDITOR (drag-and-drop) ─────────────────── */
+.layout-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: var(--grouped);
+  border-radius: 12px;
+  margin-bottom: 6px;
+  user-select: none; -webkit-user-select: none;
+  transition: box-shadow 0.2s, opacity 0.2s;
+  touch-action: none;
+  position: relative;
+}
+.layout-item.dragging {
+  opacity: 0.45;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.20);
+}
+.layout-item.drag-over { box-shadow: 0 0 0 2px var(--accent); }
+.layout-drag-handle {
+  color: var(--text3); cursor: grab; padding: 2px 6px; flex-shrink: 0;
+}
+.layout-drag-handle:active { cursor: grabbing; }
+.layout-item-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.layout-item-name { flex: 1; font-size: 15px; color: var(--text); font-weight: 500; }
+.layout-item-sub  { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.layout-reset-btn {
+  font-size: 13px; color: var(--accent); cursor: pointer;
+  background: none; border: none; font-family: var(--font); padding: 0;
+}
