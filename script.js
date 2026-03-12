@@ -25,7 +25,7 @@ const TITLE_MAP = {
   settings: 'Настройки',
 };
 
-const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbxLYT5b2qCLXK8iLtSz-48kimWcjGYfI6r31s3sJMjPJljrVMuJqmuNIswJ7RnjiTmG/exec';
+const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbyI8Wopp--leJCvpPEu7vDLjPG52rc03ZRikOxWsqLa7WuRCiZzUeTR02Q9KnnpTGBb/exec';
 
 // ── UTILS ──────────────────────────────────────────────
 function getQueryParam(name) {
@@ -1322,47 +1322,220 @@ function _applySvcFilters() {
 
 // ── SETTINGS ───────────────────────────────────────────
 function renderSettings(data) {
-  const count = Array.isArray(data) ? data.length : (data ? Object.keys(data).length : 0);
+  const count  = Array.isArray(data) ? data.length : (data ? Object.keys(data).length : 0);
   const layout = getHomeLayout();
+
+  // Цвета для layout-editor
   const COLORS = {
     oil:'#ff9500',diag:'#007aff',insur:'#ff3b30',gbo:'#34c759',kpp:'#5856d6',
     to:'#007aff',fuel_week:'#ff9500',total:'#34c759',last_fuel:'#ff6b00',
     spark:'#007aff',quick:'#34c759'
   };
 
-  function buildGroup(title, items, gid, showReset) {
-    var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px">' +
-      '<div class="slbl" style="margin:0">' + title + '</div>' +
-      (showReset ? '<button style="font-size:13px;color:var(--accent);background:none;border:none;font-family:var(--font);cursor:pointer;padding:0" onclick="_layoutReset()">Сбросить всё</button>' : '') +
-      '</div><div id="' + gid + '">';
-    items.forEach(function(item) {
-      var c = COLORS[item.id] || '#8e8e93';
-      h += '<div class="layout-item" data-id="' + item.id + '">' +
-        '<div class="layout-drag-handle" style="color:var(--text3);cursor:grab;padding:4px 10px;flex-shrink:0;font-size:20px;line-height:1;user-select:none;-webkit-user-select:none">⠿</div>' +
-        '<div style="width:30px;height:30px;border-radius:8px;background:'+c+'22;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+c+'" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="5"/></svg>' +
+  // Данные из кэша главной — для "осталось X км/дн"
+  var home = {};
+  try { home = JSON.parse(localStorage.getItem('cache_v2_home') || '{}'); } catch(e){}
+
+  // Данные авто из кэша настроек
+  var c = {};
+  try { c = JSON.parse(localStorage.getItem('car_settings') || '{}'); } catch(e){}
+
+  // ── Helpers ─────────────────────────────────────────
+
+  // Цветной кружок с SVG (как в layout editor)
+  function accIcon(color, svgPath) {
+    return '<div style="width:34px;height:34px;border-radius:9px;background:' + color + '22;' +
+      'display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="' + color + '" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + svgPath + '</svg></div>';
+  }
+
+  // Бейдж "осталось" — зелёный/оранжевый/красный
+  function badge(val, unit) {
+    if (!val && val !== 0) return '';
+    var n = parseInt(val);
+    var cls = n < 1000 ? 'red' : n < 3000 ? 'orange' : 'green';
+    return ' <span class="acc-badge acc-badge-' + cls + '">' + val + unit + '</span>';
+  }
+
+  // Бейдж для дней страховки
+  function badgeDays(val) {
+    if (!val && val !== 0) return '';
+    var n = parseInt(val);
+    var cls = n < 30 ? 'red' : n < 60 ? 'orange' : 'green';
+    return ' <span class="acc-badge acc-badge-' + cls + '">' + val + ' дн.</span>';
+  }
+
+  // Инпут — текст слева
+  function inp(id, label, type, placeholder, val) {
+    return '<div class="form-row">' +
+      '<label class="form-lbl">' + label + '</label>' +
+      '<input class="form-inp cs-inp" id="' + id + '" type="' + (type||'text') + '" ' +
+      'placeholder="' + placeholder + '" value="' + (val||'') + '">' +
+      '</div>';
+  }
+
+  // Инпут с кнопкой копирования
+  function inpCopy(id, label, placeholder, val) {
+    return '<div class="form-row cs-copy-row">' +
+      '<label class="form-lbl" style="flex-shrink:0">' + label + '</label>' +
+      '<div class="cs-copy-wrap">' +
+        '<input class="form-inp cs-inp cs-copy-inp" id="' + id + '" type="text" ' +
+        'placeholder="' + placeholder + '" value="' + (val||'') + '" readonly>' +
+        '<button class="cs-copy-btn" onclick="_copyField(\'' + id + '\')" title="Скопировать">' +
+          _copyIcon() +
+        '</button>' +
+      '</div></div>';
+  }
+
+  // Select
+  function sel(id, label, options, selected) {
+    var opts = options.map(function(o){
+      return '<option value="' + o + '"' + (selected===o?' selected':'') + '>' + o + '</option>';
+    }).join('');
+    return '<div class="form-row"><label class="form-lbl">' + label + '</label>' +
+      '<select class="cs-inp form-select" id="' + id + '">' + opts + '</select></div>';
+  }
+
+  // Аккордеон
+  function acc(id, iconHtml, title, subHtml, fields) {
+    return '<div class="acc-section" id="acc-' + id + '">' +
+      '<div class="acc-header" onclick="_accToggle(\'' + id + '\')">' +
+        iconHtml +
+        '<div class="acc-title-wrap">' +
+          '<div class="acc-title">' + title + '</div>' +
+          '<div class="acc-sub" id="acc-sub-' + id + '">' + subHtml + '</div>' +
         '</div>' +
-        '<div style="flex:1;font-size:15px;color:var(--text);font-weight:500;padding-left:2px">' + item.label + '</div>' +
+        '<svg class="acc-chevron" id="acc-chv-' + id + '" width="16" height="16" viewBox="0 0 24 24" ' +
+        'fill="none" stroke="var(--text3)" stroke-width="2.5" stroke-linecap="round">' +
+        '<polyline points="6 9 12 15 18 9"/></svg>' +
+      '</div>' +
+      '<div class="acc-body" id="acc-body-' + id + '" style="display:none">' +
+        '<div class="form-group-box" style="margin:0">' + fields + '</div>' +
+      '</div></div>';
+  }
+
+  // ── Иконки для секций ────────────────────────────────
+  var ICONS = {
+    car:  accIcon('#007aff', '<rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>'),
+    docs: accIcon('#5856d6', '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'),
+    oil:  accIcon('#ff9500', '<path d="M3 3h18v4H3z"/><path d="M3 7l2 14h14l2-14"/><path d="M12 11v6"/><path d="M9 11v6"/><path d="M15 11v6"/>'),
+    kpp:  accIcon('#ff6b00', '<circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/>'),
+    diag: accIcon('#34c759', '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'),
+    gbo:  accIcon('#30b0c7', '<path d="M14 11h1a2 2 0 0 1 2 2v3a1.5 1.5 0 0 0 3 0v-7l-3-3"/><path d="M4 20v-14a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v14"/><path d="M3 20l12 0"/><path d="M4 11l10 0"/>'),
+    cur:  accIcon('#ff3b30', '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/>'),
+  };
+
+  // ── Умные подзаголовки ───────────────────────────────
+  function subCar() {
+    return c.carName || '';
+  }
+  function subDocs() {
+    var parts = [];
+    if (c.insuranceEnd) parts.push('страховка до ' + c.insuranceEnd);
+    if (home.insuranceEnds) parts.push('<b>осталось ' + home.insuranceEnds + ' дн.</b>');
+    return parts.join(' · ');
+  }
+  function subOil() {
+    var parts = [];
+    if (c.oilLast) parts.push('замена ' + Number(c.oilLast).toLocaleString('ru') + ' км');
+    if (home.nextOilChange) parts.push('<b>осталось ' + Number(home.nextOilChange).toLocaleString('ru') + ' км</b>');
+    return parts.join(' · ');
+  }
+  function subKpp() {
+    var parts = [];
+    if (c.kppLast) parts.push('замена ' + Number(c.kppLast).toLocaleString('ru') + ' км');
+    if (home.nextGearboxOilChange) parts.push('<b>осталось ' + Number(home.nextGearboxOilChange).toLocaleString('ru') + ' км</b>');
+    return parts.join(' · ');
+  }
+  function subDiag() {
+    var parts = [];
+    if (c.diagLast) parts.push('диагн. ' + Number(c.diagLast).toLocaleString('ru') + ' км');
+    if (home.nextDiagnostic) parts.push('<b>осталось ' + Number(home.nextDiagnostic).toLocaleString('ru') + ' км</b>');
+    return parts.join(' · ');
+  }
+  function subGbo() {
+    var parts = [];
+    if (c.gboDate) parts.push('установлена ' + c.gboDate);
+    if (home.gasServiceDue) parts.push('<b>до обсл. ' + Number(home.gasServiceDue).toLocaleString('ru') + ' км</b>');
+    return parts.join(' · ');
+  }
+  function subCur() {
+    return (c.currency||'PLN') + ' → ' + (c.currency2||'UAH');
+  }
+
+  // ── Layout drag-group builder ────────────────────────
+  function buildGroup(title, items, gid, showReset) {
+    var h = '<div class="layout-group-header">' +
+      '<div class="slbl">' + title + '</div>' +
+      (showReset ? '<button class="layout-reset-btn" onclick="_layoutReset()">Сбросить всё</button>' : '') +
+      '</div><div class="layout-group-wrap"><div id="' + gid + '">';
+    items.forEach(function(item) {
+      var clr = COLORS[item.id] || '#8e8e93';
+      h += '<div class="layout-item" data-id="' + item.id + '">' +
+        '<div class="layout-drag-handle">⠿</div>' +
+        '<div class="layout-item-icon" style="background:' + clr + '22">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="' + clr + '" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="5"/></svg>' +
+        '</div>' +
+        '<div class="layout-item-name">' + item.label + '</div>' +
         '<label style="position:relative;display:inline-block;width:51px;height:31px;flex-shrink:0">' +
           '<input type="checkbox" class="ios-toggle layout-toggle" data-id="' + item.id + '" data-gid="' + gid + '"' + (item.enabled ? ' checked' : '') + '>' +
         '</label></div>';
     });
-    return h + '</div>';
+    return h + '</div></div>';
   }
 
+  // ── DOM ──────────────────────────────────────────────
   DOM.pageContent.innerHTML =
     '<div class="anim">' +
-    '<div class="slbl">Автомобиль</div>' +
-    '<div class="form-group-box"><div class="form-row">' +
-      '<label class="form-lbl" for="currentMileage">Текущий пробег</label>' +
-      '<input class="form-inp" type="number" id="currentMileage" placeholder="км">' +
-    '</div></div>' +
-    '<button class="ios-btn-primary" onclick="saveMileage()">Обновить пробег</button>' +
-    '<div class="slbl" style="margin-top:24px">Настройка главной страницы</div>' +
-    '<p style="font-size:13px;color:var(--text2);margin:0 0 4px;padding:0 4px">Перетащите <b>⠿</b> чтобы изменить порядок · тоггл — скрыть/показать</p>' +
+    '<div class="slbl">Данные автомобиля</div>' +
+    '<div class="acc-list">' +
+
+    acc('car',  ICONS.car,  'Автомобиль',          subCar(),
+      inp('cs_carName',      'Название',              'text',   'Toyota Auris', c.carName) +
+      inp('cs_purchaseDate', 'Дата покупки',           'text',   '16.05.2024',   c.purchaseDate) +
+      inp('cs_startMileage', 'Пробег при покупке, км', 'number', '150000',       c.startMileage)) +
+
+    acc('docs', ICONS.docs, 'Документы',            subDocs(),
+      inpCopy('cs_vin',         'VIN-код',               'JTDKW923900…',  c.vin) +
+      inpCopy('cs_regNum',      'Рег. номера',             'WN 12345',      c.regNum) +
+      inpCopy('cs_insuranceNum','Номер полиса',            '№',             c.insuranceNum) +
+      inpCopy('cs_insuranceEnd','Страховка до',            '16.05.2026',    c.insuranceEnd)) +
+
+    acc('oil',  ICONS.oil,  'Масло двигателя',      subOil(),
+      inp('cs_oilLast',     'Последняя замена, км', 'number', '281664', c.oilLast) +
+      inp('cs_oilInterval', 'Интервал, км',          'number', '12000',  c.oilInterval)) +
+
+    acc('kpp',  ICONS.kpp,  'Масло КПП / АКПП',     subKpp(),
+      inp('cs_kppLast',     'Последняя замена, км', 'number', '232078', c.kppLast) +
+      inp('cs_kppInterval', 'Интервал, км',          'number', '80000',  c.kppInterval)) +
+
+    acc('diag', ICONS.diag, 'Плановая диагностика', subDiag(),
+      inp('cs_diagLast',     'Последняя, км', 'number', '283000', c.diagLast) +
+      inp('cs_diagInterval', 'Интервал, км',  'number', '10000',  c.diagInterval)) +
+
+    acc('gbo',  ICONS.gbo,  'ГБО',                  subGbo(),
+      inp('cs_gboDate',     'Дата установки',      'text',   '14.06.2024', c.gboDate) +
+      inp('cs_gboLast',     'Последнее обсл., км', 'number', '285250',     c.gboLast) +
+      inp('cs_gboInterval', 'Интервал, км',         'number', '10000',      c.gboInterval)) +
+
+    acc('cur',  ICONS.cur,  'Валюта',               subCur(),
+      sel('cs_currency',  'Основная',        ['PLN','USD','EUR','UAH','RUB'], c.currency  || 'PLN') +
+      sel('cs_currency2', 'Для конвертации', ['UAH','PLN','USD','EUR','RUB'], c.currency2 || 'UAH')) +
+
+    '</div>' +
+    '<div id="csMsg" class="cs-msg"></div>' +
+    '<button class="ios-btn-primary" id="csSaveBtn" onclick="saveCarSettings()">' +
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px;margin-right:6px">' +
+        '<polyline points="20 6 9 17 4 12"/>' +
+      '</svg>Применить изменения</button>' +
+
+    '<div class="slbl" style="margin-top:28px">Настройка главной страницы</div>' +
+    '<p class="settings-hint">Перетащите <b>⠿</b> чтобы изменить порядок · тоггл — скрыть/показать</p>' +
     buildGroup('Ближайшие сроки', layout.reminders, 'lg-reminders', false) +
     buildGroup('Мини-карточки',   layout.minicards,  'lg-minicards',  false) +
     buildGroup('Секции',          layout.sections,   'lg-sections',   true)  +
+
     '<div class="slbl" style="margin-top:24px">О приложении</div>' +
     '<div class="group">' +
       '<div class="row"><div class="row-body"><div class="row-title">Версия</div></div><div class="row-right"><div class="row-val">1.0.0</div></div></div>' +
@@ -1370,24 +1543,29 @@ function renderSettings(data) {
       '<div class="row" style="cursor:pointer" onclick="_clearCache(event)"><div class="row-body"><div class="row-title" style="color:var(--red)">Очистить кэш</div></div></div>' +
     '</div></div>';
 
-  var savedKm = localStorage.getItem('currentMileage');
-  if (savedKm) document.getElementById('currentMileage').value = savedKm;
-
-  // Toggle listeners — save immediately on change
+  // Layout toggles
   document.querySelectorAll('.layout-toggle').forEach(function(chk) {
     chk.addEventListener('change', function() {
-      var id  = this.dataset.id, gid = this.dataset.gid;
-      var key = gid==='lg-reminders'?'reminders':gid==='lg-minicards'?'minicards':'sections';
-      var lay = getHomeLayout();
-      var it  = lay[key].find(function(x){return x.id===id;});
-      if (it) it.enabled = this.checked;
+      var id=this.dataset.id, gid=this.dataset.gid;
+      var key=gid==='lg-reminders'?'reminders':gid==='lg-minicards'?'minicards':'sections';
+      var lay=getHomeLayout();
+      var it=lay[key].find(function(x){return x.id===id;});
+      if(it) it.enabled=this.checked;
       saveHomeLayout(lay);
     });
   });
-
   ['lg-reminders','lg-minicards','lg-sections'].forEach(function(gid){
     _initDragGroup(document.getElementById(gid));
   });
+
+  _loadCarSettingsFromSheet();
+}
+
+// SVG иконка копирования (переиспользуется)
+function _copyIcon() {
+  return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/>' +
+    '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 }
 
 function saveMileage() {
@@ -1404,6 +1582,116 @@ function saveIntervals() {
   btn.textContent = '✓ Сохранено';
   setTimeout(function(){btn.textContent='Сохранить интервалы';},1500);
 }
+
+// ── Accordion toggle ────────────────────────────────────
+function _accToggle(id) {
+  var body = document.getElementById('acc-body-' + id);
+  var chv  = document.getElementById('acc-chv-'  + id);
+  var sec  = document.getElementById('acc-'      + id);
+  if (!body) return;
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chv) chv.style.transform = open ? '' : 'rotate(180deg)';
+  if (sec) sec.classList.toggle('acc-open', !open);
+}
+
+// ── Load settings from Sheet ────────────────────────────
+async function _loadCarSettingsFromSheet() {
+  try {
+    var res = await fetch(GAS_BASE_URL + '?page=settings');
+    if (!res.ok) return;
+    var d = await res.json();
+    if (d.error) return;
+    localStorage.setItem('car_settings', JSON.stringify(d));
+    var map = {
+      cs_carName:d.carName, cs_purchaseDate:d.purchaseDate, cs_startMileage:d.startMileage,
+      cs_vin:d.vin, cs_regNum:d.regNum, cs_insuranceNum:d.insuranceNum, cs_insuranceEnd:d.insuranceEnd,
+      cs_oilLast:d.oilLast, cs_oilInterval:d.oilInterval, cs_kppLast:d.kppLast, cs_kppInterval:d.kppInterval,
+      cs_diagLast:d.diagLast, cs_diagInterval:d.diagInterval,
+      cs_gboDate:d.gboDate, cs_gboLast:d.gboLast, cs_gboInterval:d.gboInterval,
+      cs_currency:d.currency, cs_currency2:d.currency2,
+    };
+    Object.keys(map).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && map[id] !== undefined && String(map[id]) !== '') el.value = map[id];
+    });
+    // Обновляем подзаголовки через единую функцию (с данными из home-кэша)
+    _updateAccSubs();
+  } catch(e) {}
+}
+
+// ── Save car settings → Google Sheets ──────────────────
+async function saveCarSettings() {
+  var btn = document.getElementById('csSaveBtn');
+  var msg = document.getElementById('csMsg');
+  btn.disabled = true; btn.textContent = 'Сохранение…'; msg.style.display = 'none';
+  var fields = {
+    action:'updateCarSettings',
+    carName:      document.getElementById('cs_carName').value.trim(),
+    purchaseDate: document.getElementById('cs_purchaseDate').value.trim(),
+    startMileage: document.getElementById('cs_startMileage').value.trim(),
+    vin:          document.getElementById('cs_vin').value.trim(),
+    regNum:       document.getElementById('cs_regNum').value.trim(),
+    insuranceNum: document.getElementById('cs_insuranceNum').value.trim(),
+    insuranceEnd: document.getElementById('cs_insuranceEnd').value.trim(),
+    oilLast:      document.getElementById('cs_oilLast').value.trim(),
+    oilInterval:  document.getElementById('cs_oilInterval').value.trim(),
+    kppLast:      document.getElementById('cs_kppLast').value.trim(),
+    kppInterval:  document.getElementById('cs_kppInterval').value.trim(),
+    diagLast:     document.getElementById('cs_diagLast').value.trim(),
+    diagInterval: document.getElementById('cs_diagInterval').value.trim(),
+    gboDate:      document.getElementById('cs_gboDate').value.trim(),
+    gboLast:      document.getElementById('cs_gboLast').value.trim(),
+    gboInterval:  document.getElementById('cs_gboInterval').value.trim(),
+    currency:     document.getElementById('cs_currency').value,
+    currency2:    document.getElementById('cs_currency2').value,
+  };
+  var local = Object.assign({}, fields); delete local.action;
+  localStorage.setItem('car_settings', JSON.stringify(local));
+  try {
+    var res = await fetch(GAS_POST_URL, {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body: new URLSearchParams(fields).toString()
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var result = await res.json();
+    var ok = result.success;
+    var el = document.getElementById('csMsg');
+    if (el) {
+      el.style.display = 'block';
+      el.style.background = ok ? 'rgba(52,199,89,0.15)' : 'rgba(255,59,48,0.12)';
+      el.style.color      = ok ? 'var(--green)' : 'var(--red)';
+      el.textContent      = ok ? '✓ Данные сохранены в таблицу' : '✕ ' + (result.message||'Ошибка');
+    }
+    if (ok) { localStorage.removeItem('cache_v2_home'); _updateAccSubs(); }
+  } catch(err) {
+    var el = document.getElementById('csMsg');
+    if (el) { el.style.display='block'; el.style.background='rgba(255,59,48,0.12)'; el.style.color='var(--red)'; el.textContent='✕ '+err.message; }
+  }
+  btn.disabled = false; btn.textContent = '💾 Сохранить в таблицу';
+}
+
+// ── Обновляет подзаголовки аккордеонов ─────────────────
+function _updateAccSubs() {
+  var c = {}, h = {};
+  try { c = JSON.parse(localStorage.getItem('car_settings') || '{}'); } catch(e){}
+  try { h = JSON.parse(localStorage.getItem('cache_v2_home') || '{}'); } catch(e){}
+  function km(v) { return v ? Number(v).toLocaleString('ru') + ' км' : ''; }
+  function sub(parts) { return parts.filter(Boolean).join(' · '); }
+  var subs = {
+    'acc-sub-car':  c.carName || '',
+    'acc-sub-docs': sub([c.insuranceEnd?'страховка до '+c.insuranceEnd:'', h.insuranceEnds?'<b>осталось '+h.insuranceEnds+' дн.</b>':'']),
+    'acc-sub-oil':  sub([c.oilLast?'замена '+km(c.oilLast):'', h.nextOilChange?'<b>осталось '+km(h.nextOilChange)+'</b>':'']),
+    'acc-sub-kpp':  sub([c.kppLast?'замена '+km(c.kppLast):'', h.nextGearboxOilChange?'<b>осталось '+km(h.nextGearboxOilChange)+'</b>':'']),
+    'acc-sub-diag': sub([c.diagLast?'диагн. '+km(c.diagLast):'', h.nextDiagnostic?'<b>осталось '+km(h.nextDiagnostic)+'</b>':'']),
+    'acc-sub-gbo':  sub([c.gboDate?'установлена '+c.gboDate:'', h.gasServiceDue?'<b>до обсл. '+km(h.gasServiceDue)+'</b>':'']),
+    'acc-sub-cur':  (c.currency||'PLN')+' → '+(c.currency2||'UAH'),
+  };
+  Object.keys(subs).forEach(function(id){
+    var el=document.getElementById(id); if(el) el.innerHTML=subs[id];
+  });
+}
+
 
 function _clearCache(e) {
   ['cache_v2_home','cache_v2_fuel','cache_v2_service','cache_v2_settings'].forEach(function(k){localStorage.removeItem(k);});

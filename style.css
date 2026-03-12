@@ -536,34 +536,109 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .anim > *:nth-child(8) { animation-delay: 0.30s; }
 .anim > *:nth-child(9) { animation-delay: 0.34s; }
 
-/* ── LAYOUT EDITOR (drag-and-drop) ─────────────────── */
+/* ── SETTINGS — Accordion ────────────────────────── */
+.acc-list { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+.acc-section { background:var(--grouped); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow); }
+.acc-header {
+  display:flex; align-items:center; padding:13px 16px; gap:12px;
+  cursor:pointer; min-height:54px; transition:background 0.12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.acc-header:active { background:var(--bg2); }
+.acc-title-wrap { flex:1; min-width:0; }
+.acc-title { font-size:16px; color:var(--text); font-weight:500; letter-spacing:-0.2px; }
+.acc-sub {
+  font-size:12px; color:var(--text2); margin-top:2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+}
+.acc-chevron { flex-shrink:0; transition:transform 0.22s cubic-bezier(.34,1.2,.64,1); }
+.acc-section.acc-open > .acc-header .acc-chevron { transform:rotate(180deg); }
+.acc-body { border-top:0.5px solid var(--sep); }
+.acc-body .form-group-box { margin:0; border-radius:0; box-shadow:none; }
+
+/* Бейдж "осталось X км/дн" в подзаголовке */
+.acc-badge {
+  display:inline-flex; align-items:center;
+  padding:1px 7px; border-radius:6px;
+  font-size:11px; font-weight:600;
+  white-space:nowrap; flex-shrink:0;
+}
+.acc-badge-green  { background:var(--green-bg);  color:var(--green); }
+.acc-badge-orange { background:var(--orange-bg); color:var(--orange); }
+.acc-badge-red    { background:var(--red-bg);    color:var(--red); }
+
+/* acc-sub содержит innerHTML — разрешаем bold */
+.acc-sub b { font-weight:600; color:var(--text); }
+
+/* ── SETTINGS — Car form inputs ──────────────────── */
+.cs-inp {
+  text-align:left !important;
+  color:var(--text) !important;
+  font-size:15px;
+}
+.cs-inp::placeholder { color:var(--text3); }
+
+/* Строки с кнопкой копирования */
+.cs-copy-row { align-items:center; }
+.cs-copy-wrap {
+  flex:1; display:flex; align-items:center; gap:8px;
+  min-width:0; overflow:hidden;
+}
+.cs-copy-inp {
+  flex:1; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  cursor:text;
+}
+.cs-copy-btn {
+  flex-shrink:0; width:30px; height:30px; border-radius:8px;
+  background:var(--accent-bg); border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--accent); transition:background 0.15s, transform 0.12s;
+}
+.cs-copy-btn:active { background:var(--bg2); transform:scale(0.88); }
+
+/* Статусное сообщение */
+.cs-msg {
+  display:none; border-radius:var(--r-md);
+  padding:11px 14px; font-size:14px; font-weight:500; margin:8px 0;
+}
+.cs-msg.ok  { background:var(--green-bg); color:var(--green); display:block; }
+.cs-msg.err { background:var(--red-bg);   color:var(--red);   display:block; }
+
+/* ── SETTINGS — Layout editor ────────────────────── */
+.layout-group-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin:20px 0 8px;
+}
+.layout-group-header .slbl { margin:0; }
+.layout-group-wrap {
+  background:var(--grouped); border-radius:var(--r-lg);
+  overflow:hidden; margin-bottom:4px; box-shadow:var(--shadow);
+}
 .layout-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px;
-  background: var(--grouped);
-  border-radius: 12px;
-  margin-bottom: 6px;
-  user-select: none; -webkit-user-select: none;
-  transition: box-shadow 0.2s, opacity 0.2s;
-  touch-action: none;
-  position: relative;
+  display:flex; align-items:center; gap:10px;
+  padding:11px 14px 11px 6px;
+  background:var(--grouped); min-height:52px; position:relative;
 }
-.layout-item.dragging {
-  opacity: 0.45;
-  box-shadow: 0 8px 28px rgba(0,0,0,0.20);
+.layout-item + .layout-item::before {
+  content:''; position:absolute; top:0; left:50px; right:0;
+  height:0.5px; background:var(--sep);
 }
-.layout-item.drag-over { box-shadow: 0 0 0 2px var(--accent); }
 .layout-drag-handle {
-  color: var(--text3); cursor: grab; padding: 2px 6px; flex-shrink: 0;
+  color:var(--text3); cursor:grab; padding:4px 8px;
+  flex-shrink:0; font-size:20px; line-height:1;
+  user-select:none; -webkit-user-select:none; touch-action:none;
 }
-.layout-drag-handle:active { cursor: grabbing; }
+.layout-drag-handle:active { cursor:grabbing; }
 .layout-item-icon {
-  width: 30px; height: 30px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width:32px; height:32px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
-.layout-item-name { flex: 1; font-size: 15px; color: var(--text); font-weight: 500; }
-.layout-item-sub  { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.layout-item-name { flex:1; font-size:16px; color:var(--text); font-weight:400; letter-spacing:-0.2px; }
 .layout-reset-btn {
-  font-size: 13px; color: var(--accent); cursor: pointer;
-  background: none; border: none; font-family: var(--font); padding: 0;
+  font-size:13px; color:var(--accent); background:none;
+  border:none; font-family:var(--font); cursor:pointer; padding:0;
 }
+.layout-reset-btn:active { opacity:0.6; }
+.settings-hint { font-size:13px; color:var(--text2); padding:0 4px; margin:-2px 0 12px; line-height:1.4; }
