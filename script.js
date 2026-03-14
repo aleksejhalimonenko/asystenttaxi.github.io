@@ -26,7 +26,7 @@ const TITLE_MAP = {
   tco:      'Стоимость владения',   // <-- добавьте это
 };
 
-const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbxCrU0laIndMgQJ0MxB9UdB_OI0CKafLSPsEDuECe0jlibEWp_btpp0Zt3PMnq_A8BD/exec';
+const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbwbmbhFKSKTcZx1zQZcYYs8xeNKxCZKRqFNpRSrcS4VvEaSyKNfIQtymnFw0YkL-V6L/exec';
 
 // ── UTILS ──────────────────────────────────────────────
 function getQueryParam(name) {
@@ -170,6 +170,10 @@ async function loadData() {
         writeCache(page, fresh);
         renderByPage(page, fresh);
         _showRefreshToast();
+        // Если обновилось топливо — обновляем данные на главной
+        if (page === 'fuel' && document.getElementById('homeLastFuelVal')) {
+          _populateHomeFromFuelCache();
+        }
       } else {
         writeCache(page, fresh); // обновляем _cachedAt даже если данные те же
       }
@@ -379,6 +383,26 @@ function renderHome(data) {
     '</div>';
 
   _populateHomeFromFuelCache();
+
+  // Если кэша топлива нет — грузим в фоне и сразу заполняем блоки
+  if (!readCache('fuel')) {
+    _loadFuelForHome();
+  }
+}
+
+// Фоновая загрузка топлива для главной страницы
+async function _loadFuelForHome() {
+  try {
+    const res = await fetch(GAS_BASE_URL + '?page=fuel');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) return;
+    writeCache('fuel', data);
+    // Заполняем блоки если ещё на главной
+    if ((getQueryParam('page')||'home') === 'home') {
+      _populateHomeFromFuelCache();
+    }
+  } catch(e) { /* тихо */ }
 }
 
 // ── HOME HELPERS ──────────────────────────────────────────────
@@ -765,10 +789,10 @@ function renderFuel(data) {
 
 // ── SVG FUEL CHART (like Auris iOS v4) ─────────────────
 function buildSVGFuelChart(rawData) {
-  // All gas data over entire period
+  // All gas data over entire period (no 6-month filter)
   let monthlyData = [];
   if (typeof calculateMonthlyAverages === 'function' && typeof sortMonthlyData === 'function') {
-    // Filter only gas with valid consumption
+    // Filter only gas with valid consumption — no date restriction
     const gasAll = Array.isArray(rawData) ? rawData.filter(e => {
       const isGas = e.fuelType && e.fuelType.toString().toLowerCase().includes('газ');
       const hasCons = e.fuelConsumption && !isNaN(parseFloat(e.fuelConsumption)) && parseFloat(e.fuelConsumption) > 0;
@@ -785,7 +809,7 @@ function buildSVGFuelChart(rawData) {
 
   if (!monthlyData || monthlyData.length < 2) {
     svg.style.display = 'none';
-    wrap.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text2);font-size:14px">Недостаточно данных за период</div>';
+    wrap.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text2);font-size:14px">Недостаточно данных за 6 месяцев</div>';
     return;
   }
 
@@ -1001,7 +1025,7 @@ function renderAddFuel(data) {
   `;
 }
 
-const GAS_POST_URL = 'https://script.google.com/macros/s/AKfycbxCrU0laIndMgQJ0MxB9UdB_OI0CKafLSPsEDuECe0jlibEWp_btpp0Zt3PMnq_A8BD/exec';
+const GAS_POST_URL = 'https://script.google.com/macros/s/AKfycbwbmbhFKSKTcZx1zQZcYYs8xeNKxCZKRqFNpRSrcS4VvEaSyKNfIQtymnFw0YkL-V6L/exec';
 
 async function submitFuel(e) {
   e.preventDefault();
@@ -1419,15 +1443,28 @@ function _applyHistoryFilters() {
   const q=(document.getElementById('historySearch')?.value||'').trim().toLowerCase();
   const clearBtn=document.getElementById('historySearchClear');
   if(clearBtn) clearBtn.style.display=q?'block':'none';
-  const data=window._fuelData||[];let list=[...data];
-  const period=window._activePeriod||'all';list=filterDataByPeriod(list,period);
-  const sort=window._activeSort||'date-desc';
-  if(sort==='date-asc') list.sort((a,b)=>parseCustomDate(a.date)-parseCustomDate(b.date));
-  if(sort==='date-desc') list.sort((a,b)=>parseCustomDate(b.date)-parseCustomDate(a.date));
-  if(sort==='cost-desc') list.sort((a,b)=>(parseFloat(b.totalCost)||0)-(parseFloat(a.totalCost)||0));
-  if(sort==='cons-asc') list.sort((a,b)=>(parseFloat(a.fuelConsumption)||999)-(parseFloat(b.fuelConsumption)||999));
+
+  // Источник данных — window._fuelSorted (назначается в renderFuel)
+  const data=window._fuelSorted||[];
+  let list=[...data];
+
+  // Фильтр по периоду
+  const period=window._activePeriod||'all';
+  list=filterDataByPeriod(list,period);
+
+  // Фильтр/сортировка по типу топлива и расходу (чипы: all/gas/petrol/high/low)
+  const sort=window._activeSort||'all';
+  if(sort==='gas')    list=list.filter(e=>(e.fuelType||'').toLowerCase().includes('газ'));
+  if(sort==='petrol') list=list.filter(e=>{const t=(e.fuelType||'').toLowerCase();return t.includes('бензин')||t.includes('petrol');});
+  if(sort==='high')   list=list.filter(e=>parseFloat(e.fuelConsumption)>=7.5);
+  if(sort==='low')    list=list.filter(e=>{const c=parseFloat(e.fuelConsumption);return c>0&&c<6.3;});
+
+  // Текстовый поиск по дате, типу топлива, комментарию
   if(q) list=list.filter(s=>(s.date||'').includes(q)||(s.fuelType||'').toLowerCase().includes(q)||(s.comment||'').toLowerCase().includes(q));
-  const el=document.getElementById('fuelTimeline');if(el) el.innerHTML=buildFillRows(list);
+
+  // Рендер в правильный элемент
+  const el=document.getElementById('historyList');
+  if(el) el.innerHTML=buildFillRows(list);
 }
 
 function _applySvcFilters() {
@@ -1687,178 +1724,530 @@ function renderSettings(data) {
 function renderTCO(data) {
   if (!data || !data.success) {
     DOM.pageContent.innerHTML =
-      '<div class="error-card">' +
-        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-        '<p class="error-title">Ошибка загрузки</p>' +
-        '<p class="error-sub">' + ((data && data.error) || 'Нет данных') + '</p>' +
-        '<button class="ios-btn-primary" onclick="loadData()">Повторить</button>' +
+      '<div class="error-card">'+
+        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'+
+        '<p class="error-title">Ошибка загрузки</p>'+
+        '<p class="error-sub">'+((data&&data.error)||'Нет данных')+'</p>'+
+        '<button class="ios-btn-primary" onclick="loadData()">Повторить</button>'+
       '</div>';
     return;
   }
 
-  var catRaw = (data && typeof data.categories === 'object' && data.categories) ? data.categories : {};
-  var num = function(v) {
-    if (v === null || v === undefined || v === '') return 0;
-    var parsed = parseFloat(String(v).replace(',', '.'));
-    return isNaN(parsed) ? 0 : parsed;
-  };
+  // Старый кэш без byYear — сбрасываем
+  if (!data.byYear || Object.keys(data.byYear).length === 0) {
+    localStorage.removeItem('cache_v2_tco');
+    loadData();
+    return;
+  }
+  window._tcoData = data;
+  window._activeTcoYear = window._activeTcoYear || 'all';
 
-  var cat = {
-    fuel:      num(catRaw.fuel),
-    service:   num(catRaw.service),
-    tuning:    num(catRaw.tuning),
-    insurance: num(catRaw.insurance),
-    taxes:     num(catRaw.taxes),
-    penalties: num(catRaw.penalties),
-    fines:     num(catRaw.fines),
-  };
-
-  var total = num(data.totalCost);
-  var dist  = num(data.totalDistance);
-
-  // Валюта из настроек
   var ccy = 'zł';
-  try { ccy = JSON.parse(localStorage.getItem('car_settings')||'{}').currency || 'zł'; } catch(e){}
+  try { ccy = JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł'; } catch(e){}
+  window._tcoCcy = ccy;
 
-  function fmt(v) { return Math.round(v).toLocaleString('ru'); }
-  function pct(v) { return total > 0 ? ((v / total) * 100).toFixed(1) : '0.0'; }
-
-  // Категории (только ненулевые)
-  var other = Math.max(0, cat.fines - cat.insurance - cat.taxes - cat.penalties);
-  var chartCats = [
-    { name: 'Топливо',      value: cat.fuel      || 0, color: '#FF9500' },
-    { name: 'Обслуживание', value: cat.service   || 0, color: '#007AFF' },
-    { name: 'Тюнинг',       value: cat.tuning    || 0, color: '#5856D6' },
-    { name: 'Страховка',    value: cat.insurance || 0, color: '#34C759' },
-    { name: 'Налоги',       value: cat.taxes     || 0, color: '#30B0C7' },
-    { name: 'Штрафы',       value: cat.penalties || 0, color: '#FF3B30' },
-    { name: 'Прочее',       value: other,               color: '#8E8E93' },
-  ].filter(function(c){ return c.value > 0.5; });
-
-  // Прогресс-бары
-  var progs = chartCats.map(function(c) {
-    var p = total > 0 ? (c.value / total * 100) : 0;
-    return '<div class="tco-prog">' +
-      '<div class="tco-prog-head">' +
-        '<div class="tco-prog-dot" style="background:' + c.color + '"></div>' +
-        '<span class="tco-prog-name">' + c.name + '</span>' +
-        '<span class="tco-prog-val" style="color:' + c.color + '">' + fmt(c.value) + ' ' + ccy + '</span>' +
-        '<span class="tco-prog-pct">' + pct(c.value) + '%</span>' +
-      '</div>' +
-      '<div class="tco-prog-track"><div class="tco-prog-fill" style="width:' + p.toFixed(1) + '%;background:' + c.color + '"></div></div>' +
-    '</div>';
-  }).join('');
-
-  // Инсайт
-  var fuelPct = total > 0 ? (cat.fuel||0) / total * 100 : 0;
-  var insight = fuelPct > 50
-    ? 'Топливо — главная статья расходов (' + fuelPct.toFixed(0) + '%). ГБО помогает снизить её.'
-    : 'Хорошее соотношение: топливо занимает ' + fuelPct.toFixed(0) + '% расходов.';
+  var years = Object.keys(data.byYear||{}).map(Number).sort(function(a,b){return b-a;});
+  var yearChips = '<div class="chip'+(window._activeTcoYear==='all'?' active':'')+'" data-year="all">Все</div>';
+  years.forEach(function(y){
+    yearChips += '<div class="chip'+(window._activeTcoYear==y?' active':'')+'" data-year="'+y+'">'+y+'</div>';
+  });
 
   DOM.pageContent.innerHTML =
-    '<div class="anim">' +
+    '<div class="anim">'+
+    _buildTcoHero(data, ccy)+
+    '<div class="chips" id="tcoYearChips" style="margin-bottom:4px">'+yearChips+'</div>'+
+    '<div id="tcoStatsArea"></div>'+
+    _buildSavingsCard(data, ccy)+
+    '</div>';
 
-    '<div class="hero blue">' +
-      '<div class="hero-lbl">Стоимость 1 км</div>' +
-      '<div class="hero-val">' + data.costPerKm + ' <span class="hero-unit">' + ccy + '</span></div>' +
-      '<div class="hero-sub">за ' + fmt(dist) + ' км · весь период учёта</div>' +
-      '<div class="hero-icon"><svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>' +
-    '</div>' +
+  document.querySelectorAll('#tcoYearChips .chip').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      document.querySelectorAll('#tcoYearChips .chip').forEach(function(c){c.classList.remove('active');});
+      this.classList.add('active');
+      window._activeTcoYear = this.dataset.year;
+      _updateTcoStats();
+    });
+  });
 
-    '<div class="mini-grid">' +
-      '<div class="mini">' +
-        '<div class="mini-lbl">Всего потрачено</div>' +
-        '<div class="mini-val">' + fmt(total) + '<span class="u"> ' + ccy + '</span></div>' +
-        '<div class="mini-sub">с начала учёта</div>' +
-      '</div>' +
-      '<div class="mini">' +
-        '<div class="mini-lbl">Пробег</div>' +
-        '<div class="mini-val">' + fmt(dist) + '<span class="u"> км</span></div>' +
-        '<div class="mini-sub">за период</div>' +
-      '</div>' +
-    '</div>' +
+  _updateTcoStats();
+}
 
-    '<div class="slbl">Распределение расходов</div>' +
-    '<div class="group" style="padding:16px">' + buildDonutChart(chartCats, total) + '</div>' +
+function _buildTcoHero(data, ccy) {
+  var fmt = function(v){return Math.round(v).toLocaleString('ru');};
+  return '<div class="hero blue">'+
+    '<div class="hero-lbl">Стоимость 1 км</div>'+
+    '<div class="hero-val">'+data.costPerKm+' <span class="hero-unit">'+ccy+'</span></div>'+
+    '<div class="hero-sub">'+fmt(data.totalDistance||0)+' км · '+fmt(data.totalCost||0)+' '+ccy+' всего</div>'+
+    '<div class="hero-icon"><svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>'+
+  '</div>';
+}
 
-    '<div class="slbl">Детализация</div>' +
-    '<div class="group" style="padding:14px 16px">' + progs + '</div>' +
+function _buildSavingsCard(data, ccy) {
+  var ins  = data.lastInsuranceCost || 0;
+  var svc  = data.avgServicePerYear || 0;
+  var insY = data.lastInsuranceYear || '';
+  if (!ins && !svc) return '';
 
-    '<div class="tco-insight">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
-      '<span>' + insight + '</span>' +
-    '</div>' +
+  var yearTotal = ins + svc;
+  var perMonth  = Math.round(yearTotal / 12);
+  var perWeek   = Math.round(yearTotal / 52);
+  var fmt = function(v){ return Math.round(v).toLocaleString('ru'); };
 
+  // Определяем год-основу для сноски
+  var noteYear = insY || (new Date().getFullYear() - 1);
+
+  return '<div class="slbl" style="margin-top:10px">Финансовая подушка</div>'+
+    '<div class="group" style="padding:16px">'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+
+        '<div style="width:40px;height:40px;border-radius:12px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>'+
+        '</div>'+
+        '<div>'+
+          '<div style="font-size:16px;font-weight:600;color:var(--text)">Нужно откладывать</div>'+
+          '<div style="font-size:13px;color:var(--text2)">страховка + обслуживание</div>'+
+        '</div>'+
+      '</div>'+
+      // Главные цифры
+      '<div style="display:flex;gap:8px;margin-bottom:14px">'+
+        '<div style="flex:1;background:var(--green-bg);border-radius:12px;padding:12px;text-align:center">'+
+          '<div style="font-size:11px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">В неделю</div>'+
+          '<div style="font-size:26px;font-weight:700;color:var(--green);letter-spacing:-1px">'+fmt(perWeek)+'</div>'+
+          '<div style="font-size:12px;color:var(--green)">'+ccy+'</div>'+
+        '</div>'+
+        '<div style="flex:1;background:var(--accent-bg);border-radius:12px;padding:12px;text-align:center">'+
+          '<div style="font-size:11px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">В месяц</div>'+
+          '<div style="font-size:26px;font-weight:700;color:var(--accent);letter-spacing:-1px">'+fmt(perMonth)+'</div>'+
+          '<div style="font-size:12px;color:var(--accent)">'+ccy+'</div>'+
+        '</div>'+
+      '</div>'+
+      // Расшифровка
+      '<div style="border-top:0.5px solid var(--sep);padding-top:12px">'+
+        (ins?
+          '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px">'+
+            '<span style="color:var(--text2)">🛡 Страховка</span>'+
+            '<span style="font-weight:600;color:var(--text)">'+fmt(ins)+' '+ccy+'/год</span>'+
+          '</div>':'')+
+        (svc?
+          '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px">'+
+            '<span style="color:var(--text2)">🔧 Обслуживание</span>'+
+            '<span style="font-weight:600;color:var(--text)">'+fmt(svc)+' '+ccy+'/год</span>'+
+          '</div>':'')+
+        '<div style="display:flex;justify-content:space-between;padding:7px 0 8px;font-size:14px;border-top:0.5px solid var(--sep);margin-top:4px">'+
+          '<span style="color:var(--text);font-weight:500">Итого в год</span>'+
+          '<span style="font-weight:700;color:var(--text)">'+fmt(yearTotal)+' '+ccy+'</span>'+
+        '</div>'+
+        // Сноска
+        '<div style="font-size:11px;color:var(--text3);line-height:1.4;padding-top:4px">'+
+          '* Прогноз основан на фактических данных за '+noteYear+' год. '+
+          'Страховка — сумма всех платежей за год. '+
+          'Обслуживание — среднее за последние 2 полных года.'+
+        '</div>'+
+      '</div>'+
     '</div>';
 }
 
+function _updateTcoStats() {
+  var data    = window._tcoData || {};
+  var ccy     = window._tcoCcy  || 'zł';
+  var yearSel = window._activeTcoYear || 'all';
+  var byYear  = data.byYear || {};
+  var fmt     = function(v){ return Math.round(v).toLocaleString('ru'); };
 
+  // ── Данные за период ─────────────────────────────────────
+  var cat, total;
+  if (yearSel === 'all') {
+    cat   = data.categories || {};
+    total = data.totalCost  || 0;
+  } else {
+    var yd = byYear[yearSel] || {};
+    // byYear теперь содержит разбивку страховки/налогов/штрафов по годам
+    cat = {
+      fuel:       yd.fuel       || 0,
+      service:    yd.service    || 0,
+      tuning:     yd.tuning     || 0,
+      insurance:  yd.insurance  || 0,
+      taxes:      yd.taxes      || 0,
+      penalties:  yd.penalties  || 0,
+      other:      yd.other      || 0,
+      fines:      yd.fines      || 0,
+    };
+    total = yd.total || 0;
+  }
+
+  // Категории для донат + прогресс-баров
+  var chartCats = [
+    {name:'Топливо',      value:cat.fuel      ||0, color:'#FF9500'},
+    {name:'Обслуживание', value:cat.service   ||0, color:'#007AFF'},
+    {name:'Тюнинг',       value:cat.tuning    ||0, color:'#5856D6'},
+    {name:'Страховка',    value:cat.insurance ||0, color:'#34C759'},
+    {name:'Налоги',       value:cat.taxes     ||0, color:'#30B0C7'},
+    {name:'Штрафы',       value:cat.penalties ||0, color:'#FF3B30'},
+    {name:'Прочее',       value:cat.other     ||0, color:'#8E8E93'},
+  ].filter(function(c){ return c.value > 0.5; });
+
+  // ── Тренд ────────────────────────────────────────────────
+  var trendHTML = '—';
+  if (yearSel !== 'all') {
+    var prevYd = byYear[parseInt(yearSel)-1];
+    if (prevYd && prevYd.total > 0) {
+      var p = Math.round(((total-prevYd.total)/prevYd.total)*100);
+      trendHTML = '<span class="'+(p>0?'trend-up':'trend-down')+'">'+(p>0?'↑':'↓')+Math.abs(p)+'%</span> vs '+(parseInt(yearSel)-1);
+    }
+  } else {
+    var allYrs = Object.keys(byYear).map(Number).sort();
+    if (allYrs.length >= 2) {
+      var last2 = allYrs.slice(-2);
+      var t0=byYear[last2[0]].total||0, t1=byYear[last2[1]].total||0;
+      if (t0>0){var p2=Math.round(((t1-t0)/t0)*100);trendHTML='<span class="'+(p2>0?'trend-up':'trend-down')+'">'+(p2>0?'↑':'↓')+Math.abs(p2)+'%</span> vs '+last2[0];}
+    }
+  }
+
+  var countYears  = Object.keys(byYear).length || 1;
+  var perYearAvg  = yearSel==='all' ? total/countYears : total;
+  var periodLabel = yearSel==='all' ? 'за всё время' : 'за '+yearSel+' год';
+  var topCat      = chartCats.length ? chartCats.reduce(function(mx,c){return c.value>mx.value?c:mx;},chartCats[0]) : null;
+  var fuelPct     = total>0 ? (cat.fuel||0)/total*100 : 0;
+
+  var allYearsArr = Object.keys(byYear).map(Number).sort().map(function(y){
+    var yd=byYear[y];
+    return {year:y,total:yd.total||0,fuel:yd.fuel||0,service:yd.service||0,
+            insurance:yd.insurance||0,taxes:yd.taxes||0,penalties:yd.penalties||0,
+            tuning:yd.tuning||0,other:yd.other||0};
+  });
+
+  // ── Прогресс-бары ────────────────────────────────────────
+  var progs = chartCats.map(function(c){
+    var p=total>0?(c.value/total*100):0;
+    return '<div class="tco-prog">'+
+      '<div class="tco-prog-head">'+
+        '<div class="tco-prog-dot" style="background:'+c.color+'"></div>'+
+        '<span class="tco-prog-name">'+c.name+'</span>'+
+        '<span class="tco-prog-val" style="color:'+c.color+'">'+fmt(c.value)+' '+ccy+'</span>'+
+        '<span class="tco-prog-pct">'+p.toFixed(1)+'%</span>'+
+      '</div>'+
+      '<div class="tco-prog-track"><div class="tco-prog-fill" style="width:'+p.toFixed(1)+'%;background:'+c.color+'"></div></div>'+
+    '</div>';
+  }).join('');
+
+  // ── Инсайт ───────────────────────────────────────────────
+  var insight = topCat
+    ? 'Главная статья — <b>'+topCat.name+'</b> ('+(topCat.value/total*100).toFixed(0)+'%). '+(fuelPct>50?'ГБО помогает снизить долю топлива.':'')
+    : '';
+
+  // ── Сборка HTML ──────────────────────────────────────────
+  var html =
+    // 4 карточки
+    '<div class="stat-cards-row">'+
+      '<div class="stat-card-ios"><div class="sc-label">'+periodLabel+'</div><div class="sc-value">'+fmt(total)+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">'+(yearSel==='all'?countYears+' лет учёта':(topCat?topCat.name.toLowerCase():''))+'</div></div>'+
+      '<div class="stat-card-ios"><div class="sc-label">В месяц</div><div class="sc-value">'+fmt(Math.round(perYearAvg/12))+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">среднее</div></div>'+
+    '</div>'+
+    '<div class="stat-cards-row">'+
+      '<div class="stat-card-ios"><div class="sc-label">В неделю</div><div class="sc-value">'+fmt(Math.round(perYearAvg/52))+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">среднее</div></div>'+
+      '<div class="stat-card-ios"><div class="sc-label">Тренд</div><div class="sc-value" style="font-size:18px">'+trendHTML+'</div><div class="sc-sub">год к году</div></div>'+
+    '</div>'+
+
+    // ── Блок 1: График (сегмент По месяцам / По годам) ────
+    '<div class="slbl">График расходов</div>'+
+    '<div class="group" style="padding:0">'+
+      '<div style="display:flex;border-bottom:0.5px solid var(--sep);padding:10px 16px 0;gap:0">'+
+        '<button id="tcoSegMon" onclick="_tcoSegSwitch(\'mon\')" style="flex:1;padding:7px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">По месяцам</button>'+
+        '<button id="tcoSegYr"  onclick="_tcoSegSwitch(\'yr\')"  style="flex:1;padding:7px 0;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)">По годам</button>'+
+      '</div>'+
+      '<div id="tcoChartArea" style="padding:14px 12px 10px">'+_buildTcoMonthlyChart(data,yearSel,ccy)+'</div>'+
+    '</div>'+
+
+    // ── Блок 2: Распределение (сегмент Донат / Прогресс-бары) ──
+    '<div class="slbl">Распределение</div>'+
+    '<div class="group" style="padding:0">'+
+      '<div style="display:flex;border-bottom:0.5px solid var(--sep);padding:10px 16px 0;gap:0">'+
+        '<button id="tcoSegDonut" onclick="_tcoDistSwitch(\'donut\')" style="flex:1;padding:7px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">Диаграмма</button>'+
+        '<button id="tcoSegBars"  onclick="_tcoDistSwitch(\'bars\')"  style="flex:1;padding:7px 0;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)">Детализация</button>'+
+      '</div>'+
+      '<div id="tcoDistArea" style="padding:16px">'+buildDonutChart(chartCats,total)+'</div>'+
+    '</div>'+
+
+    // ── Блок 3: Страховка по годам ───────────────────────────
+    (Object.keys(data.insuranceByYear||{}).length>0?
+      '<div class="slbl">Страховка по годам</div>'+
+      '<div class="group" style="padding:0">'+_buildInsuranceRows(data.insuranceByYear,ccy)+'</div>':'')+
+
+    // ── Блок 4: Год к году (полная разбивка) ─────────────────
+    (allYearsArr.length>1?
+      '<div class="slbl">Год к году</div>'+
+      '<div class="group" style="padding:0">'+_buildTcoYearCompare(allYearsArr,ccy,byYear)+'</div>':'')+
+
+    // ── Инсайт ───────────────────────────────────────────────
+    (insight?'<div class="tco-insight"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>'+insight+'</span></div>':'');
+
+  var el=document.getElementById('tcoStatsArea');
+  if(el){
+    el.innerHTML=html;
+    // Сохраняем данные для переключателей
+    window._tcoChartCats = chartCats;
+    window._tcoChartTotal = total;
+    window._tcoChartProgs = progs;
+    window._tcoAllYears = allYearsArr;
+    _initTcoBarClicks();
+    // Восстанавливаем активный сегмент
+    if(window._tcoDistSeg==='bars') _tcoDistSwitch('bars');
+    if(window._tcoChartSeg==='yr')  _tcoSegSwitch('yr');
+  }
+}
+
+// Переключает сегмент "По месяцам / По годам"
+function _tcoSegSwitch(seg) {
+  window._tcoChartSeg = seg;
+  var monBtn = document.getElementById('tcoSegMon');
+  var yrBtn  = document.getElementById('tcoSegYr');
+  var area   = document.getElementById('tcoChartArea');
+  if(!monBtn||!yrBtn||!area) return;
+
+  var activeStyle   = 'flex:1;padding:7px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)';
+  var inactiveStyle = 'flex:1;padding:7px 0;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)';
+
+  if(seg==='mon') {
+    monBtn.style.cssText=activeStyle; yrBtn.style.cssText=inactiveStyle;
+    area.innerHTML = _buildTcoMonthlyChart(window._tcoData, window._activeTcoYear||'all', window._tcoCcy||'zł');
+  } else {
+    yrBtn.style.cssText=activeStyle; monBtn.style.cssText=inactiveStyle;
+    area.innerHTML = window._tcoAllYears && window._tcoAllYears.length > 0
+      ? '<div style="padding:4px 0">'+_buildTcoBarChart(window._tcoAllYears, window._tcoCcy||'zł', parseInt(window._activeTcoYear)||0)+'</div>'
+      : '<div class="empty-state" style="padding:20px 0">Нет данных</div>';
+    _initTcoBarClicks();
+  }
+}
+
+// Переключает сегмент "Диаграмма / Детализация"
+function _tcoDistSwitch(seg) {
+  window._tcoDistSeg = seg;
+  var donutBtn = document.getElementById('tcoSegDonut');
+  var barsBtn  = document.getElementById('tcoSegBars');
+  var area     = document.getElementById('tcoDistArea');
+  if(!donutBtn||!barsBtn||!area) return;
+
+  var activeStyle   = 'flex:1;padding:7px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)';
+  var inactiveStyle = 'flex:1;padding:7px 0;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)';
+
+  if(seg==='donut') {
+    donutBtn.style.cssText=activeStyle; barsBtn.style.cssText=inactiveStyle;
+    area.innerHTML = buildDonutChart(window._tcoChartCats||[], window._tcoChartTotal||0);
+  } else {
+    barsBtn.style.cssText=activeStyle; donutBtn.style.cssText=inactiveStyle;
+    area.innerHTML = '<div style="padding:4px 0">'+(window._tcoChartProgs||'<div class="empty-state">Нет данных</div>')+'</div>';
+  }
+}
+
+// Доnat-диаграмма для TCO
 function buildDonutChart(categories, total) {
-  if (!categories || categories.length === 0 || total === 0) {
-    return '<div class="empty-state">Нет данных для отображения</div>';
+  if(!categories||!categories.length||!total) return '<div class="empty-state">Нет данных</div>';
+  var OX=75,OY=75,OR=58,IR=36,GAP=2.8;
+  var toRad=function(d){return d*Math.PI/180;};
+  function arc(s,e){
+    var sa=s+GAP/2,ea=e-GAP/2;
+    var x1=OX+OR*Math.cos(toRad(sa)),y1=OY+OR*Math.sin(toRad(sa));
+    var x2=OX+OR*Math.cos(toRad(ea)),y2=OY+OR*Math.sin(toRad(ea));
+    var x3=OX+IR*Math.cos(toRad(ea)),y3=OY+IR*Math.sin(toRad(ea));
+    var x4=OX+IR*Math.cos(toRad(sa)),y4=OY+IR*Math.sin(toRad(sa));
+    var lg=(ea-sa)>180?1:0;
+    return 'M'+x1+' '+y1+' A'+OR+' '+OR+' 0 '+lg+' 1 '+x2+' '+y2+' L'+x3+' '+y3+' A'+IR+' '+IR+' 0 '+lg+' 0 '+x4+' '+y4+' Z';
   }
+  var segs='',angle=-90;
+  categories.forEach(function(c){var sw=(c.value/total)*360;segs+='<path d="'+arc(angle,angle+sw)+'" fill="'+c.color+'" opacity="0.9"/>';angle+=sw;});
+  var top=categories.reduce(function(mx,c){return c.value>mx.value?c:mx;},categories[0]);
+  var topPct=((top.value/total)*100).toFixed(1);
+  var centre='<text x="'+OX+'" y="'+(OY-6)+'" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text)" font-family="-apple-system">'+topPct+'%</text>'+
+    '<text x="'+OX+'" y="'+(OY+12)+'" text-anchor="middle" font-size="10" fill="var(--text2)" font-family="-apple-system">'+top.name+'</text>';
+  var rows='';
+  categories.forEach(function(c){
+    var pct=((c.value/total)*100).toFixed(1),amt=Math.round(c.value).toLocaleString('ru');
+    rows+='<div class="tco-legend-row"><div class="tco-legend-dot" style="background:'+c.color+'"></div>'+
+      '<span class="tco-legend-name">'+c.name+'</span>'+
+      '<span class="tco-legend-amt">'+amt+'</span>'+
+      '<span class="tco-legend-pct" style="color:'+c.color+'">'+pct+'%</span></div>';
+  });
+  return '<div class="tco-donut-wrap"><svg width="150" height="150" viewBox="0 0 150 150" style="flex-shrink:0">'+segs+centre+'</svg><div style="flex:1">'+rows+'</div></div>';
+}
 
-  const OX = 75, OY = 75, OR = 58, IR = 36;
-  const GAP = 2.8; // зазор между сегментами
+// Кликабельный столбчатый график по годам
+function _buildTcoBarChart(years, ccy, activYear) {
+  if(!years.length) return '';
+  var maxVal=Math.max.apply(null,years.map(function(y){return y.total;}))||1;
+  var n=years.length;
+  var BAR_W=Math.max(28,Math.min(52,Math.floor(280/n)-6));
+  var GAP=Math.max(6,Math.floor(BAR_W*0.3));
+  var CHART_H=100, curYear=new Date().getFullYear();
+  var html='';
+  years.forEach(function(y){
+    var bh=Math.max(4,Math.round((y.total/maxVal)*CHART_H));
+    var isCur=(y.year===curYear),isSel=(activYear&&y.year===activYear);
+    var bg=isCur?'var(--green)':isSel?'var(--accent)':'var(--accent-bg)';
+    var hover=isCur?'#25a244':isSel?'#0060d0':'var(--indigo)';
+    var lc=isCur?'var(--green)':isSel?'var(--accent)':'var(--text2)';
+    html+='<div class="tco-bar-col"'+
+      ' data-year="'+y.year+'" data-total="'+Math.round(y.total).toLocaleString('ru')+'"'+
+      ' data-fuel="'+Math.round(y.fuel).toLocaleString('ru')+'" data-service="'+Math.round(y.service).toLocaleString('ru')+'"'+
+      ' data-ccy="'+ccy+'"'+
+      ' style="position:relative;display:inline-flex;flex-direction:column;align-items:center;width:'+BAR_W+'px;margin:0 '+(GAP/2)+'px;height:'+(CHART_H+32)+'px;vertical-align:bottom;cursor:pointer">'+
+      '<div style="position:absolute;bottom:'+(bh+20)+'px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-weight:600;color:'+lc+'">'+Math.round(y.total).toLocaleString('ru')+'</div>'+
+      '<div class="tco-bar-inner" data-bg="'+bg+'" data-hover="'+hover+'"'+
+        ' style="position:absolute;bottom:20px;width:100%;height:'+bh+'px;background:'+bg+';border-radius:4px 4px 2px 2px;transition:background 0.15s"></div>'+
+      '<div style="position:absolute;bottom:2px;font-size:10px;font-weight:'+(isCur?'700':'400')+';color:'+(isCur?'var(--green)':'var(--text2)')+'">'+y.year+'</div>'+
+    '</div>';
+  });
+  return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">'+
+    '<div id="tcoBarWrap" style="display:flex;align-items:flex-end;padding:8px 4px 0;min-width:'+((BAR_W+GAP)*n+GAP)+'px">'+html+'</div>'+
+    '<div id="tcoBarTip" style="display:none;position:fixed;background:var(--grouped);border:0.5px solid var(--sep);border-radius:10px;padding:9px 13px;font-size:13px;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:500;min-width:150px;"></div>'+
+  '</div>';
+}
 
-  function toRad(deg) { return deg * Math.PI / 180; }
-
-  function arc(startDeg, endDeg) {
-    const sa = startDeg + GAP / 2;
-    const ea = endDeg - GAP / 2;
-    const x1 = OX + OR * Math.cos(toRad(sa));
-    const y1 = OY + OR * Math.sin(toRad(sa));
-    const x2 = OX + OR * Math.cos(toRad(ea));
-    const y2 = OY + OR * Math.sin(toRad(ea));
-    const x3 = OX + IR * Math.cos(toRad(ea));
-    const y3 = OY + IR * Math.sin(toRad(ea));
-    const x4 = OX + IR * Math.cos(toRad(sa));
-    const y4 = OY + IR * Math.sin(toRad(sa));
-    const largeArc = (ea - sa) > 180 ? 1 : 0;
-    return `M${x1},${y1} A${OR},${OR} 0 ${largeArc},1 ${x2},${y2} L${x3},${y3} A${IR},${IR} 0 ${largeArc},0 ${x4},${y4} Z`;
+// Тултипы + клик для TCO-графика
+function _initTcoBarClicks() {
+  var cols=document.querySelectorAll('.tco-bar-col');
+  var tip=document.getElementById('tcoBarTip');
+  if(!tip||!cols.length) return;
+  function show(col,x,y){
+    tip.innerHTML='<div style="font-weight:600;color:var(--text);margin-bottom:4px">'+col.dataset.year+' год</div>'+
+      '<div style="color:var(--text2)">Итого: <b style="color:var(--text)">'+col.dataset.total+' '+col.dataset.ccy+'</b></div>'+
+      '<div style="color:var(--text2)">Топливо: <b style="color:var(--text)">'+col.dataset.fuel+' '+col.dataset.ccy+'</b></div>'+
+      '<div style="color:var(--text2)">Сервис: <b style="color:var(--text)">'+col.dataset.service+' '+col.dataset.ccy+'</b></div>';
+    tip.style.display='block';
+    var tw=tip.offsetWidth||160,vw=window.innerWidth;
+    tip.style.left=Math.min(x+12,vw-tw-12)+'px';tip.style.top=(y-110)+'px';
+    var bar=col.querySelector('.tco-bar-inner');if(bar)bar.style.background=bar.dataset.hover;
   }
-
-  let angle = -90; // начальный угол (сверху)
-  let paths = '';
-
-  categories.forEach(cat => {
-    const percent = (cat.value / total) * 100;
-    const sweep = percent * 3.6; // 3.6 = 360/100
-    paths += `<path d="${arc(angle, angle + sweep)}" fill="${cat.color}" opacity="0.9" />`;
-    angle += sweep;
+  function hide(col){
+    tip.style.display='none';
+    if(col){var bar=col.querySelector('.tco-bar-inner');if(bar)bar.style.background=bar.dataset.bg;}
+  }
+  cols.forEach(function(col){
+    col.addEventListener('touchstart',function(e){e.preventDefault();var t=e.touches[0];show(col,t.clientX,t.clientY);},{passive:false});
+    col.addEventListener('touchend',function(){setTimeout(function(){hide(col);},2000);});
+    col.addEventListener('mouseenter',function(e){show(col,e.clientX,e.clientY);});
+    col.addEventListener('mousemove',function(e){if(tip.style.display!=='none'){var tw=tip.offsetWidth||160;tip.style.left=Math.min(e.clientX+12,window.innerWidth-tw-12)+'px';tip.style.top=(e.clientY-110)+'px';}});
+    col.addEventListener('mouseleave',function(){hide(col);});
+    col.addEventListener('click',function(){
+      var y=col.dataset.year;
+      document.querySelectorAll('#tcoYearChips .chip').forEach(function(c){c.classList.toggle('active',c.dataset.year===y);});
+      window._activeTcoYear=y; _updateTcoStats();
+    });
   });
+  document.addEventListener('click',function(e){if(!e.target.closest('.tco-bar-col'))hide(null);});
+}
 
-  // Самая крупная категория для центральной подписи
-  const topCat = categories.reduce((max, cat) => cat.value > max.value ? cat : max, categories[0]);
-  const topPercent = ((topCat.value / total) * 100).toFixed(1);
+// Строки страховки по годам
+function _buildInsuranceRows(insYear, ccy) {
+  var years=Object.keys(insYear).map(Number).sort().reverse();
+  var maxVal=Math.max.apply(null,years.map(function(y){return insYear[y];}))||1;
+  var fmt=function(v){return Math.round(v).toLocaleString('ru');};
+  return years.map(function(y){
+    var v=insYear[y],bw=Math.round((v/maxVal)*100);
+    return '<div style="display:flex;align-items:center;padding:11px 16px;gap:12px;border-bottom:0.5px solid var(--sep)">'+
+      '<div style="font-size:15px;font-weight:600;color:var(--text);min-width:42px">'+y+'</div>'+
+      '<div style="flex:1"><div style="height:5px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+bw+'%;background:var(--green);border-radius:3px"></div></div>'+
+      '<div style="font-size:11px;color:var(--text2);margin-top:3px">'+fmt(Math.round(v/52))+' '+ccy+'/нед</div></div>'+
+      '<div style="font-size:15px;font-weight:600;color:var(--text);min-width:80px;text-align:right">'+fmt(v)+' '+ccy+'</div>'+
+    '</div>';
+  }).join('');
+}
 
-  const centerText = `
-    <text x="${OX}" y="${OY - 6}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text)">${topPercent}%</text>
-    <text x="${OX}" y="${OY + 12}" text-anchor="middle" font-size="10" fill="var(--text2)">${topCat.name}</text>
-  `;
+// Год к году — полная разбивка по статьям, без эмодзи
+function _buildTcoYearCompare(yearsArr, ccy, byYear) {
+  var fmt=function(v){return Math.round(v).toLocaleString('ru');};
+  var maxT=Math.max.apply(null,yearsArr.map(function(y){return y.total;}))||1;
+  var CATS=[
+    {key:'fuel',      name:'Топливо',   color:'#FF9500'},
+    {key:'service',   name:'Сервис',    color:'#007AFF'},
+    {key:'insurance', name:'Страховка', color:'#34C759'},
+    {key:'tuning',    name:'Тюнинг',    color:'#5856D6'},
+    {key:'taxes',     name:'Налоги',    color:'#30B0C7'},
+    {key:'penalties', name:'Штрафы',    color:'#FF3B30'},
+    {key:'other',     name:'Прочее',    color:'#8E8E93'},
+  ];
+  return yearsArr.slice().reverse().map(function(y,i,arr){
+    var prev=arr[i+1];
+    var trend='';
+    if(prev&&prev.total>0){
+      var p=Math.round(((y.total-prev.total)/prev.total)*100);
+      trend='<span class="'+(p>0?'trend-up':'trend-down')+'" style="font-size:12px;margin-left:4px">'+(p>0?'↑':'↓')+Math.abs(p)+'%</span>';
+    }
+    // Прогресс главного бара
+    var bw=Math.round((y.total/maxT)*100);
+    // Строки по статьям
+    var catRows=CATS.filter(function(c){return (y[c.key]||0)>0.5;}).map(function(c){
+      var v=y[c.key]||0;
+      var cp=y.total>0?Math.round(v/y.total*100):0;
+      var bwc=cp;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0">'+
+        '<div style="width:3px;height:12px;border-radius:2px;background:'+c.color+';flex-shrink:0"></div>'+
+        '<span style="font-size:12px;color:var(--text2);min-width:68px">'+c.name+'</span>'+
+        '<div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden">'+
+          '<div style="height:100%;width:'+bwc+'%;background:'+c.color+';border-radius:2px"></div>'+
+        '</div>'+
+        '<span style="font-size:12px;color:var(--text);font-weight:500;min-width:72px;text-align:right">'+fmt(v)+' '+ccy+'</span>'+
+        '<span style="font-size:11px;color:var(--text2);min-width:30px;text-align:right">'+cp+'%</span>'+
+      '</div>';
+    }).join('');
+    return '<div style="padding:12px 16px;border-bottom:0.5px solid var(--sep)">'+
+      // Заголовок года
+      '<div style="display:flex;align-items:center;margin-bottom:8px">'+
+        '<div style="font-size:16px;font-weight:700;color:var(--text)">'+y.year+trend+'</div>'+
+        '<div style="flex:1;margin:0 12px;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden">'+
+          '<div style="height:100%;width:'+bw+'%;background:var(--indigo);border-radius:3px"></div>'+
+        '</div>'+
+        '<div style="font-size:16px;font-weight:700;color:var(--text)">'+fmt(y.total)+' '+ccy+'</div>'+
+      '</div>'+
+      // Строки статей
+      catRows+
+    '</div>';
+  }).join('');
+}
 
-  // Список категорий справа
-  let rows = '';
-  categories.forEach((cat, idx) => {
-    const percent = ((cat.value / total) * 100).toFixed(1);
-    const amount  = Math.round(cat.value).toLocaleString('ru');
-    rows += `<div class="tco-legend-row">
-      <div class="tco-legend-dot" style="background:${cat.color}"></div>
-      <span class="tco-legend-name">${cat.name}</span>
-      <span class="tco-legend-amt">${amount}</span>
-      <span class="tco-legend-pct" style="color:${cat.color}">${percent}%</span>
-    </div>`;
+// График по месяцам
+function _buildTcoMonthlyChart(data, yearSel, ccy) {
+  var monthly=data.monthlyByYear||{};
+  var keys=[];
+  if(yearSel==='all'){
+    keys=Object.keys(monthly).sort().slice(-12);
+  } else {
+    keys=Object.keys(monthly).filter(function(k){return k.startsWith(yearSel+'-');}).sort();
+  }
+  if(!keys.length) return '<div class="empty-state" style="padding:20px 0;text-align:center;color:var(--text2);font-size:14px">Нет данных за период</div>';
+
+  var vals=keys.map(function(k){return monthly[k]||0;});
+  var labels=keys.map(function(k){
+    var p=k.split('-');
+    return new Date(parseInt(p[0]),parseInt(p[1])-1,1).toLocaleDateString('ru-RU',{month:'short'}).replace('.','');
   });
-
-  return `
-    <div class="tco-donut-wrap">
-      <svg width="150" height="150" viewBox="0 0 150 150" style="flex-shrink:0;">
-        ${paths}
-        ${centerText}
-      </svg>
-      <div style="flex:1; min-width:140px;">${rows}</div>
-    </div>
-  `;
+  var maxVal=Math.max.apply(null,vals)||1;
+  var n=keys.length;
+  var curYear=new Date().getFullYear(),curMonth=new Date().getMonth()+1;
+  var BAR_W=Math.max(20,Math.min(40,Math.floor(300/n)-4));
+  var GAP=Math.max(4,Math.floor(BAR_W*0.25));
+  var CHART_H=100;
+  var html='';
+  keys.forEach(function(k,i){
+    var v=monthly[k]||0;
+    var bh=Math.max(4,Math.round((v/maxVal)*CHART_H));
+    var parts=k.split('-');
+    var isKy=parseInt(parts[0]),isKm=parseInt(parts[1]);
+    var isCur=(isKy===curYear&&isKm===curMonth),isMax=(v===maxVal);
+    var bg=isCur?'var(--green)':isMax?'var(--accent)':'var(--accent-bg)';
+    var hover=isCur?'#25a244':isMax?'#0060d0':'var(--indigo)';
+    var lc=isCur?'var(--green)':isMax?'var(--accent)':'var(--text2)';
+    var showLbl=(n<=12)||(i%2===0);
+    html+='<div class="tco-mon-col"'+
+      ' data-month="'+labels[i]+' '+parts[0]+'" data-total="'+Math.round(v).toLocaleString('ru')+'" data-ccy="'+ccy+'"'+
+      ' style="position:relative;display:inline-flex;flex-direction:column;align-items:center;width:'+BAR_W+'px;margin:0 '+(GAP/2)+'px;height:'+(CHART_H+28)+'px;vertical-align:bottom;cursor:pointer">'+
+      '<div style="position:absolute;bottom:'+(bh+18)+'px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-weight:600;color:'+lc+'">'+Math.round(v).toLocaleString('ru')+'</div>'+
+      '<div class="tco-mon-inner" data-bg="'+bg+'" data-hover="'+hover+'"'+
+        ' style="position:absolute;bottom:18px;width:100%;height:'+bh+'px;background:'+bg+';border-radius:4px 4px 2px 2px;transition:background 0.15s"></div>'+
+      (showLbl?'<div style="position:absolute;bottom:2px;font-size:9px;color:var(--text2)">'+labels[i]+'</div>':'')+
+    '</div>';
+  });
+  return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">'+
+    '<div id="tcoMonWrap" style="display:flex;align-items:flex-end;padding:8px 4px 0;min-width:'+((BAR_W+GAP)*n+GAP)+'px">'+html+'</div>'+
+    '<div id="tcoMonTip" style="display:none;position:fixed;background:var(--grouped);border:0.5px solid var(--sep);border-radius:10px;padding:9px 13px;font-size:13px;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:500;min-width:130px;"></div>'+
+    '</div>';
 }
 
 
@@ -1989,7 +2378,7 @@ function _updateAccSubs() {
     'acc-sub-cur':  (c.currency||'PLN')+' → '+(c.currency2||'UAH'),
   };
   Object.keys(subs).forEach(function(id){
-    var el=document.getElementById(id); if(el) el.textContent=subs[id];
+    var el=document.getElementById(id); if(el) el.innerHTML=subs[id];
   });
 }
 

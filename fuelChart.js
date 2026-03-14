@@ -8,15 +8,20 @@ let fuelChartInstance = null;
  * @param {Array} fuelData - Все данные о заправках из GAS
  */
 function renderFuelChart(fuelData) {
+    console.log('renderFuelChart вызван, данных:', fuelData?.length);
+    
     // 1. Фильтруем данные: только газ за последние 6 месяцев
     const filteredData = filterGasLast6Months(fuelData);
-
+    console.log('Отфильтрованные данные (газ, 6 мес):', filteredData);
+    
     // 2. Группируем по месяцам и считаем средний расход
     const monthlyData = calculateMonthlyAverages(filteredData);
-
+    console.log('Данные по месяцам:', monthlyData);
+    
     // 3. Сортируем месяцы в правильном порядке
     const sortedData = sortMonthlyData(monthlyData);
-
+    console.log('Отсортированные данные:', sortedData);
+    
     // 4. Отрисовываем график
     drawLineChart(sortedData);
 }
@@ -34,7 +39,8 @@ function filterGasLast6Months(data) {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     sixMonthsAgo.setHours(0, 0, 0, 0);
     
-
+    console.log('Фильтрация: 6 месяцев назад =', sixMonthsAgo.toLocaleDateString());
+    
     return data.filter(entry => {
         // Проверяем тип топлива
         const isGas = entry.fuelType && 
