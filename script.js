@@ -765,10 +765,10 @@ function renderFuel(data) {
 
 // ── SVG FUEL CHART (like Auris iOS v4) ─────────────────
 function buildSVGFuelChart(rawData) {
-  // All gas data over entire period (no 6-month filter)
+  // All gas data over entire period
   let monthlyData = [];
   if (typeof calculateMonthlyAverages === 'function' && typeof sortMonthlyData === 'function') {
-    // Filter only gas with valid consumption — no date restriction
+    // Filter only gas with valid consumption
     const gasAll = Array.isArray(rawData) ? rawData.filter(e => {
       const isGas = e.fuelType && e.fuelType.toString().toLowerCase().includes('газ');
       const hasCons = e.fuelConsumption && !isNaN(parseFloat(e.fuelConsumption)) && parseFloat(e.fuelConsumption) > 0;
@@ -785,7 +785,7 @@ function buildSVGFuelChart(rawData) {
 
   if (!monthlyData || monthlyData.length < 2) {
     svg.style.display = 'none';
-    wrap.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text2);font-size:14px">Недостаточно данных за 6 месяцев</div>';
+    wrap.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text2);font-size:14px">Недостаточно данных за период</div>';
     return;
   }
 
@@ -1989,7 +1989,7 @@ function _updateAccSubs() {
     'acc-sub-cur':  (c.currency||'PLN')+' → '+(c.currency2||'UAH'),
   };
   Object.keys(subs).forEach(function(id){
-    var el=document.getElementById(id); if(el) el.innerHTML=subs[id];
+    var el=document.getElementById(id); if(el) el.textContent=subs[id];
   });
 }
 
