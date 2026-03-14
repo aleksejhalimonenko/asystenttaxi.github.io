@@ -1696,9 +1696,25 @@ function renderTCO(data) {
     return;
   }
 
-  var cat   = data.categories;
-  var total = data.totalCost    || 0;
-  var dist  = data.totalDistance || 0;
+  var catRaw = (data && typeof data.categories === 'object' && data.categories) ? data.categories : {};
+  var num = function(v) {
+    if (v === null || v === undefined || v === '') return 0;
+    var parsed = parseFloat(String(v).replace(',', '.'));
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  var cat = {
+    fuel:      num(catRaw.fuel),
+    service:   num(catRaw.service),
+    tuning:    num(catRaw.tuning),
+    insurance: num(catRaw.insurance),
+    taxes:     num(catRaw.taxes),
+    penalties: num(catRaw.penalties),
+    fines:     num(catRaw.fines),
+  };
+
+  var total = num(data.totalCost);
+  var dist  = num(data.totalDistance);
 
   // Валюта из настроек
   var ccy = 'zł';
@@ -1708,7 +1724,7 @@ function renderTCO(data) {
   function pct(v) { return total > 0 ? ((v / total) * 100).toFixed(1) : '0.0'; }
 
   // Категории (только ненулевые)
-  var other = Math.max(0, (cat.fines||0) - (cat.insurance||0) - (cat.taxes||0) - (cat.penalties||0));
+  var other = Math.max(0, cat.fines - cat.insurance - cat.taxes - cat.penalties);
   var chartCats = [
     { name: 'Топливо',      value: cat.fuel      || 0, color: '#FF9500' },
     { name: 'Обслуживание', value: cat.service   || 0, color: '#007AFF' },
