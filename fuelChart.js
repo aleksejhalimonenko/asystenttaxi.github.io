@@ -63,26 +63,6 @@ function filterGasLast6Months(data) {
 }
 
 /**
- * Парсит дату в формате "dd.MM.yyyy"
- */
-function parseCustomDate(dateString) {
-    if (!dateString) return new Date(NaN);
-    
-    const parts = dateString.trim().split('.');
-    if (parts.length !== 3) return new Date(NaN);
-    
-    const day = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const year = parseInt(parts[2], 10);
-    
-    if (isNaN(day) || isNaN(month) || isNaN(year)) {
-        return new Date(NaN);
-    }
-    
-    return new Date(year, month, day);
-}
-
-/**
  * Группирует данные по месяцам и считает средний расход
  */
 function calculateMonthlyAverages(data) {

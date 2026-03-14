@@ -642,3 +642,66 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 }
 .layout-reset-btn:active { opacity:0.6; }
 .settings-hint { font-size:13px; color:var(--text2); padding:0 4px; margin:-2px 0 12px; line-height:1.4; }
+
+/* ── TCO PAGE ─────────────────────────────────────── */
+.tco-donut-wrap {
+  display: flex; align-items: center;
+  gap: 20px; flex-wrap: wrap;
+}
+
+/* Прогресс-бары детализации */
+.tco-prog { margin-bottom: 12px; }
+.tco-prog:last-child { margin-bottom: 0; }
+.tco-prog-head {
+  display: flex; align-items: center; gap: 7px; margin-bottom: 5px;
+}
+.tco-prog-dot  { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.tco-prog-name { flex: 1; font-size: 14px; color: var(--text); }
+.tco-prog-val  { font-size: 13px; font-weight: 600; }
+.tco-prog-pct  { font-size: 12px; color: var(--text2); min-width: 40px; text-align: right; }
+.tco-prog-track { height: 5px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+.tco-prog-fill  { height: 100%; border-radius: 3px; }
+
+/* Легенда донат-диаграммы */
+.tco-legend-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 9px;
+}
+.tco-legend-row:last-child { margin-bottom: 0; }
+.tco-legend-dot  { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.tco-legend-name { flex: 1; font-size: 13px; color: var(--text); }
+.tco-legend-amt  { font-size: 12px; color: var(--text2); }
+.tco-legend-pct  { font-size: 13px; font-weight: 600; min-width: 38px; text-align: right; }
+
+/* Инсайт-блок */
+.tco-insight {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--accent-bg); border-radius: var(--r-md);
+  padding: 12px 14px; margin-top: 10px;
+  font-size: 13px; color: var(--text2); line-height: 1.45;
+}
+.tco-insight svg { flex-shrink: 0; margin-top: 1px; }
+
+/* ── REFRESH TOAST ───────────────────────────────── */
+.refresh-toast {
+  position: fixed;
+  bottom: calc(var(--nav-h) + var(--safe-b) + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--grouped);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  border: 0.5px solid var(--sep);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+  z-index: 200;
+}
+.refresh-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

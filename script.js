@@ -23,9 +23,10 @@ const TITLE_MAP = {
   service:  'Обслуживание',
   addfuel:  'Добавить запись',
   settings: 'Настройки',
+  tco:      'Стоимость владения',   // <-- добавьте это
 };
 
-const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbyI8Wopp--leJCvpPEu7vDLjPG52rc03ZRikOxWsqLa7WuRCiZzUeTR02Q9KnnpTGBb/exec';
+const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbxCrU0laIndMgQJ0MxB9UdB_OI0CKafLSPsEDuECe0jlibEWp_btpp0Zt3PMnq_A8BD/exec';
 
 // ── UTILS ──────────────────────────────────────────────
 function getQueryParam(name) {
@@ -109,38 +110,100 @@ function setActiveTab(page) {
 }
 
 // ── LOAD DATA ──────────────────────────────────────────
+// TTL для каждой страницы (в миллисекундах)
+const CACHE_TTL = {
+  home:     30 * 60 * 1000,   // 30 мин
+  fuel:     60 * 60 * 1000,   // 1 час
+  service:  120 * 60 * 1000,  // 2 часа
+  tco:      60 * 60 * 1000,   // 1 час
+  settings: 24 * 60 * 60 * 1000, // 24 часа
+  addfuel:  0,                 // не кэшируем форму
+};
+
+// Читает кэш и проверяет TTL. Возвращает {data, stale} или null.
+function readCache(page) {
+  try {
+    const raw = localStorage.getItem(`cache_v2_${page}`);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    // Старый формат (без обёртки) — считаем протухшим
+    if (!entry._cachedAt) return { data: entry, stale: true };
+    const ttl = CACHE_TTL[page] ?? 60 * 60 * 1000;
+    const age = Date.now() - entry._cachedAt;
+    return { data: entry._data, stale: age > ttl };
+  } catch(e) { return null; }
+}
+
+// Сохраняет данные в кэш с меткой времени.
+function writeCache(page, data) {
+  if ((CACHE_TTL[page] ?? 1) === 0) return; // addfuel не кэшируем
+  localStorage.setItem(`cache_v2_${page}`, JSON.stringify({
+    _cachedAt: Date.now(),
+    _data: data,
+  }));
+}
+
 async function loadData() {
   const page = getQueryParam('page') || 'home';
   setActiveTab(page);
   DOM.kmBadge.style.display = 'none';
 
-  // Destroy old chart if navigating away
   if (typeof destroyFuelChart === 'function') destroyFuelChart();
 
-  const cacheKey = `cache_v2_${page}`;
-  const cached = localStorage.getItem(cacheKey);
+  const cached = readCache(page);
 
   if (cached) {
+    // Есть кэш — показываем мгновенно
+    hideSkeleton();
+    renderByPage(page, cached.data);
+
+    if (!cached.stale) return; // свежий — больше ничего не делаем
+
+    // Кэш протух — тихо обновляем в фоне
     try {
-      const data = JSON.parse(cached);
+      const res = await fetch(`${GAS_BASE_URL}?page=${page}`);
+      if (!res.ok) return; // ошибка сети — оставляем кэш
+      const fresh = await res.json();
+      const freshStr = JSON.stringify(fresh);
+      // Обновляем только если данные реально изменились
+      if (freshStr !== JSON.stringify(cached.data)) {
+        writeCache(page, fresh);
+        renderByPage(page, fresh);
+        _showRefreshToast();
+      } else {
+        writeCache(page, fresh); // обновляем _cachedAt даже если данные те же
+      }
+    } catch(e) { /* тихо игнорируем — кэш остаётся */ }
+
+  } else {
+    // Нет кэша — грузим с показом скелетона
+    showSkeleton();
+    try {
+      const res = await fetch(`${GAS_BASE_URL}?page=${page}`);
+      if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+      const data = await res.json();
+      writeCache(page, data);
       hideSkeleton();
       renderByPage(page, data);
-    } catch(e) { showSkeleton(); }
-  } else {
-    showSkeleton();
+    } catch(err) {
+      showError(err.message);
+    }
   }
+}
 
-  try {
-    const res = await fetch(`${GAS_BASE_URL}?page=${page}`);
-    if (!res.ok) throw new Error(`Ошибка ${res.status}`);
-    const data = await res.json();
-    localStorage.setItem(cacheKey, JSON.stringify(data));
-    hideSkeleton();
-    renderByPage(page, data);
-  } catch(err) {
-    if (!cached) showError(err.message);
-    else hideSkeleton(); // keep showing cached
+// Тост "данные обновлены" — появляется на 2 сек в нижней части экрана
+function _showRefreshToast() {
+  var t = document.getElementById('refresh-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'refresh-toast';
+    t.className = 'refresh-toast';
+    document.getElementById('app').appendChild(t);
   }
+  t.textContent = '↻ Данные обновлены';
+  t.classList.add('visible');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.classList.remove('visible'); }, 2000);
 }
 
 function renderByPage(page, data) {
@@ -151,6 +214,7 @@ function renderByPage(page, data) {
     addfuel:  renderAddFuel,
     service:  renderService,
     settings: renderSettings,
+  tco: renderTCO,   // <-- новая страница
   };
   DOM.pageContent.innerHTML = '';
   (map[page] || renderPlaceholder)(data);
@@ -289,6 +353,19 @@ function renderHome(data) {
         <div class="row-body"><div class="row-title">Обслуживание и ремонт</div></div>
         <div class="row-right"><div class="chevron">${CHV}</div></div>
       </div>
+	  <!-- 👇 Новая строка для TCO -->
+	  <div class="row" onclick="location.href='?page=tco'" style="cursor:pointer">
+  <div class="row-icon" style="background:var(--accent-bg)">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round">
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/>
+    </svg>
+  </div>
+  <div class="row-body">
+    <div class="row-title">Стоимость владения</div>
+  </div>
+  <div class="row-right"><div class="chevron">${CHV}</div></div>
+</div>
+	  
     </div>` : '';
 
   DOM.pageContent.innerHTML =
@@ -312,9 +389,9 @@ function n(val) {
 
 function _populateHomeFromFuelCache() {
   try {
-    const raw = localStorage.getItem('cache_v2_fuel');
-    if (!raw) return;
-    const fuelData = JSON.parse(raw);
+    const cached = readCache('fuel');
+    if (!cached) return;
+    const fuelData = cached.data;
     if (!Array.isArray(fuelData) || !fuelData.length) return;
 
     const sorted = [...fuelData].sort((a,b) => parseCustomDate(b.date) - parseCustomDate(a.date));
@@ -924,7 +1001,7 @@ function renderAddFuel(data) {
   `;
 }
 
-const GAS_POST_URL = 'https://script.google.com/macros/s/AKfycbyI8Wopp--leJCvpPEu7vDLjPG52rc03ZRikOxWsqLa7WuRCiZzUeTR02Q9KnnpTGBb/exec';
+const GAS_POST_URL = 'https://script.google.com/macros/s/AKfycbxCrU0laIndMgQJ0MxB9UdB_OI0CKafLSPsEDuECe0jlibEWp_btpp0Zt3PMnq_A8BD/exec';
 
 async function submitFuel(e) {
   e.preventDefault();
@@ -990,7 +1067,7 @@ async function submitFuel(e) {
         document.getElementById('fuelComment').value = '';
       // Инвалидируем кэш — при следующем открытии fuel/home данные обновятся
       localStorage.removeItem('cache_v2_fuel');
-      localStorage.removeItem('cache_v2_home');
+      localStorage.removeItem('cache_v2_home'); // инвалидируем кэш после новой заправки
     }
   } catch(err) {
     msg.style.display = 'block';
@@ -1004,321 +1081,367 @@ async function submitFuel(e) {
 
 // ── SERVICE ────────────────────────────────────────────
 function getServiceIconSVG(type) {
-  const t = (type || '').toLowerCase();
-  if (t.includes('масло') || t.includes('то') || t.includes('обслуживание') || t.includes('расходник'))
-    return { svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3h18v4H3z"/><path d="M3 7l2 14h14l2-14"/><path d="M12 11v6"/></svg>`, cls: 'b' };
-  if (t.includes('ремонт') || t.includes('замен'))
-    return { svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`, cls: 'r' };
-  if (t.includes('шин') || t.includes('резин') || t.includes('переобув'))
-    return { svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>`, cls: 'o' };
-  if (t.includes('газ') || t.includes('гбо'))
-    return { svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>`, cls: 'g' };
-  if (t.includes('покупка') || t.includes('запча'))
-    return { svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`, cls: 'i' };
-  return { svg: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>`, cls: 'b' };
+  var t=(type||'').toLowerCase();
+  if(t.includes('масло')||t.includes('то')||t.includes('обслуживание')||t.includes('расходник'))
+    return {svg:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3h18v4H3z"/><path d="M3 7l2 14h14l2-14"/><path d="M12 11v6"/></svg>',cls:'b'};
+  if(t.includes('ремонт')||t.includes('замен'))
+    return {svg:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',cls:'r'};
+  if(t.includes('шин')||t.includes('резин')||t.includes('переобув'))
+    return {svg:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>',cls:'o'};
+  if(t.includes('газ')||t.includes('гбо'))
+    return {svg:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>',cls:'g'};
+  if(t.includes('покупка')||t.includes('запча'))
+    return {svg:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',cls:'i'};
+  return {svg:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>',cls:'b'};
 }
 
 function renderService(data) {
-  if (!Array.isArray(data)) return;
+  if(!Array.isArray(data)) return;
+  window._svcData=data;
+  window._activeSvcYear=window._activeSvcYear||'all';
+  window._activeSvcCat=window._activeSvcCat||'all';
+  var ccy='zł';
+  try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
+  window._svcCcy=ccy;
 
-  // ── Base stats ─────────────────────────────────────────
-  const totalSpent = data.reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
-  const avgCost    = data.length ? totalSpent / data.length : 0;
-  const curYear    = new Date().getFullYear();
-  const curMonth   = new Date().getMonth() + 1;
+  var yearsSet={};
+  data.forEach(function(i){try{var y=parseCustomDate(i.date).getFullYear();if(!isNaN(y)&&y>2000)yearsSet[y]=1;}catch(e){} });
+  var years=Object.keys(yearsSet).map(Number).sort(function(a,b){return b-a;});
 
-  const yearData     = data.filter(i => { try { return parseCustomDate(i.date).getFullYear() === curYear; } catch { return false; } });
-  const lastYearData = data.filter(i => { try { return parseCustomDate(i.date).getFullYear() === curYear - 1; } catch { return false; } });
-  const yearTotal    = yearData.reduce((s, i) => s + (parseFloat(i.total) || 0), 0);
-  const monthlyAvg   = yearData.length ? (yearData.length / curMonth).toFixed(1) : '0.0';
+  var yearChips='<div class="chip'+(window._activeSvcYear==='all'?' active':'')+'" data-year="all">Все</div>';
+  years.forEach(function(y){yearChips+='<div class="chip'+(window._activeSvcYear==y?' active':'')+'" data-year="'+y+'">'+y+'</div>';});
 
-  // Trend vs last year
-  let trendHTML = '—';
-  if (lastYearData.length > 0 && yearData.length > 0) {
-    const pct = Math.round(((yearData.length - lastYearData.length) / lastYearData.length) * 100);
-    const cls = pct > 0 ? 'trend-up' : pct < 0 ? 'trend-down' : '';
-    trendHTML = `<span class="${cls}">${pct > 0 ? '↑' : pct < 0 ? '↓' : '→'}${Math.abs(pct)}%</span>`;
-  }
+  var svcCats=[{key:'all',lbl:'Все'},{key:'плановое',lbl:'Плановое ТО'},{key:'ремонт',lbl:'Ремонт'},
+    {key:'расходник',lbl:'Расходники'},{key:'переобувка',lbl:'Переобувка'},{key:'покупка',lbl:'Запчасти'},{key:'мойка',lbl:'Мойка'}];
+  var catChips=svcCats.map(function(c){return '<div class="chip'+(window._activeSvcCat===c.key?' active':'')+'" data-cat="'+c.key+'">'+c.lbl+'</div>';}).join('');
 
-  // Last visit
-  let lastVisit = '—';
-  if (data.length) {
-    const lastDate = data.reduce((latest, item) => {
-      const d = parseCustomDate(item.date);
-      return d > latest ? d : latest;
-    }, new Date(0));
-    if (!isNaN(lastDate)) {
-      const diff = Math.floor((new Date() - lastDate) / 86400000);
-      lastVisit = diff === 0 ? 'сегодня' : `${diff} дн. назад`;
-    }
-  }
+  var totalAll=data.reduce(function(s,i){return s+(parseFloat(i.total)||0);},0);
 
-  // Most common type
-  const typeCounts = {};
-  data.forEach(i => {
-    const t = (i.type || 'другое').toLowerCase().trim();
-    typeCounts[t] = (typeCounts[t] || 0) + 1;
-  });
-  const mostCommon = Object.entries(typeCounts).sort((a,b) => b[1]-a[1])[0]?.[0]?.toUpperCase() || '—';
+  DOM.pageContent.innerHTML=
+    '<div class="anim">'+
+    '<div class="hero indigo">'+
+      '<div class="hero-lbl">Всего на обслуживание</div>'+
+      '<div class="hero-val">'+Math.round(totalAll).toLocaleString('ru')+' <span class="hero-unit">'+ccy+'</span></div>'+
+      '<div class="hero-sub">'+data.length+' записей за всё время</div>'+
+      '<div class="hero-icon"><svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>'+
+    '</div>'+
+    '<div class="chips" id="svcYearChips" style="margin-bottom:4px">'+yearChips+'</div>'+
+    '<div id="svcStatsArea"></div>'+
+    '<div class="slbl" style="margin-top:20px">История записей</div>'+
+    '<div class="search-wrap" style="margin-bottom:8px">'+
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'+
+      '<input type="text" id="svcSearch" placeholder="Поиск по описанию, типу…" oninput="_applySvcFilters()">'+
+      '<svg id="svcSearchClear" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2.5" stroke-linecap="round" style="cursor:pointer;display:none" onclick="document.getElementById(\'svcSearch\').value=\'\';_applySvcFilters()"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'+
+    '</div>'+
+    '<div class="chips" id="svcCatChips">'+catChips+'</div>'+
+    '<div id="svcTimeline"></div>'+
+    '</div>';
 
-  // ── Cost distribution by category ─────────────────────
-  const cats = { to: 0, repair: 0, consumables: 0, tires: 0, other: 0 };
-  let catTotal = 0;
-  data.forEach(i => {
-    const t = (i.type || '').toLowerCase();
-    const c = parseFloat(i.total) || 0;
-    if (!c) return;
-    catTotal += c;
-    if (t.includes('то') || t.includes('обслуживание') || t.includes('плановое'))   cats.to += c;
-    else if (t.includes('ремонт') || t.includes('замена'))                           cats.repair += c;
-    else if (t.includes('расходник') || t.includes('фильтр') || t.includes('масло')) cats.consumables += c;
-    else if (t.includes('шин') || t.includes('резин') || t.includes('переобув'))     cats.tires += c;
-    else                                                                               cats.other += c;
-  });
-  const pct = k => catTotal > 0 ? Math.round((cats[k] / catTotal) * 100) : 0;
-
-  const distRows = [
-    { lbl:'ТО',        key:'to',          color:'var(--accent)' },
-    { lbl:'Ремонты',   key:'repair',       color:'var(--red)' },
-    { lbl:'Расходники',key:'consumables',  color:'var(--green)' },
-    { lbl:'Шины',      key:'tires',        color:'var(--orange)' },
-    { lbl:'Прочее',    key:'other',        color:'var(--indigo)' },
-  ].filter(d => pct(d.key) > 0);
-
-  function buildDonut() {
-    if (!distRows.length) return '<div class="empty-state" style="padding:20px 0">Нет данных</div>';
-    var OX = 75, OY = 75, OR = 58, IR = 36;
-    var toRad = function(d) { return d * Math.PI / 180; };
-    var GAP = 2.8;
-    function arc(s, e) {
-      var sa = s + GAP/2, ea = e - GAP/2;
-      var x1 = OX + OR*Math.cos(toRad(sa)), y1 = OY + OR*Math.sin(toRad(sa));
-      var x2 = OX + OR*Math.cos(toRad(ea)), y2 = OY + OR*Math.sin(toRad(ea));
-      var x3 = OX + IR*Math.cos(toRad(ea)), y3 = OY + IR*Math.sin(toRad(ea));
-      var x4 = OX + IR*Math.cos(toRad(sa)), y4 = OY + IR*Math.sin(toRad(sa));
-      var lg = (ea - sa) > 180 ? 1 : 0;
-      return 'M'+x1+' '+y1+' A'+OR+' '+OR+' 0 '+lg+' 1 '+x2+' '+y2
-            +' L'+x3+' '+y3+' A'+IR+' '+IR+' 0 '+lg+' 0 '+x4+' '+y4+' Z';
-    }
-    var segs = '', angle = -90;
-    distRows.forEach(function(d) {
-      var sw = pct(d.key) * 3.6;
-      segs += '<path d="'+arc(angle, angle+sw)+'" fill="'+d.color+'" opacity="0.9"/>';
-      angle += sw;
-    });
-    var top = distRows[0];
-    var centre =
-      '<text x="'+OX+'" y="'+(OY-6)+'" text-anchor="middle" font-size="15" font-weight="700"'
-      +' fill="var(--text)" font-family="-apple-system">'+pct(top.key)+'%</text>'
-      +'<text x="'+OX+'" y="'+(OY+12)+'" text-anchor="middle" font-size="10"'
-      +' fill="var(--text2)" font-family="-apple-system">'+top.lbl+'</text>';
-    var rows = '';
-    distRows.forEach(function(d, i) {
-      var mb = i < distRows.length-1 ? 'margin-bottom:10px;' : '';
-      rows +=
-        '<div style="display:flex;align-items:center;gap:8px;'+mb+'">'
-        +'<div style="width:10px;height:10px;border-radius:3px;flex-shrink:0;background:'+d.color+'"></div>'
-        +'<span style="font-size:13px;color:var(--text);flex:1">'+d.lbl+'</span>'
-        +'<span style="font-size:13px;font-weight:600;color:'+d.color+'">'+pct(d.key)+'%</span>'
-        +'</div>';
-    });
-    return '<div style="display:flex;align-items:center;gap:16px">'
-      +'<svg width="150" height="150" viewBox="0 0 150 150" style="flex-shrink:0">'+segs+centre+'</svg>'
-      +'<div style="flex:1">'+rows+'</div>'
-      +'</div>';
-  }
-  const distHTML = buildDonut();
-
-  // ── Timeline ───────────────────────────────────────────
-  // ── Timeline builder (вызывается при фильтрации) ──────
-  function buildTimelineHTML(list) {
-    if (!list.length) return '<div class="empty-state" style="padding:24px 0;text-align:center;color:var(--text2);font-size:14px">Ничего не найдено</div>';
-    const grp = groupByMonth(list);
-    let html = '';
-    Object.keys(grp).forEach(month => {
-      html += '<div class="month-header">' + (month.charAt(0) + month.slice(1).toLowerCase()) + '</div>';
-      html += '<div class="group" style="padding: 0 16px">';
-      grp[month].forEach(s => {
-        const { svg, cls } = getServiceIconSVG(s.type);
-        html += `
-          <div class="tl-row">
-            <div class="tl-icon ${cls}">${svg}</div>
-            <div class="tl-body">
-              <div class="tl-title">${s.description || s.type || 'Обслуживание'}</div>
-              <div class="tl-meta">${s.date || '—'} · ${s.mileage || '—'} км · ${s.type || ''}</div>
-            </div>
-            <div class="tl-price">${s.total ? s.total + ' zł' : '—'}</div>
-          </div>`;
-      });
-      html += '</div>';
-    });
-    return html;
-  }
-
-  // Категории для чипов
-  const svcCategories = [
-    { key: 'all',          lbl: 'Все' },
-    { key: 'плановое',     lbl: 'Плановое ТО' },
-    { key: 'ремонт',       lbl: 'Ремонт' },
-    { key: 'расходник',    lbl: 'Расходники' },
-    { key: 'переобувка',   lbl: 'Переобувка' },
-    { key: 'покупка',      lbl: 'Покупка запчастей' },
-    { key: 'мойка',        lbl: 'Мойка' },
-  ];
-
-  const timelineHTML = buildTimelineHTML(data);
-
-  // ── Hero ───────────────────────────────────────────────
-  DOM.pageContent.innerHTML = `
-    <div class="anim">
-
-      <!-- HERO: всего потрачено -->
-      <div class="hero indigo">
-        <div class="hero-lbl">Всего на обслуживание</div>
-        <div class="hero-val">${Math.round(totalSpent).toLocaleString('ru')} <span class="hero-unit">zł</span></div>
-        <div class="hero-sub">${data.length} записей за всё время</div>
-        <div class="hero-icon">
-          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-        </div>
-      </div>
-
-      <!-- ROW 1: За год + Средний чек -->
-      <div class="stat-cards-row">
-        <div class="stat-card-ios">
-          <div class="sc-label">За ${curYear} год</div>
-          <div class="sc-value">${Math.round(yearTotal).toLocaleString('ru')}<span class="u"> zł</span></div>
-          <div class="sc-sub">${yearData.length} визитов</div>
-        </div>
-        <div class="stat-card-ios">
-          <div class="sc-label">Средний чек</div>
-          <div class="sc-value">${Math.round(avgCost).toLocaleString('ru')}<span class="u"> zł</span></div>
-          <div class="sc-sub">за одну запись</div>
-        </div>
-      </div>
-
-      <!-- ROW 2: Среднее в мес + Последний визит -->
-      <div class="stat-cards-row">
-        <div class="stat-card-ios">
-          <div class="sc-label">В месяц (${curYear})</div>
-          <div class="sc-value">${monthlyAvg}<span class="u">×</span></div>
-          <div class="sc-sub">тренд vs прошлый год: ${trendHTML}</div>
-        </div>
-        <div class="stat-card-ios">
-          <div class="sc-label">Последний визит</div>
-          <div class="sc-value" style="font-size:17px;letter-spacing:-.3px">${lastVisit}</div>
-          <div class="sc-sub">чаще всего: ${mostCommon}</div>
-        </div>
-      </div>
-
-      <!-- Распределение расходов -->
-      <div class="slbl">Распределение расходов</div>
-      <div class="group" style="padding:16px">
-        ${distHTML || '<div class="empty-state" style="padding:20px 0">Нет данных</div>'}
-      </div>
-
-      <!-- Timeline -->
-      <!-- Timeline -->
-      <div class="slbl">История работ</div>
-
-      <div class="search-wrap">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="svcSearch" placeholder="Поиск по описанию, типу…" oninput="_applySvcFilters()">
-        <svg id="svcSearchClear" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2.5" stroke-linecap="round" style="cursor:pointer;display:none" onclick="document.getElementById('svcSearch').value='';_applySvcFilters()"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </div>
-
-      <div class="chips" id="svcChips">
-        ${svcCategories.map((c,i) => '<div class="chip' + (i===0?' active':'') + '" data-svc="' + c.key + '">' + c.lbl + '</div>').join('')}
-      </div>
-
-      <div id="svcTimeline">
-        ${timelineHTML}
-      </div>
-
-    </div>
-  `;
-
-  // Привязываем чипы — активируют глобальный фильтр
-  window._svcData = data;
-  window._activeSvcCat = 'all';
-
-  document.querySelectorAll('#svcChips .chip').forEach(chip => {
-    chip.addEventListener('click', function() {
-      document.querySelectorAll('#svcChips .chip').forEach(c => c.classList.remove('active'));
-      this.classList.add('active');
-      window._activeSvcCat = this.dataset.svc;
-      _applySvcFilters();
+  document.querySelectorAll('#svcYearChips .chip').forEach(function(chip){
+    chip.addEventListener('click',function(){
+      document.querySelectorAll('#svcYearChips .chip').forEach(function(c){c.classList.remove('active');});
+      this.classList.add('active'); window._activeSvcYear=this.dataset.year;
+      _updateSvcStats(); _applySvcFilters();
     });
   });
+  document.querySelectorAll('#svcCatChips .chip').forEach(function(chip){
+    chip.addEventListener('click',function(){
+      document.querySelectorAll('#svcCatChips .chip').forEach(function(c){c.classList.remove('active');});
+      this.classList.add('active'); window._activeSvcCat=this.dataset.cat; _applySvcFilters();
+    });
+  });
+  _updateSvcStats(); _applySvcFilters();
 }
 
-// ── FUEL FILTER GLOBAL ─────────────────────────────────
-function _applyHistoryFilters() {
-  const searchVal = (document.getElementById('historySearch')?.value || '').trim();
-  const clearBtn  = document.getElementById('historySearchClear');
-  if (clearBtn) clearBtn.style.display = searchVal ? 'block' : 'none';
+function _updateSvcStats() {
+  var data=window._svcData||[], ccy=window._svcCcy||'zł';
+  var yearSel=window._activeSvcYear||'all';
+  var curYear=new Date().getFullYear(), curMonth=new Date().getMonth()+1;
 
-  const sorted      = window._fuelSorted || [];
-  const activePeriod = window._activePeriod || 'week';
-  const activeSort   = window._activeSort   || 'all';
+  var filtered=yearSel==='all'?data:data.filter(function(i){try{return parseCustomDate(i.date).getFullYear()===parseInt(yearSel);}catch(e){return false;}});
+  var prevYear=yearSel==='all'?null:parseInt(yearSel)-1;
+  var prevData=prevYear?data.filter(function(i){try{return parseCustomDate(i.date).getFullYear()===prevYear;}catch(e){return false;}}):[];
 
-  let list = filterDataByPeriod(sorted, activePeriod);
+  var total=filtered.reduce(function(s,i){return s+(parseFloat(i.total)||0);},0);
+  var prevTotal=prevData.reduce(function(s,i){return s+(parseFloat(i.total)||0);},0);
+  var count=filtered.length, avgCost=count?total/count:0;
 
-  if (activeSort === 'gas')    list = list.filter(r => (r.fuelType||'').toLowerCase().includes('газ'));
-  if (activeSort === 'petrol') list = list.filter(r => (r.fuelType||'').toLowerCase().includes('бензин'));
-  if (activeSort === 'high')   list = list.filter(r => { const c = n(r.fuelConsumption); return !isNaN(c) && c >= 7.5; });
-  if (activeSort === 'low')    list = list.filter(r => { const c = n(r.fuelConsumption); return !isNaN(c) && c < 6.3; });
-  if (searchVal) list = list.filter(r => (r.date || '').includes(searchVal));
+  var months=1;
+  if(yearSel==='all'){var allY={};data.forEach(function(i){try{allY[parseCustomDate(i.date).getFullYear()]=1;}catch(e){}});months=Math.max(1,Object.keys(allY).length*12);}
+  else{months=parseInt(yearSel)===curYear?Math.max(1,curMonth):12;}
+  var perMonth=total/months;
 
-  const el = document.getElementById('historyList');
-  if (el) el.innerHTML = buildFillRows(list);
+  var trendSumHTML='—', trendVisHTML='—';
+  if(prevTotal>0&&total>0){var ps=Math.round(((total-prevTotal)/prevTotal)*100);trendSumHTML='<span class="'+(ps>0?'trend-up':'trend-down')+'">'+(ps>0?'↑':'↓')+Math.abs(ps)+'%</span> vs '+prevYear;}
+  else if(yearSel==='all'){trendSumHTML='<span style="color:var(--text2)">все годы</span>';}
+  if(prevData.length>0&&count>0){var pv=Math.round(((count-prevData.length)/prevData.length)*100);trendVisHTML='<span class="'+(pv>0?'trend-up':'trend-down')+'">'+(pv>0?'↑':'↓')+Math.abs(pv)+'%</span> vs '+prevYear;}
+
+  var lastVisit='—', mostExpStr='';
+  if(filtered.length){
+    var lastDate=filtered.reduce(function(l,i){var d=parseCustomDate(i.date);return d>l?d:l;},new Date(0));
+    if(!isNaN(lastDate)){var diff=Math.floor((new Date()-lastDate)/86400000);lastVisit=diff===0?'сегодня':diff+' дн. назад';}
+    var mostExp=filtered.reduce(function(mx,i){return (parseFloat(i.total)||0)>(parseFloat(mx.total)||0)?i:mx;},filtered[0]);
+    if(mostExp) mostExpStr=Math.round(parseFloat(mostExp.total)||0).toLocaleString('ru')+' '+ccy+' — самый дорогой';
+  }
+
+  var mCounts={};
+  filtered.forEach(function(i){try{var d=parseCustomDate(i.date);var k=d.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}).replace(' г.','');mCounts[k]=(mCounts[k]||0)+1;}catch(e){}});
+  var busyMonth=Object.keys(mCounts).length?Object.entries(mCounts).sort(function(a,b){return b[1]-a[1];})[0]:null;
+
+  var gaps=[],withKm=filtered.filter(function(i){return parseFloat(i.mileage)>0;}).sort(function(a,b){return parseFloat(a.mileage)-parseFloat(b.mileage);});
+  for(var mi=1;mi<withKm.length;mi++){var g=parseFloat(withKm[mi].mileage)-parseFloat(withKm[mi-1].mileage);if(g>0&&g<50000)gaps.push(g);}
+  var avgGap=gaps.length?Math.round(gaps.reduce(function(s,v){return s+v;},0)/gaps.length):null;
+
+  var cats={to:0,repair:0,consumables:0,tires:0,other:0},catTotal=0;
+  filtered.forEach(function(i){
+    var t=(i.type||'').toLowerCase(),c=parseFloat(i.total)||0;if(!c)return;catTotal+=c;
+    if(t.includes('то')||t.includes('обслуживание')||t.includes('плановое'))cats.to+=c;
+    else if(t.includes('ремонт')||t.includes('замена'))cats.repair+=c;
+    else if(t.includes('расходник')||t.includes('фильтр')||t.includes('масло'))cats.consumables+=c;
+    else if(t.includes('шин')||t.includes('резин')||t.includes('переобув'))cats.tires+=c;
+    else cats.other+=c;
+  });
+  var pct=function(k){return catTotal>0?Math.round(cats[k]/catTotal*100):0;};
+  var distRows=[
+    {lbl:'ТО',key:'to',color:'var(--accent)'},{lbl:'Ремонты',key:'repair',color:'var(--red)'},
+    {lbl:'Расходники',key:'consumables',color:'var(--green)'},{lbl:'Шины',key:'tires',color:'var(--orange)'},
+    {lbl:'Прочее',key:'other',color:'var(--indigo)'},
+  ].filter(function(d){return pct(d.key)>0;}).map(function(d){return Object.assign({},d,{pct:pct(d.key),value:cats[d.key]});});
+
+  var allYearsArr=[];
+  var yearsInData={};
+  data.forEach(function(i){try{yearsInData[parseCustomDate(i.date).getFullYear()]=1;}catch(e){}});
+  Object.keys(yearsInData).map(Number).sort().forEach(function(y){
+    var yD=data.filter(function(i){try{return parseCustomDate(i.date).getFullYear()===y;}catch(e){return false;}});
+    var yT=yD.reduce(function(s,i){return s+(parseFloat(i.total)||0);},0);
+    allYearsArr.push({year:y,total:yT,count:yD.length,avg:yD.length?yT/yD.length:0});
+  });
+
+  // Прогноз на текущий год
+  var forecastHTML='';
+  var curYD=data.filter(function(i){try{return parseCustomDate(i.date).getFullYear()===curYear;}catch(e){return false;}});
+  var curYTotal=curYD.reduce(function(s,i){return s+(parseFloat(i.total)||0);},0);
+  if(curMonth<12&&curYTotal>0){
+    var projected=Math.round((curYTotal/curMonth)*12);
+    var remaining=Math.round(projected-curYTotal);
+    var pctDone=Math.round((curMonth/12)*100);
+    forecastHTML='<div class="tco-insight" style="margin-top:10px">'+
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'+
+      '<span>Прогноз на '+curYear+' год — около <b>'+projected.toLocaleString('ru')+' '+ccy+'</b>. '+
+      'Потрачено '+Math.round(curYTotal).toLocaleString('ru')+' '+ccy+' ('+pctDone+'% года прошло). '+
+      'Ещё ~<b>'+remaining.toLocaleString('ru')+' '+ccy+'</b>.</span></div>';
+  }
+
+  var fmt=function(v){return Math.round(v).toLocaleString('ru');};
+  var periodLabel=yearSel==='all'?'за всё время':'за '+yearSel+' год';
+
+  var html=
+    '<div class="stat-cards-row">'+
+      '<div class="stat-card-ios"><div class="sc-label">'+periodLabel+'</div><div class="sc-value">'+fmt(total)+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">'+count+' визитов</div></div>'+
+      '<div class="stat-card-ios"><div class="sc-label">Средний чек</div><div class="sc-value">'+fmt(avgCost)+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">за визит</div></div>'+
+    '</div>'+
+    '<div class="stat-cards-row">'+
+      '<div class="stat-card-ios"><div class="sc-label">В месяц</div><div class="sc-value">'+fmt(perMonth)+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">среднее</div></div>'+
+      '<div class="stat-card-ios"><div class="sc-label">Тренд расходов</div><div class="sc-value" style="font-size:18px">'+trendSumHTML+'</div><div class="sc-sub">'+trendVisHTML+' визитов</div></div>'+
+    '</div>'+
+    '<div class="stat-cards-row">'+
+      '<div class="stat-card-ios"><div class="sc-label">Последний визит</div><div class="sc-value" style="font-size:18px">'+lastVisit+'</div><div class="sc-sub">'+mostExpStr+'</div></div>'+
+      '<div class="stat-card-ios"><div class="sc-label">Активный месяц</div>'+
+        (busyMonth?'<div class="sc-value" style="font-size:15px;letter-spacing:-0.3px">'+busyMonth[0]+'</div><div class="sc-sub">'+busyMonth[1]+' визитов</div>':'<div class="sc-value">—</div><div class="sc-sub"> </div>')+
+      '</div>'+
+    '</div>'+
+    (avgGap?'<div class="stat-cards-row">'+
+      '<div class="stat-card-ios"><div class="sc-label">Пробег между визитами</div><div class="sc-value">'+avgGap.toLocaleString('ru')+'<span class="u"> км</span></div><div class="sc-sub">среднее</div></div>'+
+      '<div class="stat-card-ios"><div class="sc-label">Чаще всего</div><div class="sc-value" style="font-size:15px">'+_getMostCommonType(filtered)+'</div><div class="sc-sub">тип работ</div></div>'+
+    '</div>':'')+
+    '<div class="slbl" style="margin-top:4px">Расходы по месяцам</div>'+
+    '<div class="group" style="padding:14px 12px 10px">'+_buildSvcBarChart(filtered,yearSel,ccy)+'</div>'+
+    (distRows.length?'<div class="slbl">Распределение расходов</div><div class="group" style="padding:16px">'+_buildSvcDonut(distRows,catTotal,ccy)+'</div>':'')+
+    (allYearsArr.length>1?'<div class="slbl">Год к году</div><div class="group" style="padding:0">'+_buildYearCompare(allYearsArr,ccy)+'</div>':'')+
+    forecastHTML;
+
+  var el=document.getElementById('svcStatsArea');
+  if(el){el.innerHTML=html; _initBarChartClicks();}
 }
 
-// ── SERVICE FILTER GLOBALS ─────────────────────────────
-function buildTimelineHTML(list) {
-  if (!list || !list.length) return '<div class="empty-state" style="padding:24px 0;text-align:center;color:var(--text2);font-size:14px">Ничего не найдено</div>';
-  const grp = groupByMonth(list);
-  let html = '';
-  Object.keys(grp).forEach(function(month) {
-    html += '<div class="month-header">' + (month.charAt(0) + month.slice(1).toLowerCase()) + '</div>';
-    html += '<div class="group" style="padding: 0 16px">';
-    grp[month].forEach(function(s) {
-      const { svg, cls } = getServiceIconSVG(s.type);
-      html += '<div class="tl-row">'
-        + '<div class="tl-icon ' + cls + '">' + svg + '</div>'
-        + '<div class="tl-body">'
-        + '<div class="tl-title">' + (s.description || s.type || 'Обслуживание') + '</div>'
-        + '<div class="tl-meta">' + (s.date||'—') + ' · ' + (s.mileage||'—') + ' км · ' + (s.type||'') + '</div>'
-        + '</div>'
-        + '<div class="tl-price">' + (s.total ? s.total + ' zł' : '—') + '</div>'
-        + '</div>';
+function _getMostCommonType(data) {
+  var c={};
+  data.forEach(function(i){var t=(i.type||'другое').toLowerCase().trim();c[t]=(c[t]||0)+1;});
+  var top=Object.entries(c).sort(function(a,b){return b[1]-a[1];})[0];
+  return top?top[0].toUpperCase():'—';
+}
+
+// HTML-столбчатый график с тултипами
+function _buildSvcBarChart(data, yearSel, ccy) {
+  if(!data.length) return '<div class="empty-state" style="padding:20px 0">Нет данных</div>';
+
+  var monthly={};
+  data.forEach(function(i){
+    try{
+      var d=parseCustomDate(i.date);
+      var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      var lbl=d.toLocaleDateString('ru-RU',{month:'short'}).replace('.','');
+      var fullLbl=d.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}).replace(' г.','');
+      if(!monthly[key]) monthly[key]={lbl:lbl,fullLbl:fullLbl,total:0,count:0,year:d.getFullYear(),month:d.getMonth()+1};
+      monthly[key].total+=parseFloat(i.total)||0;
+      monthly[key].count++;
+    }catch(e){}
+  });
+
+  var keys=Object.keys(monthly).sort();
+  if(yearSel==='all'&&keys.length>18) keys=keys.slice(-18);
+  if(!keys.length) return '<div class="empty-state" style="padding:20px 0">Нет данных</div>';
+
+  var vals=keys.map(function(k){return monthly[k].total;});
+  var maxVal=Math.max.apply(null,vals)||1;
+  var n=keys.length;
+  var curYear=new Date().getFullYear(), curMonth=new Date().getMonth()+1;
+
+  var CHART_H=100, BAR_W=Math.max(20,Math.min(40,Math.floor(300/n)-4));
+  var GAP=Math.max(4,Math.floor(BAR_W*0.25));
+
+  var barsHTML='';
+  keys.forEach(function(k,i){
+    var v=monthly[k].total;
+    var bh=Math.max(4,Math.round((v/maxVal)*CHART_H));
+    var isCur=(monthly[k].year===curYear&&monthly[k].month===curMonth);
+    var isMax=(v===maxVal);
+    var bg=isCur?'var(--green)':(isMax?'var(--accent)':'var(--accent-bg)');
+    var hoverBg=isCur?'#25a244':(isMax?'#0060d0':'var(--indigo)');
+    var showLbl=(n<=12)||(i%2===0);
+
+    // Цена над столбцом — всегда
+    var topLabelColor=isCur?'var(--green)':(isMax?'var(--accent)':'var(--text2)');
+    var topLabel='<div style="position:absolute;bottom:'+(bh+5)+'px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-weight:600;color:'+topLabelColor+'">'+Math.round(v).toLocaleString('ru')+'</div>';
+
+    barsHTML+=
+      '<div class="svc-bar-col"'+
+        ' data-month="'+monthly[k].fullLbl+'"'+
+        ' data-total="'+Math.round(v).toLocaleString('ru')+'"'+
+        ' data-count="'+monthly[k].count+'"'+
+        ' data-ccy="'+ccy+'"'+
+        ' style="position:relative;display:inline-flex;flex-direction:column;align-items:center;width:'+BAR_W+'px;margin:0 '+(GAP/2)+'px;height:'+(CHART_H+20)+'px;vertical-align:bottom;cursor:pointer">'+
+        topLabel+
+        '<div class="svc-bar-inner" data-bg="'+bg+'" data-hover="'+hoverBg+'"'+
+          ' style="position:absolute;bottom:20px;width:100%;height:'+bh+'px;background:'+bg+';border-radius:4px 4px 2px 2px;transition:background 0.15s,transform 0.1s"></div>'+
+        (showLbl?'<div style="position:absolute;bottom:2px;width:140%;text-align:center;font-size:9px;color:var(--text2);left:50%;transform:translateX(-50%)">'+monthly[k].lbl+'</div>':'')+
+      '</div>';
+  });
+
+  return '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">'+
+    '<div id="svcBarWrap" style="display:flex;align-items:flex-end;padding:8px 4px 0;min-width:'+((BAR_W+GAP)*n+GAP)+'px">'+
+      barsHTML+
+    '</div>'+
+    '<div id="svcBarTip" style="display:none;position:fixed;background:var(--grouped);border:0.5px solid var(--sep);border-radius:10px;padding:9px 13px;font-size:13px;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:500;min-width:140px;"></div>'+
+  '</div>';
+}
+
+// Touch/hover тултипы для столбчатого графика
+function _initBarChartClicks() {
+  var cols=document.querySelectorAll('.svc-bar-col');
+  var tip=document.getElementById('svcBarTip');
+  if(!tip||!cols.length) return;
+
+  function showTip(col,x,y){
+    tip.innerHTML=
+      '<div style="font-weight:600;color:var(--text);margin-bottom:4px">'+col.dataset.month+'</div>'+
+      '<div style="color:var(--text2)">Потрачено: <b style="color:var(--text)">'+col.dataset.total+' '+col.dataset.ccy+'</b></div>'+
+      '<div style="color:var(--text2)">Визитов: <b style="color:var(--text)">'+col.dataset.count+'</b></div>';
+    tip.style.display='block';
+    var tw=tip.offsetWidth||150, vw=window.innerWidth;
+    tip.style.left=Math.min(x+12,vw-tw-12)+'px';
+    tip.style.top=(y-90)+'px';
+    var bar=col.querySelector('.svc-bar-inner');
+    if(bar){bar.style.background=bar.dataset.hover;bar.style.transform='scaleY(1.04)';}
+  }
+  function hideTip(col){
+    tip.style.display='none';
+    if(col){var bar=col.querySelector('.svc-bar-inner');if(bar){bar.style.background=bar.dataset.bg;bar.style.transform='';}}
+  }
+
+  cols.forEach(function(col){
+    col.addEventListener('touchstart',function(e){
+      e.preventDefault();var touch=e.touches[0];showTip(col,touch.clientX,touch.clientY);
+    },{passive:false});
+    col.addEventListener('touchend',function(){setTimeout(function(){hideTip(col);},1800);});
+    col.addEventListener('mouseenter',function(e){showTip(col,e.clientX,e.clientY);});
+    col.addEventListener('mousemove',function(e){
+      if(tip.style.display!=='none'){
+        var tw=tip.offsetWidth||150;
+        tip.style.left=Math.min(e.clientX+12,window.innerWidth-tw-12)+'px';
+        tip.style.top=(e.clientY-90)+'px';
+      }
     });
-    html += '</div>';
+    col.addEventListener('mouseleave',function(){hideTip(col);});
+  });
+  document.addEventListener('click',function(e){if(!e.target.closest('.svc-bar-col'))hideTip(null);});
+}
+
+function _buildSvcDonut(distRows, total, ccy) {
+  var OX=75,OY=75,OR=58,IR=36,GAP=2.8;
+  var toRad=function(d){return d*Math.PI/180;};
+  function arc(s,e){var sa=s+GAP/2,ea=e-GAP/2;var x1=OX+OR*Math.cos(toRad(sa)),y1=OY+OR*Math.sin(toRad(sa));var x2=OX+OR*Math.cos(toRad(ea)),y2=OY+OR*Math.sin(toRad(ea));var x3=OX+IR*Math.cos(toRad(ea)),y3=OY+IR*Math.sin(toRad(ea));var x4=OX+IR*Math.cos(toRad(sa)),y4=OY+IR*Math.sin(toRad(sa));var lg=(ea-sa)>180?1:0;return 'M'+x1+' '+y1+' A'+OR+' '+OR+' 0 '+lg+' 1 '+x2+' '+y2+' L'+x3+' '+y3+' A'+IR+' '+IR+' 0 '+lg+' 0 '+x4+' '+y4+' Z';}
+  var segs='',angle=-90;
+  distRows.forEach(function(d){var sw=d.pct*3.6;segs+='<path d="'+arc(angle,angle+sw)+'" fill="'+d.color+'" opacity="0.9"/>';angle+=sw;});
+  var top=distRows[0];
+  var centre='<text x="'+OX+'" y="'+(OY-6)+'" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text)" font-family="-apple-system">'+top.pct+'%</text><text x="'+OX+'" y="'+(OY+12)+'" text-anchor="middle" font-size="10" fill="var(--text2)" font-family="-apple-system">'+top.lbl+'</text>';
+  var rows='';
+  distRows.forEach(function(d,i){rows+='<div style="display:flex;align-items:center;gap:8px;'+(i<distRows.length-1?'margin-bottom:9px;':'')+'"><div style="width:9px;height:9px;border-radius:3px;flex-shrink:0;background:'+d.color+'"></div><span style="font-size:13px;color:var(--text);flex:1">'+d.lbl+'</span><span style="font-size:12px;color:var(--text2);margin-right:6px">'+Math.round(d.value).toLocaleString('ru')+' '+ccy+'</span><span style="font-size:13px;font-weight:600;color:'+d.color+';min-width:32px;text-align:right">'+d.pct+'%</span></div>';});
+  return '<div style="display:flex;align-items:center;gap:16px"><svg width="150" height="150" viewBox="0 0 150 150" style="flex-shrink:0">'+segs+centre+'</svg><div style="flex:1">'+rows+'</div></div>';
+}
+
+function _buildYearCompare(yearsArr, ccy) {
+  var maxT=Math.max.apply(null,yearsArr.map(function(y){return y.total;}))||1;
+  var html='';
+  yearsArr.slice().reverse().forEach(function(y){
+    var bw=Math.round((y.total/maxT)*100);
+    html+='<div style="display:flex;align-items:center;padding:11px 16px;gap:12px;border-bottom:0.5px solid var(--sep)">'+
+      '<div style="font-size:15px;font-weight:600;color:var(--text);min-width:42px">'+y.year+'</div>'+
+      '<div style="flex:1"><div style="height:5px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+bw+'%;background:var(--indigo);border-radius:3px"></div></div>'+
+      '<div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-size:11px;color:var(--text2)">'+y.count+' визит.</span><span style="font-size:11px;color:var(--text2)">ср. '+Math.round(y.avg).toLocaleString('ru')+' '+ccy+'</span></div></div>'+
+      '<div style="font-size:15px;font-weight:600;color:var(--text);min-width:80px;text-align:right">'+Math.round(y.total).toLocaleString('ru')+' '+ccy+'</div></div>';
   });
   return html;
 }
 
-function _applySvcFilters() {
-  const q = (document.getElementById('svcSearch')?.value || '').trim().toLowerCase();
-  const clearBtn = document.getElementById('svcSearchClear');
-  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
-
-  const data = window._svcData || [];
-  let list = [...data];
-
-  const cat = window._activeSvcCat || 'all';
-  if (cat !== 'all') {
-    list = list.filter(s => (s.type || '').toLowerCase().includes(cat));
-  }
-  if (q) {
-    list = list.filter(s =>
-      (s.description || '').toLowerCase().includes(q) ||
-      (s.type || '').toLowerCase().includes(q)
-    );
-  }
-
-  const el = document.getElementById('svcTimeline');
-  if (el) el.innerHTML = buildTimelineHTML(list);
+function buildTimelineHTML(list) {
+  if(!list.length) return '<div class="empty-state" style="padding:24px 0;text-align:center;color:var(--text2);font-size:14px">Ничего не найдено</div>';
+  var grp=groupByMonth(list),html='';
+  Object.keys(grp).forEach(function(month){
+    html+='<div class="month-header">'+(month.charAt(0)+month.slice(1).toLowerCase())+'</div><div class="group" style="padding:0 16px">';
+    grp[month].forEach(function(s){var ic=getServiceIconSVG(s.type);html+='<div class="tl-row"><div class="tl-icon '+ic.cls+'">'+ic.svg+'</div><div class="tl-body"><div class="tl-title">'+(s.description||s.type||'Обслуживание')+'</div><div class="tl-meta">'+(s.date||'—')+' · '+(s.mileage||'—')+' км · '+(s.type||'')+'</div></div><div class="tl-price">'+(s.total?s.total+' '+(window._svcCcy||'zł'):'—')+'</div></div>';});
+    html+='</div>';
+  });
+  return html;
 }
+
+function _applyHistoryFilters() {
+  const q=(document.getElementById('historySearch')?.value||'').trim().toLowerCase();
+  const clearBtn=document.getElementById('historySearchClear');
+  if(clearBtn) clearBtn.style.display=q?'block':'none';
+  const data=window._fuelData||[];let list=[...data];
+  const period=window._activePeriod||'all';list=filterDataByPeriod(list,period);
+  const sort=window._activeSort||'date-desc';
+  if(sort==='date-asc') list.sort((a,b)=>parseCustomDate(a.date)-parseCustomDate(b.date));
+  if(sort==='date-desc') list.sort((a,b)=>parseCustomDate(b.date)-parseCustomDate(a.date));
+  if(sort==='cost-desc') list.sort((a,b)=>(parseFloat(b.totalCost)||0)-(parseFloat(a.totalCost)||0));
+  if(sort==='cons-asc') list.sort((a,b)=>(parseFloat(a.fuelConsumption)||999)-(parseFloat(b.fuelConsumption)||999));
+  if(q) list=list.filter(s=>(s.date||'').includes(q)||(s.fuelType||'').toLowerCase().includes(q)||(s.comment||'').toLowerCase().includes(q));
+  const el=document.getElementById('fuelTimeline');if(el) el.innerHTML=buildFillRows(list);
+}
+
+function _applySvcFilters() {
+  var q=(document.getElementById('svcSearch')?.value||'').trim().toLowerCase();
+  var clearBtn=document.getElementById('svcSearchClear');if(clearBtn) clearBtn.style.display=q?'block':'none';
+  var data=window._svcData||[],list=[...data];
+  var yearSel=window._activeSvcYear||'all';
+  if(yearSel!=='all') list=list.filter(function(s){try{return parseCustomDate(s.date).getFullYear()===parseInt(yearSel);}catch(e){return false;}});
+  var cat=window._activeSvcCat||'all';
+  if(cat!=='all') list=list.filter(function(s){return (s.type||'').toLowerCase().includes(cat);});
+  if(q) list=list.filter(function(s){return (s.description||'').toLowerCase().includes(q)||(s.type||'').toLowerCase().includes(q);});
+  var el=document.getElementById('svcTimeline');if(el) el.innerHTML=buildTimelineHTML(list);
+}
+
 
 // ── SETTINGS ───────────────────────────────────────────
 function renderSettings(data) {
@@ -1334,7 +1457,7 @@ function renderSettings(data) {
 
   // Данные из кэша главной — для "осталось X км/дн"
   var home = {};
-  try { home = JSON.parse(localStorage.getItem('cache_v2_home') || '{}'); } catch(e){}
+  try { const _hc = readCache('home'); home = (_hc && _hc.data) ? _hc.data : {}; } catch(e){}
 
   // Данные авто из кэша настроек
   var c = {};
@@ -1433,31 +1556,31 @@ function renderSettings(data) {
   function subDocs() {
     var parts = [];
     if (c.insuranceEnd) parts.push('страховка до ' + c.insuranceEnd);
-    if (home.insuranceEnds) parts.push('<b>осталось ' + home.insuranceEnds + ' дн.</b>');
+    if (home.insuranceEnds) parts.push('осталось ' + home.insuranceEnds + ' дн.');
     return parts.join(' · ');
   }
   function subOil() {
     var parts = [];
     if (c.oilLast) parts.push('замена ' + Number(c.oilLast).toLocaleString('ru') + ' км');
-    if (home.nextOilChange) parts.push('<b>осталось ' + Number(home.nextOilChange).toLocaleString('ru') + ' км</b>');
+    if (home.nextOilChange) parts.push('осталось ' + Number(home.nextOilChange).toLocaleString('ru') + ' км');
     return parts.join(' · ');
   }
   function subKpp() {
     var parts = [];
     if (c.kppLast) parts.push('замена ' + Number(c.kppLast).toLocaleString('ru') + ' км');
-    if (home.nextGearboxOilChange) parts.push('<b>осталось ' + Number(home.nextGearboxOilChange).toLocaleString('ru') + ' км</b>');
+    if (home.nextGearboxOilChange) parts.push('осталось ' + Number(home.nextGearboxOilChange).toLocaleString('ru') + ' км');
     return parts.join(' · ');
   }
   function subDiag() {
     var parts = [];
     if (c.diagLast) parts.push('диагн. ' + Number(c.diagLast).toLocaleString('ru') + ' км');
-    if (home.nextDiagnostic) parts.push('<b>осталось ' + Number(home.nextDiagnostic).toLocaleString('ru') + ' км</b>');
+    if (home.nextDiagnostic) parts.push('осталось ' + Number(home.nextDiagnostic).toLocaleString('ru') + ' км');
     return parts.join(' · ');
   }
   function subGbo() {
     var parts = [];
     if (c.gboDate) parts.push('установлена ' + c.gboDate);
-    if (home.gasServiceDue) parts.push('<b>до обсл. ' + Number(home.gasServiceDue).toLocaleString('ru') + ' км</b>');
+    if (home.gasServiceDue) parts.push('до обсл. ' + Number(home.gasServiceDue).toLocaleString('ru') + ' км');
     return parts.join(' · ');
   }
   function subCur() {
@@ -1560,6 +1683,168 @@ function renderSettings(data) {
 
   _loadCarSettingsFromSheet();
 }
+
+function renderTCO(data) {
+  if (!data || !data.success) {
+    DOM.pageContent.innerHTML =
+      '<div class="error-card">' +
+        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        '<p class="error-title">Ошибка загрузки</p>' +
+        '<p class="error-sub">' + ((data && data.error) || 'Нет данных') + '</p>' +
+        '<button class="ios-btn-primary" onclick="loadData()">Повторить</button>' +
+      '</div>';
+    return;
+  }
+
+  var cat   = data.categories;
+  var total = data.totalCost    || 0;
+  var dist  = data.totalDistance || 0;
+
+  // Валюта из настроек
+  var ccy = 'zł';
+  try { ccy = JSON.parse(localStorage.getItem('car_settings')||'{}').currency || 'zł'; } catch(e){}
+
+  function fmt(v) { return Math.round(v).toLocaleString('ru'); }
+  function pct(v) { return total > 0 ? ((v / total) * 100).toFixed(1) : '0.0'; }
+
+  // Категории (только ненулевые)
+  var other = Math.max(0, (cat.fines||0) - (cat.insurance||0) - (cat.taxes||0) - (cat.penalties||0));
+  var chartCats = [
+    { name: 'Топливо',      value: cat.fuel      || 0, color: '#FF9500' },
+    { name: 'Обслуживание', value: cat.service   || 0, color: '#007AFF' },
+    { name: 'Тюнинг',       value: cat.tuning    || 0, color: '#5856D6' },
+    { name: 'Страховка',    value: cat.insurance || 0, color: '#34C759' },
+    { name: 'Налоги',       value: cat.taxes     || 0, color: '#30B0C7' },
+    { name: 'Штрафы',       value: cat.penalties || 0, color: '#FF3B30' },
+    { name: 'Прочее',       value: other,               color: '#8E8E93' },
+  ].filter(function(c){ return c.value > 0.5; });
+
+  // Прогресс-бары
+  var progs = chartCats.map(function(c) {
+    var p = total > 0 ? (c.value / total * 100) : 0;
+    return '<div class="tco-prog">' +
+      '<div class="tco-prog-head">' +
+        '<div class="tco-prog-dot" style="background:' + c.color + '"></div>' +
+        '<span class="tco-prog-name">' + c.name + '</span>' +
+        '<span class="tco-prog-val" style="color:' + c.color + '">' + fmt(c.value) + ' ' + ccy + '</span>' +
+        '<span class="tco-prog-pct">' + pct(c.value) + '%</span>' +
+      '</div>' +
+      '<div class="tco-prog-track"><div class="tco-prog-fill" style="width:' + p.toFixed(1) + '%;background:' + c.color + '"></div></div>' +
+    '</div>';
+  }).join('');
+
+  // Инсайт
+  var fuelPct = total > 0 ? (cat.fuel||0) / total * 100 : 0;
+  var insight = fuelPct > 50
+    ? 'Топливо — главная статья расходов (' + fuelPct.toFixed(0) + '%). ГБО помогает снизить её.'
+    : 'Хорошее соотношение: топливо занимает ' + fuelPct.toFixed(0) + '% расходов.';
+
+  DOM.pageContent.innerHTML =
+    '<div class="anim">' +
+
+    '<div class="hero blue">' +
+      '<div class="hero-lbl">Стоимость 1 км</div>' +
+      '<div class="hero-val">' + data.costPerKm + ' <span class="hero-unit">' + ccy + '</span></div>' +
+      '<div class="hero-sub">за ' + fmt(dist) + ' км · весь период учёта</div>' +
+      '<div class="hero-icon"><svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>' +
+    '</div>' +
+
+    '<div class="mini-grid">' +
+      '<div class="mini">' +
+        '<div class="mini-lbl">Всего потрачено</div>' +
+        '<div class="mini-val">' + fmt(total) + '<span class="u"> ' + ccy + '</span></div>' +
+        '<div class="mini-sub">с начала учёта</div>' +
+      '</div>' +
+      '<div class="mini">' +
+        '<div class="mini-lbl">Пробег</div>' +
+        '<div class="mini-val">' + fmt(dist) + '<span class="u"> км</span></div>' +
+        '<div class="mini-sub">за период</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="slbl">Распределение расходов</div>' +
+    '<div class="group" style="padding:16px">' + buildDonutChart(chartCats, total) + '</div>' +
+
+    '<div class="slbl">Детализация</div>' +
+    '<div class="group" style="padding:14px 16px">' + progs + '</div>' +
+
+    '<div class="tco-insight">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+      '<span>' + insight + '</span>' +
+    '</div>' +
+
+    '</div>';
+}
+
+
+function buildDonutChart(categories, total) {
+  if (!categories || categories.length === 0 || total === 0) {
+    return '<div class="empty-state">Нет данных для отображения</div>';
+  }
+
+  const OX = 75, OY = 75, OR = 58, IR = 36;
+  const GAP = 2.8; // зазор между сегментами
+
+  function toRad(deg) { return deg * Math.PI / 180; }
+
+  function arc(startDeg, endDeg) {
+    const sa = startDeg + GAP / 2;
+    const ea = endDeg - GAP / 2;
+    const x1 = OX + OR * Math.cos(toRad(sa));
+    const y1 = OY + OR * Math.sin(toRad(sa));
+    const x2 = OX + OR * Math.cos(toRad(ea));
+    const y2 = OY + OR * Math.sin(toRad(ea));
+    const x3 = OX + IR * Math.cos(toRad(ea));
+    const y3 = OY + IR * Math.sin(toRad(ea));
+    const x4 = OX + IR * Math.cos(toRad(sa));
+    const y4 = OY + IR * Math.sin(toRad(sa));
+    const largeArc = (ea - sa) > 180 ? 1 : 0;
+    return `M${x1},${y1} A${OR},${OR} 0 ${largeArc},1 ${x2},${y2} L${x3},${y3} A${IR},${IR} 0 ${largeArc},0 ${x4},${y4} Z`;
+  }
+
+  let angle = -90; // начальный угол (сверху)
+  let paths = '';
+
+  categories.forEach(cat => {
+    const percent = (cat.value / total) * 100;
+    const sweep = percent * 3.6; // 3.6 = 360/100
+    paths += `<path d="${arc(angle, angle + sweep)}" fill="${cat.color}" opacity="0.9" />`;
+    angle += sweep;
+  });
+
+  // Самая крупная категория для центральной подписи
+  const topCat = categories.reduce((max, cat) => cat.value > max.value ? cat : max, categories[0]);
+  const topPercent = ((topCat.value / total) * 100).toFixed(1);
+
+  const centerText = `
+    <text x="${OX}" y="${OY - 6}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text)">${topPercent}%</text>
+    <text x="${OX}" y="${OY + 12}" text-anchor="middle" font-size="10" fill="var(--text2)">${topCat.name}</text>
+  `;
+
+  // Список категорий справа
+  let rows = '';
+  categories.forEach((cat, idx) => {
+    const percent = ((cat.value / total) * 100).toFixed(1);
+    const amount  = Math.round(cat.value).toLocaleString('ru');
+    rows += `<div class="tco-legend-row">
+      <div class="tco-legend-dot" style="background:${cat.color}"></div>
+      <span class="tco-legend-name">${cat.name}</span>
+      <span class="tco-legend-amt">${amount}</span>
+      <span class="tco-legend-pct" style="color:${cat.color}">${percent}%</span>
+    </div>`;
+  });
+
+  return `
+    <div class="tco-donut-wrap">
+      <svg width="150" height="150" viewBox="0 0 150 150" style="flex-shrink:0;">
+        ${paths}
+        ${centerText}
+      </svg>
+      <div style="flex:1; min-width:140px;">${rows}</div>
+    </div>
+  `;
+}
+
 
 // SVG иконка копирования (переиспользуется)
 function _copyIcon() {
@@ -1675,16 +1960,16 @@ async function saveCarSettings() {
 function _updateAccSubs() {
   var c = {}, h = {};
   try { c = JSON.parse(localStorage.getItem('car_settings') || '{}'); } catch(e){}
-  try { h = JSON.parse(localStorage.getItem('cache_v2_home') || '{}'); } catch(e){}
+  try { const _hc2 = readCache('home'); h = (_hc2 && _hc2.data) ? _hc2.data : {}; } catch(e){}
   function km(v) { return v ? Number(v).toLocaleString('ru') + ' км' : ''; }
   function sub(parts) { return parts.filter(Boolean).join(' · '); }
   var subs = {
     'acc-sub-car':  c.carName || '',
-    'acc-sub-docs': sub([c.insuranceEnd?'страховка до '+c.insuranceEnd:'', h.insuranceEnds?'<b>осталось '+h.insuranceEnds+' дн.</b>':'']),
-    'acc-sub-oil':  sub([c.oilLast?'замена '+km(c.oilLast):'', h.nextOilChange?'<b>осталось '+km(h.nextOilChange)+'</b>':'']),
-    'acc-sub-kpp':  sub([c.kppLast?'замена '+km(c.kppLast):'', h.nextGearboxOilChange?'<b>осталось '+km(h.nextGearboxOilChange)+'</b>':'']),
-    'acc-sub-diag': sub([c.diagLast?'диагн. '+km(c.diagLast):'', h.nextDiagnostic?'<b>осталось '+km(h.nextDiagnostic)+'</b>':'']),
-    'acc-sub-gbo':  sub([c.gboDate?'установлена '+c.gboDate:'', h.gasServiceDue?'<b>до обсл. '+km(h.gasServiceDue)+'</b>':'']),
+    'acc-sub-docs': sub([c.insuranceEnd?'страховка до '+c.insuranceEnd:'', h.insuranceEnds?'осталось '+h.insuranceEnds+' дн.':'']),
+    'acc-sub-oil':  sub([c.oilLast?'замена '+km(c.oilLast):'', h.nextOilChange?'осталось '+km(h.nextOilChange)+'':'']),
+    'acc-sub-kpp':  sub([c.kppLast?'замена '+km(c.kppLast):'', h.nextGearboxOilChange?'осталось '+km(h.nextGearboxOilChange)+'':'']),
+    'acc-sub-diag': sub([c.diagLast?'диагн. '+km(c.diagLast):'', h.nextDiagnostic?'осталось '+km(h.nextDiagnostic)+'':'']),
+    'acc-sub-gbo':  sub([c.gboDate?'установлена '+c.gboDate:'', h.gasServiceDue?'до обсл. '+km(h.gasServiceDue)+'':'']),
     'acc-sub-cur':  (c.currency||'PLN')+' → '+(c.currency2||'UAH'),
   };
   Object.keys(subs).forEach(function(id){
@@ -1694,7 +1979,7 @@ function _updateAccSubs() {
 
 
 function _clearCache(e) {
-  ['cache_v2_home','cache_v2_fuel','cache_v2_service','cache_v2_settings'].forEach(function(k){localStorage.removeItem(k);});
+  ['cache_v2_home','cache_v2_fuel','cache_v2_service','cache_v2_settings','cache_v2_tco','cache_v2_addfuel'].forEach(function(k){localStorage.removeItem(k);});
   var t = e.currentTarget.querySelector('.row-title');
   if (t){t.textContent='✓ Кэш очищен';setTimeout(function(){t.textContent='Очистить кэш';},1500);}
 }
