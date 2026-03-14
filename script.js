@@ -117,7 +117,9 @@ const CACHE_TTL = {
   service:  120 * 60 * 1000,  // 2 часа
   tco:      60 * 60 * 1000,   // 1 час
   settings: 24 * 60 * 60 * 1000, // 24 часа
-  addfuel:  0,                 // не кэшируем форму
+  // Кэшируем только серверный ответ (последний пробег),
+  // сама форма каждый раз рендерится пустой.
+  addfuel:  60 * 60 * 1000,   // 1 час
 };
 
 // Читает кэш и проверяет TTL. Возвращает {data, stale} или null.
@@ -136,7 +138,6 @@ function readCache(page) {
 
 // Сохраняет данные в кэш с меткой времени.
 function writeCache(page, data) {
-  if ((CACHE_TTL[page] ?? 1) === 0) return; // addfuel не кэшируем
   localStorage.setItem(`cache_v2_${page}`, JSON.stringify({
     _cachedAt: Date.now(),
     _data: data,
@@ -1092,6 +1093,7 @@ async function submitFuel(e) {
       // Инвалидируем кэш — при следующем открытии fuel/home данные обновятся
       localStorage.removeItem('cache_v2_fuel');
       localStorage.removeItem('cache_v2_home'); // инвалидируем кэш после новой заправки
+      localStorage.removeItem('cache_v2_addfuel'); // чтобы подтянуть новый последний пробег
     }
   } catch(err) {
     msg.style.display = 'block';
@@ -2484,6 +2486,32 @@ function renderPlaceholder() {
   DOM.pageContent.innerHTML = `<div class="empty-state" style="padding:60px 20px">Раздел в разработке</div>`;
 }
 
+function navigateToPage(page) {
+  const current = getQueryParam('page') || 'home';
+  const target = page || 'home';
+  if (target === current) return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('page', target);
+  history.pushState({}, '', url);
+  loadData();
+}
+
+function setupClientSideNavigation() {
+  document.querySelectorAll('.tab[data-page]').forEach(function(tab) {
+    tab.addEventListener('click', function(e) {
+      if (e.defaultPrevented) return;
+      if (e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      navigateToPage(tab.dataset.page);
+    });
+  });
+}
+
 // ── INIT ───────────────────────────────────────────────
-window.addEventListener('load', loadData);
+window.addEventListener('load', function() {
+  setupClientSideNavigation();
+  loadData();
+});
 window.addEventListener('popstate', loadData);
