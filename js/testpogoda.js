@@ -1,112 +1,106 @@
 (function () {
     'use strict';
 
-    // Создаем модуль плагина согласно архитектуре Lampa
-    function MyStubPlugin() {
-        var network = new Lampa.Reguest(); // Используем встроенный модуль запросов
-        
-        // Метод открытия окна
-        this.open = function () {
-            // Проверяем состояние плеера (из раздела 2 документации)
-            var isVideoPlaying = Lampa.Player.opened();
-            var videoStatus = isVideoPlaying ? 'Видео сейчас запущено' : 'Плеер в покое';
-
-            var html = $(`
-                <div class="stub-modal">
-                    <div class="stub-modal__content" style="padding: 20px;">
-                        <h2 style="margin-bottom: 15px; color: var(--main-color);">Модульная система</h2>
-                        <p style="opacity: 0.8; margin-bottom: 10px;">Этот плагин зарегистрирован как глобальный компонент.</p>
-                        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
-                            <strong>Статус плеера:</strong> ${videoStatus}
-                        </div>
-                        <div class="navigation-tabs__item selector" id="modal-close-btn" style="margin-top: 20px; width: 100%;">
-                            <span>Закрыть</span>
+    function startPlugin() {
+        // 1. Регистрируем плагин как компонент (согласно разделу 1.2)
+        Lampa.Component.add('my_stub_plugin', function () {
+            this.open = function () {
+                // Создаем структуру окна с использованием классов Lampa (раздел 1.3)
+                var html = $(`
+                    <div class="stub-modal" style="padding: 20px; text-align: center;">
+                        <h2 style="margin-bottom: 15px; color: var(--main-color);">Тестовое окно</h2>
+                        <p style="color: var(--white); opacity: 0.8; line-height: 1.5;">
+                            Это модальное окно-заглушка.<br>
+                            Все системы (Bootstrap, CSS, Controller) работают штатно.
+                        </p>
+                        
+                        <div class="stub-modal__footer" style="margin-top: 25px;">
+                            <div class="navigation-tabs__item selector" id="stub-close-btn" style="width: 100%; justify-content: center;">
+                                <span>Закрыть</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `);
+                `);
 
-            Lampa.Modal.open({
-                title: 'Lampa Source Info',
-                html: html,
-                size: 'small',
-                onBack: () => Lampa.Modal.close()
-            });
+                // Открываем модальное окно
+                Lampa.Modal.open({
+                    title: 'Статус плагина',
+                    html: html,
+                    size: 'small',
+                    onBack: () => {
+                        Lampa.Modal.close();
+                        Lampa.Controller.toggle('content'); // Возвращаем фокус на основной контент
+                    }
+                });
 
-            // Управление фокусом через Controller (раздел 1.2)
-            Lampa.Controller.add('plugin_stub_modal', {
-                toggle: function () {
-                    Lampa.Controller.collectionSet(html);
-                    Lampa.Controller.render();
-                },
-                back: () => Lampa.Modal.close()
-            });
-            Lampa.Controller.toggle('plugin_stub_modal');
+                // Управляем навигацией пульта (раздел 1.2)
+                Lampa.Controller.add('stub_modal_focus', {
+                    toggle: function () {
+                        Lampa.Controller.collectionSet(html);
+                        Lampa.Controller.render();
+                    },
+                    back: () => {
+                        Lampa.Modal.close();
+                        Lampa.Controller.toggle('content');
+                    }
+                });
+                Lampa.Controller.toggle('stub_modal_focus');
 
-            html.find('#modal-close-btn').on('hover:enter click', () => Lampa.Modal.close());
-        };
+                // Клик по кнопке закрытия
+                html.find('#stub-close-btn').on('hover:enter click', function () {
+                    Lampa.Modal.close();
+                    Lampa.Controller.toggle('content');
+                });
+            };
+        });
 
-        // Метод отрисовки кнопки в шапке
-        this.render = function () {
-            if (!Lampa.Storage.get('show_stub_button', true)) return;
-            if ($('.stub-button').length > 0) return;
+        // 2. Функция отрисовки кнопки в шапке
+        function renderButton() {
+            if ($('.stub-header-button').length > 0) return;
 
             var head = $('.head__actions');
             if (head.length) {
+                // Используем стандартную разметку Lampa для иконок в шапке
                 var btn = $(`
-                    <div class="head__action stub-button selector">
+                    <div class="head__action stub-header-button selector">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
-                            <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                            <path d="M12 8V16M8 12H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         </svg>
                     </div>
                 `);
 
-                btn.on('hover:enter click', (e) => {
+                btn.on('hover:enter click', function (e) {
                     e.preventDefault();
-                    this.open();
+                    // Вызываем метод open нашего компонента
+                    (new (Lampa.Component.get('my_stub_plugin'))()).open();
                 });
 
                 head.prepend(btn);
             }
-        };
-    }
+        }
 
-    // Инициализация плагина
-    function init() {
-        // Регистрируем как компонент (раздел 1.2)
-        Lampa.Component.add('stub_plugin', MyStubPlugin);
-        
-        var instance = new MyStubPlugin();
-
-        // Добавляем настройки
-        Lampa.SettingsApi.addParam({
-            component: 'display',
-            param: { name: 'show_stub_button', type: 'boolean', default: true },
-            field: { name: 'Кнопка заглушка (PRO)', description: 'Построено на основе глубокой документации Lampa' },
-            onChange: (value) => {
-                if (value) instance.render();
-                else $('.stub-button').remove();
-            }
-        });
-
-        // Следим за состоянием интерфейса для перерисовки кнопки
-        Lampa.Listener.follow('app', (e) => {
-            if (e.type === 'ready' || e.type === 'full:complite') instance.render();
-        });
-        Lampa.Listener.follow('layout', (e) => {
-            if (e.type === 'complete') instance.render();
-        });
-
-        instance.render();
-    }
-
-    // Запуск согласно циклу инициализации (раздел 1.1)
-    if (window.Lampa) {
-        init();
-    } else {
+        // 3. Следим за жизненным циклом (раздел 1.1)
         Lampa.Listener.follow('app', function (e) {
-            if (e.type === 'ready') init();
+            if (e.type === 'ready' || e.type === 'full:complite') renderButton();
         });
+
+        Lampa.Listener.follow('layout', function (e) {
+            if (e.type === 'complete') renderButton();
+        });
+
+        renderButton();
+    }
+
+    // Запуск инициализации
+    if (window.Lampa) {
+        startPlugin();
+    } else {
+        var timer = setInterval(function () {
+            if (window.Lampa) {
+                clearInterval(timer);
+                startPlugin();
+            }
+        }, 100);
     }
 })();
