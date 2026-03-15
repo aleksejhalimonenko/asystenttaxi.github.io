@@ -2,9 +2,9 @@
     'use strict';
 
     function startPlugin() {
-        // 1. Добавляем настройку в меню Lampa
+        // 1. Добавляем настройку в меню Lampa (Настройки -> Вид)
         Lampa.SettingsApi.addParam({
-            component: 'display', // Раздел настроек "Вид"
+            component: 'display',
             param: {
                 name: 'show_stub_button',
                 type: 'boolean',
@@ -12,7 +12,7 @@
             },
             field: {
                 name: 'Показывать кнопку-заглушку',
-                description: 'Отображает тестовую кнопку в верхнем углу'
+                description: 'Отображает тестовую кнопку в верхнем углу для вызова окна'
             },
             onChange: function (value) {
                 if (value) renderButton();
@@ -20,77 +20,86 @@
             }
         });
 
-        // 2. Функция рендера кнопки
+        // 2. Функция создания всплывающего окна
+        function openMyModal() {
+            Lampa.Modal.open({
+                title: 'Плагин активен',
+                html: '<div style="padding: 1.5rem; text-align: center;">' +
+                        '<h2 style="margin-bottom: 1rem; color: #fff;">Привет!</h2>' +
+                        '<p style="font-size: 1.2rem; line-height: 1.5; color: #aaa;">Это полноценное модальное окно Lampa.<br>Кнопка в углу работает исправно и не исчезает при переходах.</p>' +
+                        '<div style="margin-top: 1.5rem; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">' +
+                            'Версия Lampa: ' + (window.Lampa.Manifest ? window.Lampa.Manifest.version : 'Неизвестно') +
+                        '</div>' +
+                      '</div>',
+                size: 'medium',
+                buttons: [
+                    {
+                        name: 'Отлично',
+                        onSelect: function () {
+                            Lampa.Modal.close();
+                        }
+                    },
+                    {
+                        name: 'Закрыть',
+                        onSelect: function () {
+                            Lampa.Modal.close();
+                        }
+                    }
+                ],
+                onBack: function() {
+                    Lampa.Modal.close();
+                }
+            });
+        }
+
+        // 3. Функция рендера кнопки в шапке
         function renderButton() {
-            // Проверяем, включена ли настройка и нет ли кнопки уже на экране
+            // Проверка: включена ли настройка
             if (!Lampa.Storage.get('show_stub_button', true)) return;
+            // Проверка: нет ли кнопки уже на экране
             if ($('.stub-plugin-button').length > 0) return;
 
-            // Находим контейнер с часами/статусом (правый верхний угол)
+            // Контейнер в правом верхнем углу (где часы и иконки сети)
             var head = $('.head__actions'); 
             
             if (head.length) {
-                var btn = $('<div class="head__action stub-plugin-button">' +
-                    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/></svg>' +
+                // Создаем элемент кнопки с SVG иконкой (круг с точкой)
+                var btn = $('<div class="head__action stub-plugin-button selector">' +
+                    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;">' +
+                        '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>' +
+                        '<circle cx="12" cy="12" r="3" fill="currentColor"/>' +
+                    '</svg>' +
                 '</div>');
 
-                // Обработчик нажатия
-btn.on('hover:enter click', function () {
-    // Вызываем модальное окно Lampa
-    Lampa.Modal.open({
-        title: 'Тестовое окно',
-        html: '<div style="padding: 20px; text-align: center;">' +
-                '<h2 style="margin-bottom: 10px;">Привет!</h2>' +
-                '<p>Это полноценное всплывающее окно плагина.</p>' +
-                '<p style="color: #ccc; margin-top: 10px;">Здесь можно разместить любой HTML-контент или настройки.</p>' +
-              '</div>',
-        size: 'small', // Может быть 'medium', 'large' или 'full'
-        buttons: [
-            {
-                name: 'Закрыть',
-                onSelect: function () {
-                    Lampa.Modal.close();
-                }
-            },
-            {
-                name: 'Ок, понятно',
-                onSelect: function () {
-                    Lampa.Noty.show('Вы подтвердили действие');
-                    Lampa.Modal.close();
-                }
-            }
-        ],
-        onBack: function() {
-            Lampa.Modal.close();
-        }
-    });
-});
+                // Обработка клика и Enter на пульте
+                btn.on('hover:enter click', function () {
+                    openMyModal();
+                });
 
+                // Добавляем в начало списка иконок
                 head.prepend(btn);
             }
         }
 
-        // 3. Подписываемся на события Lampa для перерисовки
-        // app:ready - когда всё загрузилось
-        // full:complite - когда страница полностью отрисована
+        // 4. Слушатели событий для удержания кнопки в DOM
+        // Lampa часто перерисовывает шапку, поэтому вешаемся на основные события
         Lampa.Listener.follow('app', function (e) {
             if (e.type === 'ready' || e.type === 'full:complite') {
                 renderButton();
             }
         });
 
-        // Дополнительный хук на изменение лейаута
         Lampa.Listener.follow('layout', function (e) {
             if (e.type === 'complete') {
                 renderButton();
             }
         });
 
-        // На всякий случай запускаем сразу
+        // Прямой вызов при загрузке
         renderButton();
     }
 
-    // Ожидаем готовности объекта Lampa
+    // Ожидание инициализации Lampa
     if (window.Lampa) {
         startPlugin();
     } else {
