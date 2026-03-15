@@ -2,7 +2,42 @@
     'use strict';
 
     function startPlugin() {
-        // 1. Настройка в меню
+        // 1. Добавляем стили плагина в head, используя переменные Lampa
+        var styles = `
+            <style id="stub-plugin-styles">
+                .stub-button {
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                }
+                .stub-button.focus {
+                    transform: scale(1.1);
+                    color: var(--main-color) !important;
+                }
+                .stub-modal__content {
+                    padding: 20px;
+                    text-align: center;
+                }
+                .stub-modal__title {
+                    font-size: 1.5rem;
+                    margin-bottom: 15px;
+                    color: var(--white);
+                }
+                .stub-modal__text {
+                    font-size: 1.1rem;
+                    line-height: 1.4;
+                    color: var(--text-color);
+                    opacity: 0.8;
+                }
+                .stub-modal__footer {
+                    margin-top: 25px;
+                    display: flex;
+                    justify-content: center;
+                }
+            </style>
+        `;
+        if (!$('#stub-plugin-styles').length) $('head').append(styles);
+
+        // 2. Настройка в меню
         Lampa.SettingsApi.addParam({
             component: 'display',
             param: {
@@ -12,50 +47,44 @@
             },
             field: {
                 name: 'Показывать кнопку-заглушку',
-                description: 'Отображает тестовую кнопку в верхнем углу'
+                description: 'Кнопка в шапке с учетом CSS архитектуры'
             },
             onChange: function (value) {
                 if (value) renderButton();
-                else $('.stub-plugin-button').remove();
+                else $('.stub-button').remove();
             }
         });
 
-        // 2. Исправленная функция модального окна
+        // 3. Функция модального окна
         function openMyModal() {
-            // Создаем контент через jQuery, чтобы избежать ошибок парсинга
-            var html = $(
-                '<div class="about">' +
-                    '<div class="about__text" style="padding: 20px; text-align: center;">' +
-                        '<h2 style="margin-bottom: 10px;">Всё работает!</h2>' +
-                        '<p>Ошибка "where.find" исправлена.</p>' +
-                        '<p style="color: #aaa; margin-top: 10px;">Lampa успешно приняла объект модального окна.</p>' +
-                    '</div>' +
-                '</div>'
-            );
+            var html = $(`
+                <div class="stub-modal">
+                    <div class="stub-modal__content">
+                        <div class="stub-modal__title">Архитектура CSS</div>
+                        <div class="stub-modal__text">
+                            Это окно использует системные переменные Lampa.<br>
+                            Оно будет менять цвета вместе с темой приложения.
+                        </div>
+                        <div class="stub-modal__footer">
+                            <div class="navigation-tabs__item selector" id="modal-close-btn">
+                                <span>Понятно</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
 
             Lampa.Modal.open({
-                title: 'Плагин активен',
-                html: html, // Передаем объект
-                size: 'medium',
+                title: 'Проверка стилей',
+                html: html,
+                size: 'small',
                 onBack: function() {
-                    Lampa.Modal.close();
-                },
-                onSelect: function() {
-                    // Это сработает, если нажать на сам контент (опционально)
                     Lampa.Modal.close();
                 }
             });
 
-            // Добавляем кнопки отдельно для надежности, если стандартный массив глючит
-            var btn_close = $('<div class="navigation-tabs__item selector"><span>Закрыть окно</span></div>');
-            btn_close.on('hover:enter click', function(){
-                Lampa.Modal.close();
-            });
-            
-            html.append(btn_close);
-
-            // Сообщаем Lampa, что в окне появились новые элементы для выбора (фокуса)
-            Lampa.Controller.add('content', {
+            // Работа с контроллером для навигации пульта
+            Lampa.Controller.add('plugin_modal', {
                 toggle: function () {
                     Lampa.Controller.collectionSet(html);
                     Lampa.Controller.render();
@@ -64,20 +93,23 @@
                     Lampa.Modal.close();
                 }
             });
-            Lampa.Controller.toggle('content');
+            Lampa.Controller.toggle('plugin_modal');
+
+            html.find('#modal-close-btn').on('hover:enter click', function() {
+                Lampa.Modal.close();
+            });
         }
 
-        // 3. Рендер кнопки
+        // 4. Рендер кнопки в шапке
         function renderButton() {
             if (!Lampa.Storage.get('show_stub_button', true)) return;
-            if ($('.stub-plugin-button').length > 0) return;
+            if ($('.stub-button').length > 0) return;
 
             var head = $('.head__actions'); 
             if (head.length) {
-                var btn = $('<div class="head__action stub-plugin-button selector">' +
+                var btn = $('<div class="head__action stub-button selector">' +
                     '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-                        '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>' +
-                        '<circle cx="12" cy="12" r="3" fill="currentColor"/>' +
+                        '<path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" fill="none"/>' +
                     '</svg>' +
                 '</div>');
 
@@ -90,11 +122,10 @@
             }
         }
 
-        // 4. Слушатели
+        // 5. События
         Lampa.Listener.follow('app', function (e) {
             if (e.type === 'ready' || e.type === 'full:complite') renderButton();
         });
-
         Lampa.Listener.follow('layout', function (e) {
             if (e.type === 'complete') renderButton();
         });
