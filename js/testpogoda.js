@@ -1,82 +1,77 @@
 (function () {
     'use strict';
 
-    console.log('[TEST] Plugin started');
-
-    // Функция вставки элемента
-    function injectTestButton() {
-        // Пробуем найти контейнер для кнопок справа
-        var headerRight = $('.header .header__right, .header__right, .header-right, .header__actions');
-        if (headerRight.length === 0) {
-            console.log('[TEST] Header container not found');
-            return false;
-        }
-
-        // Проверяем, не вставлен ли уже наш элемент
-        if (headerRight.find('.test-inject-button').length > 0) {
-            console.log('[TEST] Button already exists');
-            return true;
-        }
-
-        // Создаем яркую кнопку
-        var button = $(
-            '<div class="test-inject-button selector" style="' +
-                'display: inline-block;' +
-                'margin-right: 15px;' +
-                'padding: 5px 12px;' +
-                'background: #4CAF50;' +
-                'color: white;' +
-                'border-radius: 20px;' +
-                'cursor: pointer;' +
-                'font-weight: bold;' +
-                'box-shadow: 0 2px 5px rgba(0,0,0,0.3);' +
-            '">' +
-                '🔌 ТЕСТ' +
-            '</div>'
-        );
-
-        button.on('hover:enter', function () {
-            Lampa.Noty.show('Плагин работает!');
-        });
-
-        headerRight.prepend(button);
-        console.log('[TEST] Button injected successfully');
-        return true;
-    }
-
-    // 1. Пытаемся вставить сразу после готовности приложения
-    if (window.appready) {
-        setTimeout(injectTestButton, 1000);
-    } else {
-        Lampa.Listener.follow('app', function (e) {
-            if (e.type === 'ready') {
-                setTimeout(injectTestButton, 1000);
+    function startPlugin() {
+        // 1. Добавляем настройку в меню Lampa
+        Lampa.SettingsApi.addParam({
+            component: 'display', // Раздел настроек "Вид"
+            param: {
+                name: 'show_stub_button',
+                type: 'boolean',
+                default: true
+            },
+            field: {
+                name: 'Показывать кнопку-заглушку',
+                description: 'Отображает тестовую кнопку в верхнем углу'
+            },
+            onChange: function (value) {
+                if (value) renderButton();
+                else $('.stub-plugin-button').remove();
             }
         });
+
+        // 2. Функция рендера кнопки
+        function renderButton() {
+            // Проверяем, включена ли настройка и нет ли кнопки уже на экране
+            if (!Lampa.Storage.get('show_stub_button', true)) return;
+            if ($('.stub-plugin-button').length > 0) return;
+
+            // Находим контейнер с часами/статусом (правый верхний угол)
+            var head = $('.head__actions'); 
+            
+            if (head.length) {
+                var btn = $('<div class="head__action stub-plugin-button">' +
+                    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/></svg>' +
+                '</div>');
+
+                // Обработчик нажатия
+                btn.on('hover:enter click', function () {
+                    Lampa.Noty.show('Плагин работает! Кнопка нажата.');
+                });
+
+                head.prepend(btn);
+            }
+        }
+
+        // 3. Подписываемся на события Lampa для перерисовки
+        // app:ready - когда всё загрузилось
+        // full:complite - когда страница полностью отрисована
+        Lampa.Listener.follow('app', function (e) {
+            if (e.type === 'ready' || e.type === 'full:complite') {
+                renderButton();
+            }
+        });
+
+        // Дополнительный хук на изменение лейаута
+        Lampa.Listener.follow('layout', function (e) {
+            if (e.type === 'complete') {
+                renderButton();
+            }
+        });
+
+        // На всякий случай запускаем сразу
+        renderButton();
     }
 
-    // 2. Используем MutationObserver для отслеживания появления шапки
-    var observer = new MutationObserver(function (mutations) {
-        if (injectTestButton()) {
-            // Если вставили успешно, можно отключить наблюдатель
-            observer.disconnect();
-        }
-    });
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-
-    // 3. Также пробуем периодически (на всякий случай)
-    var interval = setInterval(function () {
-        if (injectTestButton()) {
-            clearInterval(interval);
-        }
-    }, 1000);
-
-    // Отключаем интервал через 30 секунд, чтобы не висел вечно
-    setTimeout(function () {
-        clearInterval(interval);
-    }, 30000);
+    // Ожидаем готовности объекта Lampa
+    if (window.Lampa) {
+        startPlugin();
+    } else {
+        var timer = setInterval(function () {
+            if (window.Lampa) {
+                clearInterval(timer);
+                startPlugin();
+            }
+        }, 100);
+    }
 })();
