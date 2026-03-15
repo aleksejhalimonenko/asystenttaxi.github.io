@@ -931,74 +931,58 @@
             }
         });
 
-        Lampa.Listener.follow('full', function (event) {
-            if (event.type === 'complite') {
-                var render = event.object.activity.render();
-                if (render && event.object.id) {
-                    var kpBlock = $(render).find('.rate--kp');
-                    var imdbBlock = $(render).find('.rate--imdb');
-                    if (kpBlock.length || imdbBlock.length) {
-                        var kpVal = parseFloat(kpBlock.find('div').first().text().trim()) || 0;
-                        var imdbVal = parseFloat(imdbBlock.find('div').first().text().trim()) || 0;
-                        if (kpVal > 0 || imdbVal > 0) {
-                            var existing = ratingCache.get('kp_rating', event.object.id) || {};
-                            ratingCache.set('kp_rating', event.object.id, {
-                                kp: kpVal > 0 ? kpVal : (existing.kp || 0),
-                                imdb: imdbVal > 0 ? imdbVal : (existing.imdb || 0),
-                                timestamp: Date.now()
-                            });
-                        }
-                    }
+Lampa.Listener.follow('full', function (event) {
+    if (event.type === 'complite') {
+        var render = event.object.activity.render();
+        if (render && event.object.id) {
+            var kpBlock = $(render).find('.rate--kp');
+            var imdbBlock = $(render).find('.rate--imdb');
+            if (kpBlock.length || imdbBlock.length) {
+                var kpVal = parseFloat(kpBlock.find('div').first().text().trim()) || 0;
+                var imdbVal = parseFloat(imdbBlock.find('div').first().text().trim()) || 0;
+                if (kpVal > 0 || imdbVal > 0) {
+                    var existing = ratingCache.get('kp_rating', event.object.id) || {};
+                    ratingCache.set('kp_rating', event.object.id, {
+                        kp: kpVal > 0 ? kpVal : (existing.kp || 0),
+                        imdb: imdbVal > 0 ? imdbVal : (existing.imdb || 0),
+                        timestamp: Date.now()
+                    });
                 }
-                if (render && insertLampaBlock(render)) {
-                    if (event.object.method && event.object.id) {
-                        var ratingKey = event.object.method + "_" + event.object.id;
-                        var cached = ratingCache.get('lampa_rating', ratingKey);
-                        if (cached && cached.rating > 0) {
-                            var rateValue = $(render).find('.rate--lampa .rate-value');
-                            var rateIcon = $(render).find('.rate--lampa .rate-icon');
-                            rateValue.text(formatRating(cached.rating));
-                            if (cached.medianReaction) {
-                                var reactionSrc = getReactionImageSrc(cached.medianReaction);
-                                rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + cached.medianReaction + '" src="' + reactionSrc + '">');
-                                if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
-                            }
-                            colorizeFullCardRatings(render);
-                            return;
-                        }
-                        addToQueue(function () {
-                            getLampaRating(ratingKey).then(function (result) {
-                                var rateValue = $(render).find('.rate--lampa .rate-value');
-                                var rateIcon = $(render).find('.rate--lampa .rate-icon');
-                                if (result.rating !== null && result.rating > 0) {
-                                    rateValue.text(formatRating(result.rating));
-                                    if (result.medianReaction) {
-                                        var reactionSrc = getReactionImageSrc(result.medianReaction);
-                                        rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + result.medianReaction + '" src="' + reactionSrc + '">');
-                                        if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
-                                    }
-                                } else {
-                                    $(render).find('.rate--lampa').hide();
-                                }
-                                colorizeFullCardRatings(render);
-                            });
-                        });
-                    }
-                }
+            }
+        }
 
-// НОВЫЙ БЛОК: Обработка KP+IMDB в полной карточке
-        if (Lampa.Storage.get('rating_source') === 'kp_imdb') {
+        // Сначала проверяем, какой источник выбран
+        var currentSource = Lampa.Storage.get('rating_source', 'tmdb');
+        
+        // Если выбран режим KP+IMDB
+        if (currentSource === 'kp_imdb') {
+            // Удаляем все существующие рейтинги в полной карточке
+            $(render).find('.full-start__rate, .full-start-new__rate, .info__rate .rate--kp, .info__rate .rate--imdb, .rate--lampa, .rate--tmdb').remove();
+            
             if (event.object.id) {
+                // Показываем индикатор загрузки
+                var loadingHtml = '<div class="full-start__rate rate--loading" style="display:inline-flex;align-items:center;margin-right:10px;"><span style="color:#888;">Загрузка...</span></div>';
+                var rateLine = $(render).find('.full-start-new__rate-line, .info__rate');
+                if (rateLine.length === 0) rateLine = $(render).find('.full-start__buttons');
+                rateLine.prepend(loadingHtml);
+                
+                // Запрашиваем рейтинги
                 getKinopoiskRating({ id: event.object.id }, function (res) {
+                    // Удаляем индикатор загрузки
+                    $(render).find('.rate--loading').remove();
+                    
                     var rateLine = $(render).find('.full-start-new__rate-line, .info__rate');
                     if (rateLine.length === 0) rateLine = $(render).find('.full-start__buttons');
                     
                     // Удаляем старые блоки если есть
-                    rateLine.find('.rate--kp_full, .rate--imdb_full').remove();
+                    rateLine.find('.rate--kp_full, .rate--imdb_full, .rate--kp, .rate--imdb').remove();
+                    
+                    var hasAnyRating = false;
                     
                     if (res.kp > 0) {
+                        hasAnyRating = true;
                         var kpColor = getRatingColor(res.kp);
-                        var kpBlock = $('<div class="full-start__rate rate--kp_full" style="display:inline-flex;align-items:center;margin-right:10px;">' +
+                        var kpBlock = $('<div class="full-start__rate rate--kp" style="display:inline-flex;align-items:center;margin-right:10px;">' +
                             '<span style="color:' + kpColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(res.kp) + '</span>' +
                             '<span class="source--name rate--kp" style="width:28px;height:28px;display:inline-block;"></span>' +
                             '</div>');
@@ -1006,25 +990,75 @@
                     }
                     
                     if (res.imdb > 0) {
+                        hasAnyRating = true;
                         var imdbColor = getRatingColor(res.imdb);
-                        var imdbBlock = $('<div class="full-start__rate rate--imdb_full" style="display:inline-flex;align-items:center;margin-right:10px;">' +
+                        var imdbBlock = $('<div class="full-start__rate rate--imdb" style="display:inline-flex;align-items:center;margin-right:10px;">' +
                             '<span style="color:' + imdbColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(res.imdb) + '</span>' +
                             '<span class="source--name rate--imdb" style="width:28px;height:28px;display:inline-block;"></span>' +
                             '</div>');
                         rateLine.prepend(imdbBlock);
                     }
                     
+                    // Если нет рейтингов, показываем TMDB как fallback
+                    if (!hasAnyRating) {
+                        var tmdbRating = getTMDBRating({ id: event.object.id, vote_average: 0 });
+                        if (tmdbRating !== '0.0') {
+                            var tmdbColor = getRatingColor(tmdbRating);
+                            var tmdbBlock = $('<div class="full-start__rate rate--tmdb" style="display:inline-flex;align-items:center;margin-right:10px;">' +
+                                '<span style="color:' + tmdbColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(tmdbRating) + '</span>' +
+                                '<span class="source--name rate--tmdb" style="width:28px;height:28px;display:inline-block;"></span>' +
+                                '</div>');
+                            rateLine.prepend(tmdbBlock);
+                        }
+                    }
+                    
                     colorizeFullCardRatings(render);
                 });
             }
-        }
-
-
-                
-                 setTimeout(function () { colorizeFullCardRatings(render); }, 100);
+        } 
+        // Если выбран режим Lampa
+        else if (currentSource === 'lampa') {
+            if (render && insertLampaBlock(render)) {
+                if (event.object.method && event.object.id) {
+                    var ratingKey = event.object.method + "_" + event.object.id;
+                    var cached = ratingCache.get('lampa_rating', ratingKey);
+                    if (cached && cached.rating > 0) {
+                        var rateValue = $(render).find('.rate--lampa .rate-value');
+                        var rateIcon = $(render).find('.rate--lampa .rate-icon');
+                        rateValue.text(formatRating(cached.rating));
+                        if (cached.medianReaction) {
+                            var reactionSrc = getReactionImageSrc(cached.medianReaction);
+                            rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + cached.medianReaction + '" src="' + reactionSrc + '">');
+                            if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
+                        }
+                        colorizeFullCardRatings(render);
+                        return;
+                    }
+                    addToQueue(function () {
+                        getLampaRating(ratingKey).then(function (result) {
+                            var rateValue = $(render).find('.rate--lampa .rate-value');
+                            var rateIcon = $(render).find('.rate--lampa .rate-icon');
+                            if (result.rating !== null && result.rating > 0) {
+                                rateValue.text(formatRating(result.rating));
+                                if (result.medianReaction) {
+                                    var reactionSrc = getReactionImageSrc(result.medianReaction);
+                                    rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + result.medianReaction + '" src="' + reactionSrc + '">');
+                                    if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
+                                }
+                            } else {
+                                $(render).find('.rate--lampa').hide();
+                            }
+                            colorizeFullCardRatings(render);
+                        });
+                    });
+                }
             }
-        });
+        }
+        
+        setTimeout(function () { colorizeFullCardRatings(render); }, 100);
     }
+});
+
 
     if (window.appready) {
         initPlugin();
