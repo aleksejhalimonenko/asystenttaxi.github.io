@@ -1,145 +1,112 @@
 (function () {
     'use strict';
 
-    function startPlugin() {
-        // 1. Добавляем стили плагина в head, используя переменные Lampa
-        var styles = `
-            <style id="stub-plugin-styles">
-                .stub-button {
-                    cursor: pointer;
-                    transition: transform 0.2s;
-                }
-                .stub-button.focus {
-                    transform: scale(1.1);
-                    color: var(--main-color) !important;
-                }
-                .stub-modal__content {
-                    padding: 20px;
-                    text-align: center;
-                }
-                .stub-modal__title {
-                    font-size: 1.5rem;
-                    margin-bottom: 15px;
-                    color: var(--white);
-                }
-                .stub-modal__text {
-                    font-size: 1.1rem;
-                    line-height: 1.4;
-                    color: var(--text-color);
-                    opacity: 0.8;
-                }
-                .stub-modal__footer {
-                    margin-top: 25px;
-                    display: flex;
-                    justify-content: center;
-                }
-            </style>
-        `;
-        if (!$('#stub-plugin-styles').length) $('head').append(styles);
+    // Создаем модуль плагина согласно архитектуре Lampa
+    function MyStubPlugin() {
+        var network = new Lampa.Reguest(); // Используем встроенный модуль запросов
+        
+        // Метод открытия окна
+        this.open = function () {
+            // Проверяем состояние плеера (из раздела 2 документации)
+            var isVideoPlaying = Lampa.Player.opened();
+            var videoStatus = isVideoPlaying ? 'Видео сейчас запущено' : 'Плеер в покое';
 
-        // 2. Настройка в меню
-        Lampa.SettingsApi.addParam({
-            component: 'display',
-            param: {
-                name: 'show_stub_button',
-                type: 'boolean',
-                default: true
-            },
-            field: {
-                name: 'Показывать кнопку-заглушку',
-                description: 'Кнопка в шапке с учетом CSS архитектуры'
-            },
-            onChange: function (value) {
-                if (value) renderButton();
-                else $('.stub-button').remove();
-            }
-        });
-
-        // 3. Функция модального окна
-        function openMyModal() {
             var html = $(`
                 <div class="stub-modal">
-                    <div class="stub-modal__content">
-                        <div class="stub-modal__title">Архитектура CSS</div>
-                        <div class="stub-modal__text">
-                            Это окно использует системные переменные Lampa.<br>
-                            Оно будет менять цвета вместе с темой приложения.
+                    <div class="stub-modal__content" style="padding: 20px;">
+                        <h2 style="margin-bottom: 15px; color: var(--main-color);">Модульная система</h2>
+                        <p style="opacity: 0.8; margin-bottom: 10px;">Этот плагин зарегистрирован как глобальный компонент.</p>
+                        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
+                            <strong>Статус плеера:</strong> ${videoStatus}
                         </div>
-                        <div class="stub-modal__footer">
-                            <div class="navigation-tabs__item selector" id="modal-close-btn">
-                                <span>Понятно</span>
-                            </div>
+                        <div class="navigation-tabs__item selector" id="modal-close-btn" style="margin-top: 20px; width: 100%;">
+                            <span>Закрыть</span>
                         </div>
                     </div>
                 </div>
             `);
 
             Lampa.Modal.open({
-                title: 'Проверка стилей',
+                title: 'Lampa Source Info',
                 html: html,
                 size: 'small',
-                onBack: function() {
-                    Lampa.Modal.close();
-                }
+                onBack: () => Lampa.Modal.close()
             });
 
-            // Работа с контроллером для навигации пульта
-            Lampa.Controller.add('plugin_modal', {
+            // Управление фокусом через Controller (раздел 1.2)
+            Lampa.Controller.add('plugin_stub_modal', {
                 toggle: function () {
                     Lampa.Controller.collectionSet(html);
                     Lampa.Controller.render();
                 },
-                back: function () {
-                    Lampa.Modal.close();
-                }
+                back: () => Lampa.Modal.close()
             });
-            Lampa.Controller.toggle('plugin_modal');
+            Lampa.Controller.toggle('plugin_stub_modal');
 
-            html.find('#modal-close-btn').on('hover:enter click', function() {
-                Lampa.Modal.close();
-            });
-        }
+            html.find('#modal-close-btn').on('hover:enter click', () => Lampa.Modal.close());
+        };
 
-        // 4. Рендер кнопки в шапке
-        function renderButton() {
+        // Метод отрисовки кнопки в шапке
+        this.render = function () {
             if (!Lampa.Storage.get('show_stub_button', true)) return;
             if ($('.stub-button').length > 0) return;
 
-            var head = $('.head__actions'); 
+            var head = $('.head__actions');
             if (head.length) {
-                var btn = $('<div class="head__action stub-button selector">' +
-                    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-                        '<path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" fill="none"/>' +
-                    '</svg>' +
-                '</div>');
+                var btn = $(`
+                    <div class="head__action stub-button selector">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+                            <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                `);
 
-                btn.on('hover:enter click', function (e) {
+                btn.on('hover:enter click', (e) => {
                     e.preventDefault();
-                    openMyModal();
+                    this.open();
                 });
 
                 head.prepend(btn);
             }
-        }
-
-        // 5. События
-        Lampa.Listener.follow('app', function (e) {
-            if (e.type === 'ready' || e.type === 'full:complite') renderButton();
-        });
-        Lampa.Listener.follow('layout', function (e) {
-            if (e.type === 'complete') renderButton();
-        });
-
-        renderButton();
+        };
     }
 
-    if (window.Lampa) startPlugin();
-    else {
-        var timer = setInterval(function () {
-            if (window.Lampa) {
-                clearInterval(timer);
-                startPlugin();
+    // Инициализация плагина
+    function init() {
+        // Регистрируем как компонент (раздел 1.2)
+        Lampa.Component.add('stub_plugin', MyStubPlugin);
+        
+        var instance = new MyStubPlugin();
+
+        // Добавляем настройки
+        Lampa.SettingsApi.addParam({
+            component: 'display',
+            param: { name: 'show_stub_button', type: 'boolean', default: true },
+            field: { name: 'Кнопка заглушка (PRO)', description: 'Построено на основе глубокой документации Lampa' },
+            onChange: (value) => {
+                if (value) instance.render();
+                else $('.stub-button').remove();
             }
-        }, 100);
+        });
+
+        // Следим за состоянием интерфейса для перерисовки кнопки
+        Lampa.Listener.follow('app', (e) => {
+            if (e.type === 'ready' || e.type === 'full:complite') instance.render();
+        });
+        Lampa.Listener.follow('layout', (e) => {
+            if (e.type === 'complete') instance.render();
+        });
+
+        instance.render();
+    }
+
+    // Запуск согласно циклу инициализации (раздел 1.1)
+    if (window.Lampa) {
+        init();
+    } else {
+        Lampa.Listener.follow('app', function (e) {
+            if (e.type === 'ready') init();
+        });
     }
 })();
