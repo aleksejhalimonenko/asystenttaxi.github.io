@@ -1,1295 +1,950 @@
 (function () {
     'use strict';
 
-    function videocdn(component) {
-      var network = new Lampa.Reguest();
-      var object = {};
-      var extract = {};
-      var results = [];
-      var filter_items = {};
-      var choice = {
-        season: 0,
-        voice: 0
-      };
-      /**
-       * Начать поиск
-       * @param {Object} _object 
-       */
+    Lampa.Platform.tv();
 
-      this.search = function (_object, found) {
-        object = _object;
-        results = found;
-        success(found);
-        component.loading(false);
-      };
-      /**
-       * Сброс фильтра
-       */
+    function startsWith(str, searchString) {
+        return str.lastIndexOf(searchString, 0) === 0;
+    }
 
+    function endsWith(str, searchString) {
+        var start = str.length - searchString.length;
+        if (start < 0) return false;
+        return str.indexOf(searchString, start) === start;
+    }
 
-      this.reset = function () {
-        component.reset();
-        choice = {
-          season: 0,
-          voice: 0
-        };
-        filter();
-        append(filtred());
-      };
-      /**
-       * Применить фильтр
-       * @param {*} type 
-       * @param {*} a 
-       * @param {*} b 
-       */
+    function salt(input) {
+        var str  = (input || '') + '';
+        var hash = 0;
 
+        for (var i = 0; i < str.length; i++) {
+            var c = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + c;
+            hash = hash & hash;
+        }
 
-      this.filter = function (type, a, b) {
-        choice[a.stype] = b.index;
-        component.reset();
-        filter();
-        append(filtred());
-      };
-      /**
-       * Уничтожить
-       */
+        var result = '';
+        for (var _i = 0, j = 32 - 3; j >= 0; _i +=3, j -= 3) {
+            var x = (((hash >>> _i) & 7) << 3) + ((hash >>> j) & 7);
+            result += String.fromCharCode(x < 26 ? 97 + x : x < 52 ? 39 + x : x - 4);
+        }
+        return result;
+    }
 
+    function decodeSecret(input, password) {
+        var result = '';
+        password = (password || '') + '';
+        if (input && password) {
+            var hash = salt('123456789' + password);
+            while (hash.length < input.length) {
+                hash += hash;
+            }
+            var i = 0;
+            while (i < input.length) {
+                result += String.fromCharCode(input[i] ^ hash.charCodeAt(i));
+                i++;
+            }
+        }
+        return result;
+    }
 
-      this.destroy = function () {
-        network.clear();
-        results = null;
-      };
-      /**
-       * Успешно, есть данные
-       * @param {Object} json 
-       */
+    function isDebug() {
+        var res = false;
+        var origin = window.location.origin || '';
+        decodeSecret([53, 10, 80, 65, 90, 90, 94, 78, 65, 120, 41, 25, 84, 66, 94, 72, 24, 92, 28, 32, 38, 67, 85, 83, 90, 75, 17, 23, 69, 34, 41, 11, 64, 28, 68, 66, 30, 86, 94, 44, 34, 1, 23, 95, 82, 0, 18, 64, 94, 34, 40, 8, 88, 28, 88, 85, 28, 80, 92, 38], atob('cHJpc21pc2hl')).split(';').forEach(function (s) {
+            res |= endsWith(origin, s);
+        });
+        return res;
+    }
 
+    var ANIMATED_REACTIONS_BASE_URL = 'https://amikdn.github.io/img';
+    var SVG_REACTIONS_BASE_URL = 'https://cubnotrip.top/img/reactions';
 
-      function success(json) {
-        results = json;
-        extractData(json);
-        filter();
-        append(filtred());
-      }
-      /**
-       * Получить потоки
-       * @param {String} str 
-       * @param {Int} max_quality 
-       * @returns string
-       */
+    function getRatingColor(value) {
+        if (!Lampa.Storage.get('colored_ratings_poster', true)) return '#fff';
+        var v = parseFloat(String(value).replace(',', '.'));
+        if (isNaN(v) || v <= 0) return '#fff';
+        if (v <= 3) return 'red';
+        if (v < 6) return 'orange';
+        if (v < 8) return 'cornflowerblue';
+        return 'lawngreen';
+    }
 
+    function formatRating(value) {
+        var n = parseFloat(value);
+        if (isNaN(n)) return '0.0';
+        if (n === 10) return '10';
+        return n.toFixed(1);
+    }
 
-      function extractFile(str, max_quality) {
-        var url = '';
+    function getReactionImageSrc(medianReaction) {
+        if (!medianReaction) return '';
+        var useAnimated = Lampa.Storage.get('animated_reactions', false);
+        if (useAnimated) {
+            return ANIMATED_REACTIONS_BASE_URL + '/reaction-' + medianReaction + '.gif';
+        }
+        return SVG_REACTIONS_BASE_URL + '/' + medianReaction + '.svg';
+    }
+
+    var ratingCache = {
+        caches: {},
+        get: function (source, key) {
+            var cache = this.caches[source] || (this.caches[source] = Lampa.Storage.cache(source, 500, {}));
+            var data = cache[key];
+            if (!data) return null;
+            if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+                delete cache[key];
+                Lampa.Storage.set(source, cache);
+                return null;
+            }
+            return data;
+        },
+        set: function (source, key, value) {
+            if (value.kp === 0 && value.imdb === 0 && value.rating === 0 && value.vote_average === 0) return value;
+            var cache = this.caches[source] || (this.caches[source] = Lampa.Storage.cache(source, 500, {}));
+            value.timestamp = Date.now();
+            cache[key] = value;
+            Lampa.Storage.set(source, cache);
+            return value;
+        }
+    };
+
+    var taskQueue = [];
+    var isProcessing = false;
+    var taskInterval = 150;
+    var taskBatchSize = 2;
+    var requestPool = [];
+
+    function getRequest() {
+        return requestPool.pop() || new Lampa.Reguest();
+    }
+
+    function releaseRequest(request) {
+        request.clear();
+        if (requestPool.length < 5) requestPool.push(request);
+    }
+
+    function processQueue() {
+        if (isProcessing || !taskQueue.length) return;
+        isProcessing = true;
+        var batch = taskQueue.splice(0, taskBatchSize);
+        for (var i = 0; i < batch.length; i++) { batch[i].execute(); }
+        setTimeout(function () {
+            isProcessing = false;
+            processQueue();
+        }, taskInterval);
+    }
+
+    function addToQueue(task) {
+        taskQueue.push({ execute: task });
+        processQueue();
+    }
+
+    var stringCache = {};
+    function normalizeString(str) {
+        if (stringCache[str]) return stringCache[str];
+        var normalized = str
+            .replace(/[\s.,:;''`!?]+/g, ' ')
+            .trim()
+            .toLowerCase()
+            .replace(/[\-\u2010-\u2015\u2E3A\u2E3B\uFE58\uFE63\uFF0D]+/g, '-')
+            .replace(/ё/g, 'е');
+        stringCache[str] = normalized;
+        return normalized;
+    }
+
+    function cleanString(str) {
+        return normalizeString(str)
+            .replace(/^[ \/\\]+/, '')
+            .replace(/[ \/\\]+$/, '')
+            .replace(/\+( *[+\/\\])+/g, '+')
+            .replace(/([+\/\\] *)+\+/g, '+')
+            .replace(/( *[\/\\]+ *)+/g, '+');
+    }
+
+    function matchStrings(str1, str2) {
+        return typeof str1 === 'string' && typeof str2 === 'string' && normalizeString(str1) === normalizeString(str2);
+    }
+
+    function containsString(str1, str2) {
+        return typeof str1 === 'string' && typeof str2 === 'string' && normalizeString(str1).indexOf(normalizeString(str2)) !== -1;
+    }
+
+    // --- Зашифрованный API-ключ из первого плагина ---
+    var KP_API_URL = 'https://kinopoiskapiunofficial.tech/';
+    var KP_API_HEADERS = {
+        'X-API-KEY': decodeSecret([85, 4, 115, 118, 107, 125, 10, 70, 85, 67, 82, 14, 32, 110, 102, 43, 9, 19, 85, 73, 4, 83, 33, 110, 52, 44, 92, 21, 72, 22, 87, 1, 118, 32, 100, 127], atob('X0tQM3Bhc3N3b3Jk'))
+    };
+
+    function findBestKpMatch(results, title, originalTitle, releaseYear) {
+        if (!results || !results.length) return null;
+        results.forEach(function (r) {
+            r.tmp_year = parseInt(String(r.year || r.start_date || "0000").slice(0, 4));
+        });
+        var filtered = results;
+        if (originalTitle) {
+            var matched = results.filter(function (r) {
+                return containsString(r.orig_title || r.nameEn, originalTitle) ||
+                    containsString(r.en_title || r.nameOriginal, originalTitle) ||
+                    containsString(r.title || r.nameRu || r.name, originalTitle);
+            });
+            if (matched.length) filtered = matched;
+        }
+        if (filtered.length > 1 && releaseYear) {
+            var yearMatch = filtered.filter(function (r) { return r.tmp_year == releaseYear; });
+            if (!yearMatch.length) {
+                yearMatch = filtered.filter(function (r) { return r.tmp_year && r.tmp_year > releaseYear - 2 && r.tmp_year < releaseYear + 2; });
+            }
+            if (yearMatch.length) filtered = yearMatch;
+        }
+        return filtered[0] || null;
+    }
+
+    function getKinopoiskRating(item, callback) {
+        var cached = ratingCache.get('kp_rating', item.id);
+        if (cached && (cached.kp > 0 || cached.imdb > 0)) {
+            callback(cached);
+            return;
+        }
+        if (item.kp_rating > 0 || item.imdb_rating > 0) {
+            var result = ratingCache.set('kp_rating', item.id, {
+                kp: parseFloat(item.kp_rating) || 0,
+                imdb: parseFloat(item.imdb_rating) || 0,
+                timestamp: Date.now()
+            });
+            callback(result);
+            return;
+        }
+        if (item.kinopoisk_id) {
+            addToQueue(function () {
+                var request = getRequest();
+                request.timeout(8000);
+                request.silent(KP_API_URL + 'api/v2.2/films/' + item.kinopoisk_id, function (data) {
+                    var res = ratingCache.set('kp_rating', item.id, {
+                        kp: parseFloat(data.ratingKinopoisk) || 0,
+                        imdb: parseFloat(data.ratingImdb) || 0,
+                        timestamp: Date.now()
+                    });
+                    releaseRequest(request);
+                    callback(res);
+                }, function () {
+                    releaseRequest(request);
+                    callback({ kp: 0, imdb: 0 });
+                }, false, { headers: KP_API_HEADERS });
+            });
+            return;
+        }
+        if (!(item.title || item.name) && !item.imdb_id) {
+            callback({ kp: 0, imdb: 0 });
+            return;
+        }
+        addToQueue(function () {
+            var request = getRequest();
+            var title = cleanString(item.title || item.name || '');
+            var releaseYear = parseInt(String(item.release_date || item.first_air_date || item.last_air_date || "0000").slice(0, 4));
+            var originalTitle = item.original_title || item.original_name;
+
+            var searchUrl;
+            if (item.imdb_id) {
+                searchUrl = KP_API_URL + 'api/v2.2/films?imdbId=' + encodeURIComponent(item.imdb_id);
+            } else {
+                searchUrl = KP_API_URL + 'api/v2.1/films/search-by-keyword?keyword=' + encodeURIComponent(title);
+            }
+
+            request.timeout(8000);
+            request.silent(searchUrl, function (data) {
+                var results = data.films || data.items || [];
+                if (!results.length && data && (data.kinopoiskId || data.filmId)) {
+                    results = [data];
+                }
+                var best = findBestKpMatch(results, title, originalTitle, releaseYear);
+                if (!best) {
+                    releaseRequest(request);
+                    callback({ kp: 0, imdb: 0 });
+                    return;
+                }
+
+                var kpFromSearch = parseFloat(best.rating || best.ratingKinopoisk) || 0;
+                var imdbFromSearch = parseFloat(best.ratingImdb) || 0;
+                var movieId = best.kinopoiskId || best.filmId || best.kp_id || best.kinopoisk_id;
+
+                if (kpFromSearch > 0) {
+                    ratingCache.set('kp_rating', item.id, {
+                        kp: kpFromSearch,
+                        imdb: imdbFromSearch,
+                        timestamp: Date.now()
+                    });
+                    callback({ kp: kpFromSearch, imdb: imdbFromSearch });
+                }
+
+                if (movieId && (kpFromSearch === 0 || imdbFromSearch === 0)) {
+                    request.timeout(8000);
+                    request.silent(KP_API_URL + 'api/v2.2/films/' + movieId, function (detail) {
+                        var fullKp = parseFloat(detail.ratingKinopoisk) || 0;
+                        var fullImdb = parseFloat(detail.ratingImdb) || 0;
+                        var res = ratingCache.set('kp_rating', item.id, {
+                            kp: fullKp > 0 ? fullKp : kpFromSearch,
+                            imdb: fullImdb > 0 ? fullImdb : imdbFromSearch,
+                            timestamp: Date.now()
+                        });
+                        releaseRequest(request);
+                        callback(res);
+                    }, function () {
+                        releaseRequest(request);
+                        if (kpFromSearch === 0) callback({ kp: 0, imdb: 0 });
+                    }, false, { headers: KP_API_HEADERS });
+                } else {
+                    releaseRequest(request);
+                }
+            }, function () {
+                releaseRequest(request);
+                callback({ kp: 0, imdb: 0 });
+            }, false, { headers: KP_API_HEADERS });
+        });
+    }
+
+    function calculateLampaRating10(reactions) {
+        var weightedSum = 0;
+        var totalCount = 0;
+        var reactionCnt = {};
+        var reactionCoef = { fire: 5, nice: 4, think: 3, bore: 2, shit: 1 };
+        for (var i = 0; i < reactions.length; i++) {
+            var item = reactions[i];
+            var count = parseInt(item.counter, 10) || 0;
+            var coef = reactionCoef[item.type] || 0;
+            weightedSum += count * coef;
+            totalCount += count;
+            reactionCnt[item.type] = (reactionCnt[item.type] || 0) + count;
+        }
+        if (totalCount === 0) return { rating: 0, medianReaction: '' };
+        var avgRating = weightedSum / totalCount;
+        var rating10 = (avgRating - 1) * 2.5;
+        var finalRating = rating10 >= 0 ? parseFloat(rating10.toFixed(1)) : 0;
+        var medianReaction = '';
+        var medianIndex = Math.ceil(totalCount / 2.0);
+        var keys = Object.keys(reactionCoef);
+        var sortedReactions = keys.sort(function (a, b) { return reactionCoef[a] - reactionCoef[b]; });
+        var cumulativeCount = 0;
+        while (sortedReactions.length && cumulativeCount < medianIndex) {
+            medianReaction = sortedReactions.pop();
+            cumulativeCount += (reactionCnt[medianReaction] || 0);
+        }
+        return { rating: finalRating, medianReaction: medianReaction };
+    }
+
+    function fetchLampaRating(ratingKey) {
+        return new Promise(function (resolve) {
+            var request = getRequest();
+            var url = "https://cubnotrip.top/api/reactions/get/" + ratingKey;
+            request.timeout(10000);
+            request.silent(url, function (data) {
+                try {
+                    if (data && data.result && Array.isArray(data.result)) {
+                        var result = calculateLampaRating10(data.result);
+                        resolve(result);
+                    } else {
+                        resolve({ rating: 0, medianReaction: '' });
+                    }
+                } catch (e) {
+                    resolve({ rating: 0, medianReaction: '' });
+                } finally {
+                    releaseRequest(request);
+                }
+            }, function () {
+                releaseRequest(request);
+                resolve({ rating: 0, medianReaction: '' });
+            }, false);
+        });
+    }
+
+    function getLampaRating(ratingKey) {
+        var cached = ratingCache.get('lampa_rating', ratingKey);
+        if (cached) return Promise.resolve(cached);
+        return fetchLampaRating(ratingKey).then(function (result) {
+            return ratingCache.set('lampa_rating', ratingKey, result);
+        }).catch(function () {
+            return { rating: 0, medianReaction: '' };
+        });
+    }
+
+    function getTMDBRating(data) {
+        var ratingKey = data.id;
+        var cached = ratingCache.get('tmdb_rating', ratingKey);
+        if (cached) return cached.vote_average.toFixed(1);
+        var rating = data.vote_average ? data.vote_average.toFixed(1) : '0.0';
+        ratingCache.set('tmdb_rating', ratingKey, { vote_average: parseFloat(rating) });
+        return rating;
+    }
+
+    function getRatingPositionCSS() {
+        var pos = Lampa.Storage.get('rating_position', 'top');
+        if (pos === 'bottom') {
+            return 'right:0.3em;bottom:0.3em;top:auto;';
+        }
+        return 'right:0.3em;top:0.3em;bottom:auto;';
+    }
+
+    function voteClass(extra) {
+        var pos = Lampa.Storage.get('rating_position', 'top');
+        return 'card__vote card__vote--' + pos + (extra ? ' ' + extra : '');
+    }
+
+    function getRatingParent(card) {
+        var parent = card.querySelector && card.querySelector('.card__view');
+        if (!parent) parent = card;
+        parent.setAttribute('data-rate-anchor', '1');
+        parent.style.position = 'relative';
+        return parent;
+    }
+
+    function createRatingElement(card) {
+        var ratingElement = document.createElement('div');
+        ratingElement.className = voteClass();
+        var posCSS = getRatingPositionCSS();
+        ratingElement.style.cssText = 'line-height:1;font-family:"SegoeUI",sans-serif;cursor:pointer;box-sizing:border-box;outline:none;user-select:none;position:absolute;z-index:1;' + posCSS + 'background:rgba(0,0,0,0.5);color:#fff;padding:0.2em 0.5em;border-radius:0.35em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;';
+        var parent = getRatingParent(card);
+        parent.appendChild(ratingElement);
+        return ratingElement;
+    }
+
+    function createRatingLineElement(card) {
+        var line = document.createElement('div');
+        line.className = voteClass('card__vote-line');
+        var posCSS = getRatingPositionCSS();
+        line.style.cssText = 'line-height:1;font-family:"SegoeUI",sans-serif;cursor:pointer;box-sizing:border-box;outline:none;user-select:none;position:absolute;z-index:1;' + posCSS + 'background:rgba(0,0,0,0.5);color:#fff;padding:0.2em 0.5em;border-radius:0.35em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-align-items:flex-end;align-items:flex-end;';
+        line.innerHTML = '<div class="card__rate-item rate--tmdb" style="display:none"><div>0.0</div><span class="source--name"></span></div><div class="card__rate-item rate--imdb" style="display:none"><div>0.0</div><span class="source--name"></span></div><div class="card__rate-item rate--kp" style="display:none"><div>0.0</div><span class="source--name"></span></div><div class="card__rate-item rate--lampa" style="display:none"><span class="rate-value">0.0</span><span class="source--name rate-icon-reaction"></span></div>';
+        var parent = getRatingParent(card);
+        parent.appendChild(line);
+        return line;
+    }
+
+    function updateCardRatingLine(ratingLine, data) {
+        if (!ratingLine || !ratingLine.parentNode) return;
+        var idStr = data.id.toString();
+        if (ratingLine.dataset.movieId !== idStr) return;
 
         try {
-          var items = str.split(',').map(function (item) {
-            return {
-              quality: parseInt(item.match(/\[(\d+)p\]/)[1]),
-              file: item.replace(/\[\d+p\]/, '').split(' or ')[0]
-            };
-          });
-          items.sort(function (a, b) {
-            return b.quality - a.quality;
-          });
-          url = items[0].file;
-          url = 'http:' + url.slice(0, url.lastIndexOf('/')) + '/' + (max_quality || items[0].quality) + '.mp4';
+            var tmdbItem = ratingLine.querySelector('.rate--tmdb');
+            if (tmdbItem) {
+                var tmdbRating = getTMDBRating(data);
+                var tmdbDiv = tmdbItem.querySelector('div');
+                if (tmdbDiv) {
+                    tmdbDiv.textContent = formatRating(tmdbRating);
+                    tmdbDiv.style.color = getRatingColor(tmdbRating);
+                }
+                tmdbItem.style.display = (tmdbRating !== '0.0') ? '' : 'none';
+            }
         } catch (e) {}
 
-        return url;
-      }
-      /**
-       * Получить информацию о фильме
-       * @param {Arrays} results 
-       */
+        try {
+            var kpFromData = (data.kp_rating != null ? data.kp_rating : (data.ratingKinopoisk != null ? data.ratingKinopoisk : 0));
+            var imdbFromData = (data.imdb_rating != null ? data.imdb_rating : (data.ratingImdb != null ? data.ratingImdb : 0));
+            var cachedKp = ratingCache.get('kp_rating', data.id);
+            var kpVal = (kpFromData > 0 ? kpFromData : (cachedKp && cachedKp.kp)) || 0;
+            var imdbVal = (imdbFromData > 0 ? imdbFromData : (cachedKp && cachedKp.imdb)) || 0;
 
-
-      function extractData(results) {
-        network.timeout(5000);
-        var movie = results.slice(0, 1)[0];
-        extract = {};
-
-        if (movie) {
-          var src = movie.iframe_src;
-          network["native"]('http:' + src, function (raw) {
-            var math = raw.replace(/\n/g, '').match(/id="files" value="(.*?)"/);
-
-            if (math) {
-              var json = Lampa.Arrays.decodeJson(math[1].replace(/&quot;/g, '"'), {});
-              var text = document.createElement("textarea");
-
-              var _loop = function _loop(i) {
-                var _movie$media, _movie$media$filter$;
-
-                if (0 === i - 0) {
-                  return "continue";
+            var imdbItem = ratingLine.querySelector('.rate--imdb');
+            if (imdbItem) {
+                var imdbDiv = imdbItem.querySelector('div');
+                var imdbText = imdbVal ? formatRating(imdbVal) : '0.0';
+                if (imdbDiv) {
+                    imdbDiv.textContent = imdbText;
+                    imdbDiv.style.color = getRatingColor(imdbText);
                 }
+                imdbItem.style.display = (imdbVal > 0) ? '' : 'none';
+            }
 
-                text.innerHTML = json[i];
-                Lampa.Arrays.decodeJson(text.value, {});
-                var max_quality = (_movie$media = movie.media) === null || _movie$media === void 0 ? void 0 : (_movie$media$filter$ = _movie$media.filter(function (obj) {
-                  return obj.translation_id === i - 0;
-                })[0]) === null || _movie$media$filter$ === void 0 ? void 0 : _movie$media$filter$.max_quality;
-
-                if (!max_quality) {
-                  var _movie$translations, _movie$translations$f;
-
-                  max_quality = (_movie$translations = movie.translations) === null || _movie$translations === void 0 ? void 0 : (_movie$translations$f = _movie$translations.filter(function (obj) {
-                    return obj.id === i - 0;
-                  })[0]) === null || _movie$translations$f === void 0 ? void 0 : _movie$translations$f.max_quality;
+            var kpItem = ratingLine.querySelector('.rate--kp');
+            if (kpItem) {
+                var kpDiv = kpItem.querySelector('div');
+                var kpText = kpVal ? formatRating(kpVal) : '0.0';
+                if (kpDiv) {
+                    kpDiv.textContent = kpText;
+                    kpDiv.style.color = getRatingColor(kpText);
                 }
+                kpItem.style.display = (kpVal > 0) ? '' : 'none';
+            }
+        } catch (e) {}
 
-                extract[i] = {
-                  json: Lampa.Arrays.decodeJson(text.value, {}),
-                  file: extractFile(json[i], max_quality)
-                };
-
-                for (var a in extract[i].json) {
-                  var elem = extract[i].json[a];
-
-                  if (elem.folder) {
-                    for (var f in elem.folder) {
-                      var folder = elem.folder[f];
-                      folder.file = extractFile(folder.file, max_quality);
+        try {
+            var lampaKey = (data.seasons || data.first_air_date || data.original_name) ? 'tv_' + data.id : 'movie_' + data.id;
+            var cachedLampa = ratingCache.get('lampa_rating', lampaKey);
+            var lampaItem = ratingLine.querySelector('.rate--lampa');
+            if (lampaItem) {
+                var lampaValEl = lampaItem.querySelector('.rate-value');
+                var lampaReactionIcon = lampaItem.querySelector('.rate-icon-reaction');
+                var hasLampa = cachedLampa && cachedLampa.rating > 0;
+                var lampaText = hasLampa ? formatRating(cachedLampa.rating) : '0.0';
+                if (lampaValEl) {
+                    lampaValEl.textContent = lampaText;
+                    lampaValEl.style.color = getRatingColor(lampaText);
+                }
+                if (lampaReactionIcon) {
+                    if (hasLampa && cachedLampa.medianReaction) {
+                        lampaReactionIcon.style.backgroundImage = 'url(' + getReactionImageSrc(cachedLampa.medianReaction) + ')';
+                    } else {
+                        lampaReactionIcon.style.backgroundImage = '';
                     }
-                  } else elem.file = extractFile(elem.file, max_quality);
                 }
-              };
-
-              for (var i in json) {
-                var _ret = _loop(i);
-
-                if (_ret === "continue") continue;
-              }
+                lampaItem.style.display = hasLampa ? '' : 'none';
             }
-          }, false, false, {
-            dataType: 'text'
-          });
+        } catch (e) {}
+    }
+
+    function showTmdbFallback(ratingElement, data) {
+        var tmdb = getTMDBRating(data);
+        if (tmdb !== '0.0') {
+            var color = getRatingColor(tmdb);
+            ratingElement.className = voteClass('rate--tmdb');
+            ratingElement.innerHTML = '<span style="color:' + color + '">' + formatRating(tmdb) + '</span> <span class="source--name"></span>';
+            return;
         }
-      }
-      /**
-       * Найти поток
-       * @param {Object} element 
-       * @param {Int} max_quality 
-       * @param {Boolean} show_error 
-       * @returns string
-       */
-
-
-      function getFile(element, max_quality, show_error) {
-        var translat = extract[element.translation];
-        var id = element.season + '_' + element.episode;
-        var file = '';
-
-        if (translat) {
-          if (element.season) {
-            for (var i in translat.json) {
-              var elem = translat.json[i];
-
-              if (elem.folder) {
-                for (var f in elem.folder) {
-                  var folder = elem.folder[f];
-
-                  if (folder.id == id) {
-                    file = folder.file;
-                    break;
-                  }
+        var lampaKey = (data.seasons || data.first_air_date || data.original_name) ? 'tv_' + data.id : 'movie_' + data.id;
+        var cachedLampa = ratingCache.get('lampa_rating', lampaKey);
+        if (cachedLampa && cachedLampa.rating > 0) {
+            var color = getRatingColor(cachedLampa.rating);
+            var html = '<span style="color:' + color + '">' + formatRating(cachedLampa.rating) + '</span>';
+            if (cachedLampa.medianReaction) {
+                html += ' <img style="width:1em;height:1em;margin:0 0.2em;" src="' + getReactionImageSrc(cachedLampa.medianReaction) + '">';
+            }
+            ratingElement.className = voteClass('rate--lampa');
+            ratingElement.innerHTML = html;
+            return;
+        }
+        getLampaRating(lampaKey).then(function (result) {
+            if (!ratingElement.parentNode || ratingElement.dataset.movieId !== data.id.toString()) return;
+            if (result.rating > 0) {
+                var color = getRatingColor(result.rating);
+                var html = '<span style="color:' + color + '">' + formatRating(result.rating) + '</span>';
+                if (result.medianReaction) {
+                    html += ' <img style="width:1em;height:1em;margin:0 0.2em;" src="' + getReactionImageSrc(result.medianReaction) + '">';
                 }
-              } else if (elem.id == id) {
-                file = elem.file;
-                break;
-              }
-            }
-          } else {
-            file = translat.file;
-          }
-        }
-
-        max_quality = parseInt(max_quality);
-
-        if (file) {
-          if (file.split('/').pop().replace('.mp4', '') !== max_quality) {
-            file = file.slice(0, file.lastIndexOf('/')) + '/' + max_quality + '.mp4';
-          }
-        } else if (show_error) Lampa.Noty.show('Не удалось извлечь ссылку');
-
-        return file;
-      }
-      /**
-       * Построить фильтр
-       */
-
-
-      function filter() {
-        filter_items = {
-          season: [],
-          voice: [],
-          voice_info: []
-        };
-        results.slice(0, 1).forEach(function (movie) {
-          if (movie.season_count) {
-            var s = movie.season_count;
-
-            while (s--) {
-              filter_items.season.push('Сезон ' + (movie.season_count - s));
-            }
-          }
-
-          if (filter_items.season.length) {
-            movie.episodes.forEach(function (episode) {
-              if (episode.season_num == choice.season + 1) {
-                episode.media.forEach(function (media) {
-                  if (filter_items.voice.indexOf(media.translation.smart_title) == -1) {
-                    filter_items.voice.push(media.translation.smart_title);
-                    filter_items.voice_info.push({
-                      id: media.translation.id
-                    });
-                  }
-                });
-              }
-            });
-          }
-          /*
-          else{
-              movie.translations.forEach(element=>{
-                  filter_items.voice.push(element.smart_title)
-                  filter_items.voice_info.push({
-                      id: element.id
-                  })
-              })
-          }
-          */
-
-        });
-        component.filter(filter_items, choice);
-      }
-      /**
-       * Отфильтровать файлы
-       * @returns array
-       */
-
-
-      function filtred() {
-        var filtred = [];
-        var filter_data = Lampa.Storage.get('online_filter', '{}');
-
-        if (object.movie.number_of_seasons) {
-          results.slice(0, 1).forEach(function (movie) {
-            movie.episodes.forEach(function (episode) {
-              if (episode.season_num == filter_data.season + 1) {
-                episode.media.forEach(function (media) {
-                  if (media.translation.id == filter_items.voice_info[filter_data.voice].id) {
-                    filtred.push({
-                      episode: parseInt(episode.num),
-                      season: episode.season_num,
-                      title: episode.num + ' - ' + episode.ru_title,
-                      quality: media.max_quality + 'p',
-                      translation: media.translation_id
-                    });
-                  }
-                });
-              }
-            });
-          });
-        } else {
-          results.slice(0, 1).forEach(function (movie) {
-            movie.media.forEach(function (element) {
-              //if(filter_items.voice_info[filter_data.voice].id == element.translation_id){
-              filtred.push({
-                title: element.translation.title,
-                quality: element.max_quality + 'p',
-                translation: element.translation_id
-              }); //}
-            });
-          });
-        }
-
-        return filtred;
-      }
-      /**
-       * Добавить видео
-       * @param {Array} items 
-       */
-
-
-      function append(items) {
-        component.reset();
-        items.forEach(function (element) {
-          if (element.season) element.title = 'S' + element.season + ' / Серия ' + element.title;
-          element.info = element.season ? ' / ' + filter_items.voice[choice.voice] : '';
-          var hash = Lampa.Utils.hash(element.season ? [element.season, element.episode, object.movie.original_title].join('') : object.movie.original_title);
-          var view = Lampa.Timeline.view(hash);
-          var item = Lampa.Template.get('online', element);
-          item.addClass('video--stream');
-          element.timeline = view;
-          item.append(Lampa.Timeline.render(view));
-          item.on('hover:enter', function () {
-            if (object.movie.id) Lampa.Favorite.add('history', object.movie, 100);
-            var file = getFile(element, element.quality, true);
-
-            if (file) {
-              var playlist = [];
-              var first = {
-                url: file,
-                timeline: view,
-                title: element.season ? element.title : object.movie.title + ' / ' + element.title
-              };
-              Lampa.Player.play(first);
-
-              if (element.season) {
-                items.forEach(function (elem) {
-                  playlist.push({
-                    title: elem.title,
-                    url: getFile(elem, elem.quality),
-                    timeline: elem.timeline
-                  });
-                });
-              } else {
-                playlist.push(first);
-              }
-
-              Lampa.Player.playlist(playlist);
-            }
-          });
-          component.append(item);
-        });
-        component.start(true);
-      }
-    }
-
-    function create(component) {
-      var network = new Lampa.Reguest();
-      var object = {};
-      var extract = {};
-      var embed = 'https://voidboost.net/';
-      var select_title = '';
-      var select_id = '';
-      var filter_items = {};
-      var choice = {
-        season: 0,
-        voice: 0
-      };
-      /**
-       * Поиск
-       * @param {Object} _object 
-       */
-
-      this.search = function (_object, kinopoisk_id) {
-        object = _object;
-        select_id = kinopoisk_id;
-        select_title = object.movie.title;
-        getFirstTranlate(kinopoisk_id, function (voice) {
-          getFilm(kinopoisk_id, voice);
-        });
-      };
-      /**
-       * Сброс фильтра
-       */
-
-
-      this.reset = function () {
-        component.reset();
-        choice = {
-          season: 0,
-          voice: 0
-        };
-        component.loading(true);
-        getFilm(select_id);
-      };
-      /**
-       * Применить фильтр
-       * @param {*} type 
-       * @param {*} a 
-       * @param {*} b 
-       */
-
-
-      this.filter = function (type, a, b) {
-        choice[a.stype] = b.index;
-        component.reset();
-        filter();
-        component.loading(true);
-        getFilm(select_id, extract.voice[choice.voice].token);
-        setTimeout(component.closeFilter, 10);
-      };
-      /**
-       * Уничтожить
-       */
-
-
-      this.destroy = function () {
-        network.clear();
-        extract = null;
-      };
-
-      function getSeasons(voice, call) {
-        var url = embed + 'serial/' + voice + '/iframe?h=gidonline.io';
-        network.clear();
-        network.timeout(10000);
-        network["native"](url, function (str) {
-          extractData(str);
-          call();
-        }, function () {
-          component.empty();
-        }, false, {
-          dataType: 'text'
-        });
-      }
-
-      function getFirstTranlate(id, call) {
-        network.clear();
-        network.timeout(10000);
-        network["native"](embed + 'embed/' + id + '?s=1', function (str) {
-          extractData(str);
-          if (extract.voice.length) call(extract.voice[0].token);else component.empty();
-        }, function () {
-          component.empty();
-        }, false, {
-          dataType: 'text'
-        });
-      }
-
-      function getEmbed(url) {
-        network.clear();
-        network.timeout(10000);
-        network["native"](url, function (str) {
-          component.loading(false);
-          extractData(str);
-          filter();
-          append();
-        }, function () {
-          component.empty();
-        }, false, {
-          dataType: 'text'
-        });
-      }
-      /**
-       * Запросить фильм
-       * @param {Int} id 
-       * @param {String} voice 
-       */
-
-
-      function getFilm(id, voice) {
-        network.clear();
-        network.timeout(10000);
-        var url = embed;
-
-        if (voice) {
-          if (extract.season.length) {
-            var ses = extract.season[choice.season].id;
-            url += 'serial/' + voice + '/iframe?s=' + ses + '&h=gidonline.io';
-            return getSeasons(voice, function () {
-              var check = extract.season.filter(function (s) {
-                return s.id == ses;
-              });
-
-              if (!check.length) {
-                choice.season = extract.season.length - 1;
-                url = embed + 'serial/' + voice + '/iframe?s=' + extract.season[choice.season].id + '&h=gidonline.io';
-              }
-
-              getEmbed(url);
-            });
-          } else {
-            url += 'movie/' + voice + '/iframe?h=gidonline.io';
-            getEmbed(url);
-          }
-        } else {
-          url += 'embed/' + id;
-          url += '?s=1';
-          getEmbed(url);
-        }
-      }
-      /**
-       * Построить фильтр
-       */
-
-
-      function filter() {
-        filter_items = {
-          season: extract.season.map(function (v) {
-            return v.name;
-          }),
-          voice: extract.season.length ? extract.voice.map(function (v) {
-            return v.name;
-          }) : []
-        };
-        component.filter(filter_items, choice);
-      }
-      /**
-       * Получить поток
-       * @param {*} element 
-       */
-
-
-      function getStream(element, call, error) {
-        if (element.stream) return call(element.stream);
-        var url = embed;
-
-        if (element.season) {
-          url += 'serial/' + extract.voice[choice.voice].token + '/iframe?s=' + element.season + '&e=' + element.episode + '&h=gidonline.io';
-        } else {
-          url += 'movie/' + element.voice.token + '/iframe?h=gidonline.io';
-        }
-
-        network.clear();
-        network.timeout(3000);
-        network["native"](url, function (str) {
-          var videos = str.match("file': '(.*?)'");
-
-          if (videos) {
-            var link = videos[0].match("2160p](.*?)mp4");
-            if (!link) link = videos[0].match("1440p](.*?)mp4");
-            if (!link) link = videos[0].match("1080p Ultra](.*?)mp4");
-            if (!link) link = videos[0].match("1080p](.*?)mp4");
-            if (!link) link = videos[0].match("720p](.*?)mp4");
-            if (!link) link = videos[0].match("480p](.*?)mp4");
-            if (!link) link = videos[0].match("360p](.*?)mp4");
-            if (!link) link = videos[0].match("240p](.*?)mp4");
-
-            if (link) {
-              element.stream = link[1] + 'mp4';
-              call(link[1] + 'mp4');
-            } else error();
-          } else error();
-        }, error, false, {
-          dataType: 'text'
-        });
-      }
-      /**
-       * Получить данные о фильме
-       * @param {String} str 
-       */
-
-
-      function extractData(str) {
-        extract.voice = [];
-        extract.season = [];
-        extract.episode = [];
-        str = str.replace(/\n/g, '');
-        var voices = str.match('<select name="translator"[^>]+>(.*?)</select>');
-        var sesons = str.match('<select name="season"[^>]+>(.*?)</select>');
-        var episod = str.match('<select name="episode"[^>]+>(.*?)</select>');
-
-        if (sesons) {
-          var select = $('<select>' + sesons[1] + '</select>');
-          $('option', select).each(function () {
-            extract.season.push({
-              id: $(this).attr('value'),
-              name: $(this).text()
-            });
-          });
-        }
-
-        if (voices) {
-          var _select = $('<select>' + voices[1] + '</select>');
-
-          $('option', _select).each(function () {
-            var token = $(this).attr('data-token');
-
-            if (token) {
-              extract.voice.push({
-                token: token,
-                name: $(this).text()
-              });
-            }
-          });
-        }
-
-        if (episod) {
-          var _select2 = $('<select>' + episod[1] + '</select>');
-
-          $('option', _select2).each(function () {
-            extract.episode.push({
-              id: $(this).attr('value'),
-              name: $(this).text()
-            });
-          });
-        }
-      }
-      /**
-       * Показать файлы
-       */
-
-
-      function append() {
-        component.reset();
-        var items = [];
-
-        if (extract.season.length) {
-          extract.episode.forEach(function (episode) {
-            items.push({
-              title: 'S' + extract.season[choice.season].id + ' / ' + episode.name,
-              quality: '720p ~ 1080p',
-              season: extract.season[choice.season].id,
-              episode: parseInt(episode.id),
-              info: ' / ' + extract.voice[choice.voice].name
-            });
-          });
-        } else {
-          extract.voice.forEach(function (voice) {
-            items.push({
-              title: voice.name.length > 3 ? voice.name : select_title,
-              quality: '720p ~ 1080p',
-              voice: voice,
-              info: ''
-            });
-          });
-        }
-
-        items.forEach(function (element) {
-          var hash = Lampa.Utils.hash(element.season ? [element.season, element.episode, object.movie.original_title].join('') : object.movie.original_title);
-          var view = Lampa.Timeline.view(hash);
-          var item = Lampa.Template.get('online', element);
-          element.timeline = view;
-          item.append(Lampa.Timeline.render(view));
-          item.on('hover:enter', function () {
-            if (object.movie.id) Lampa.Favorite.add('history', object.movie, 100);
-            getStream(element, function (stream) {
-              var first = {
-                url: stream,
-                timeline: view,
-                title: element.title
-              };
-              Lampa.Player.play(first);
-              Lampa.Player.playlist([first]);
-            }, function () {
-              Lampa.Noty.show('Не удалось извлечь ссылку');
-            });
-          });
-          component.append(item);
-        });
-        component.start(true);
-      }
-    }
-
-    function kinobase(component) {
-      var network = new Lampa.Reguest();
-      var object = {};
-      var extract = {};
-      var embed = 'https://kinobase.org/';
-      var select_title = '';
-      var select_id = '';
-      var filter_items = {};
-      var choice = {
-        season: 0,
-        voice: -1,
-        quality: -1
-      };
-      /**
-       * Поиск
-       * @param {Object} _object
-       * @param {Array} _item
-       */
-
-      this.search = function (_object, _item) {
-        object = _object;
-        select_title = object.movie.title;
-        var url = embed + "search?query=" + encodeURIComponent(cleanTitle(select_title));
-        network.silent(url, function (str) {
-          str = str.replace(/\n/, '');
-          var links = object.movie.number_of_seasons ? str.match(/<a href="\/serial\/(.*?)">(.*?)<\/a>/g) : str.match(/<a href="\/film\/(.*?)" class="link"[^>]+>(.*?)<\/a>/g);
-          var relise = object.search_date || (object.movie.number_of_seasons ? object.movie.first_air_date : object.movie.release_date);
-          var need_year = (relise + '').slice(0, 4);
-          var found_url = '';
-
-          if (links) {
-            links.forEach(function (l) {
-              var link = $(l),
-                  titl = link.attr('title') || link.text();
-              if (titl.indexOf(need_year) !== -1) found_url = link.attr('href');
-            });
-            if (found_url) getPage(found_url);else component.empty("Не нашли подходящего для " + select_title);
-          } else component.empty("Не нашли " + select_title);
-        }, function () {
-          component.empty();
-        }, false, {
-          dataType: 'text'
-        });
-      };
-      /**
-       * Сброс фильтра
-       */
-
-
-      this.reset = function () {
-        component.reset();
-        choice = {
-          season: 0,
-          voice: -1
-        };
-        append(filtred());
-      };
-      /**
-       * Применить фильтр
-       * @param {*} type
-       * @param {*} a
-       * @param {*} b
-       */
-
-
-      this.filter = function (type, a, b) {
-        choice[a.stype] = b.index;
-        component.reset();
-        filter();
-        append(filtred());
-      };
-      /**
-       * Уничтожить
-       */
-
-
-      this.destroy = function () {
-        network.clear();
-        extract = null;
-      };
-
-      function cleanTitle(str) {
-        return str.replace('.', '').replace(':', '');
-      }
-
-      function filter() {
-        filter_items = {
-          season: [],
-          voice: [],
-          quality: []
-        };
-
-        if (object.movie.number_of_seasons) {
-          if (extract[0].playlist) {
-            extract.forEach(function (item) {
-              filter_items.season.push(item.comment);
-            });
-          }
-        }
-
-        component.filter(filter_items, choice);
-      }
-
-      function filtred() {
-        var filtred = [];
-
-        if (object.movie.number_of_seasons) {
-          var playlist = extract[choice.season].playlist || extract;
-          var season = parseInt(extract[choice.season].comment);
-          playlist.forEach(function (serial) {
-            var quality = serial.file.match(/\[(\d+)p\]/g).pop().replace(/\[|\]/g, '');
-            filtred.push({
-              file: serial.file,
-              title: serial.comment,
-              quality: quality,
-              season: isNaN(season) ? 1 : season,
-              info: ''
-            });
-          });
-        } else {
-          filtred = extract;
-        }
-
-        return filtred;
-      }
-      /**
-       * Получить данные о фильме
-       * @param {String} str
-       */
-
-
-      function extractData(str) {
-        var vod = str.split('|');
-
-        if (vod[0] == 'file') {
-          var file = str.match("file\\|([^\\|]+)\\|");
-          var found = [];
-
-          if (file) {
-            str = file[1].replace(/\n/g, '');
-            str.split(',').forEach(function (el) {
-              var quality = el.match("\\[(\\d+)p");
-              el.split(';').forEach(function (el2) {
-                var voice = el2.match("{([^}]+)}");
-                var links = voice ? el2.match("}([^;]+)") : el2.match("\\]([^;]+)");
-                found.push({
-                  title: object.movie.title,
-                  quality: quality[1] + 'p',
-                  voice: voice ? voice[1] : '',
-                  stream: links[1].split(' or ')[0],
-                  info: ''
-                });
-              });
-            });
-            found.reverse();
-          }
-
-          extract = found;
-        } else if (vod[0] == 'pl') extract = Lampa.Arrays.decodeJson(vod[1], []);else component.empty();
-      }
-
-      function getPage(url) {
-        network.clear();
-        network.timeout(1000 * 10);
-        network.silent(embed + url, function (str) {
-          str = str.replace(/\n/g, '');
-          var MOVIE_ID = str.match('var MOVIE_ID = ([^;]+);');
-          var VOD_HASH = str.match('var VOD_HASH = "([^"]+)"');
-          var VOD_TIME = str.match('var VOD_TIME = "([^"]+)"');
-
-          if (MOVIE_ID && VOD_TIME && VOD_HASH) {
-            select_id = MOVIE_ID[1];
-            var vod_hash = VOD_HASH[1];
-            var vod_time = VOD_TIME[1];
-            var file_url = "vod/" + select_id;
-            file_url = Lampa.Utils.addUrlComponent(file_url, "st=" + vod_hash);
-            file_url = Lampa.Utils.addUrlComponent(file_url, "e=" + vod_time);
-            network.clear();
-            network.timeout(1000 * 10);
-            network.silent(embed + file_url, function (str) {
-              component.loading(false);
-              extractData(str);
-              filter();
-              append(filtred());
-            }, function () {
-              component.empty();
-            }, false, {
-              dataType: 'text'
-            });
-          } else component.empty();
-        }, function () {
-          component.empty();
-        }, false, {
-          dataType: 'text'
-        });
-      }
-
-      function getFile(element) {
-        if (element.stream) return element.stream;
-        var link = element.file.match("2160p](.*?) or");
-        if (!link) link = element.file.match("1440p](.*?) or");
-        if (!link) link = element.file.match("1080p](.*?) or");
-        if (!link) link = element.file.match("720p](.*?) or");
-        if (!link) link = element.file.match("480p](.*?) or");
-        if (!link) link = element.file.match("360p](.*?) or");
-        if (!link) link = element.file.match("240p](.*?) or");
-        if (link) return link[1];
-      }
-      /**
-       * Показать файлы
-       */
-
-
-      function append(items) {
-        component.reset();
-        items.forEach(function (element) {
-          if (element.season) element.title = 'S' + element.season + ' / ' + element.title;
-          if (element.voice) element.title = element.voice;
-          var hash = Lampa.Utils.hash(element.season ? [element.season, element.episode, object.movie.original_title].join('') : object.movie.original_title);
-          var view = Lampa.Timeline.view(hash);
-          var item = Lampa.Template.get('online', element);
-          element.timeline = view;
-          item.append(Lampa.Timeline.render(view));
-          item.on('hover:enter', function () {
-            if (object.movie.id) Lampa.Favorite.add('history', object.movie, 100);
-            var file = getFile(element);
-
-            if (file) {
-              var playlist = [];
-              var first = {
-                url: file,
-                timeline: view,
-                title: element.season ? element.title : element.voice ? object.movie.title + ' / ' + element.title : element.title
-              };
-              Lampa.Player.play(first);
-
-              if (element.season) {
-                items.forEach(function (elem) {
-                  playlist.push({
-                    title: elem.title,
-                    url: getFile(elem),
-                    timeline: elem.timeline
-                  });
-                });
-              } else {
-                playlist.push(first);
-              }
-
-              Lampa.Player.playlist(playlist);
-            } else Lampa.Noty.show('Не удалось извлечь ссылку');
-          });
-          component.append(item);
-        });
-        component.start(true);
-      }
-    }
-
-    function component(object) {
-      var network = new Lampa.Reguest();
-      var scroll = new Lampa.Scroll({
-        mask: true,
-        over: true
-      });
-      var files = new Lampa.Files(object);
-      var filter = new Lampa.Filter(object);
-      var balanser = Lampa.Storage.get('online_balanser', 'videocdn');
-      var sources = {
-        videocdn: new videocdn(this),
-        rezka: new create(this),
-        kinobase: new kinobase(this)
-      };
-      var last;
-      var last_filter;
-      var filter_translate = {
-        season: 'Сезон',
-        voice: 'Перевод',
-        source: 'Источник'
-      };
-      var filter_sources = ['videocdn', 'rezka', 'kinobase'];
-      scroll.minus();
-      scroll.body().addClass('torrent-list');
-      /**
-       * Подготовка
-       */
-
-      this.create = function () {
-        var _this = this;
-
-        this.activity.loader(true);
-        Lampa.Background.immediately(Lampa.Utils.cardImgBackground(object.movie));
-
-        filter.onSearch = function (value) {
-          Lampa.Activity.replace({
-            search: value,
-            clarification: true
-          });
-        };
-
-        filter.onBack = function () {
-          _this.start();
-        };
-
-        filter.render().find('.selector').on('hover:focus', function (e) {
-          last_filter = e.target;
-        });
-
-        filter.onSelect = function (type, a, b) {
-          if (type == 'filter') {
-            if (a.reset) {
-              sources[balanser].reset();
+                ratingElement.className = voteClass('rate--lampa');
+                ratingElement.innerHTML = html;
             } else {
-              if (a.stype == 'source') {
-                balanser = filter_sources[b.index];
-                Lampa.Storage.set('online_balanser', balanser);
-
-                _this.search();
-
-                setTimeout(Lampa.Select.close, 10);
-              } else {
-                sources[balanser].filter(type, a, b);
-              }
+                ratingElement.style.display = 'none';
             }
-          }
-        };
-
-        filter.render().find('.filter--sort').remove();
-        filter.render().addClass('torrent-filter');
-        files.append(scroll.render());
-        scroll.append(filter.render());
-        this.search();
-        return this.render();
-      };
-      /**
-       * Начать поиск
-       */
-
-
-      this.search = function () {
-        this.activity.loader(true);
-        this.filter({
-          source: filter_sources
-        }, {
-          source: 0
         });
-        this.reset();
-        this.find();
-      };
+    }
 
-      this.find = function () {
-        var _this2 = this;
+    function updateCardRating(item) {
+        var card = item.card || item;
+        if (!card || !card.querySelector || !document.body.contains(card)) return;
+        var data = card.card_data || item.data || {};
+        if (!data.id) return;
+        var source = Lampa.Storage.get('rating_source', 'tmdb');
+        var ratingElement = card.querySelector('.card__vote');
 
-        var url = 'https://videocdn.tv/api/';
-        var query = object.search;
-
-        function isAnime(genres) {
-          return genres.filter(function (gen) {
-            return gen.id == 16;
-          }).length;
+        if (source === 'all') {
+            if (ratingElement && !ratingElement.classList.contains('card__vote-line')) {
+                ratingElement.remove();
+                ratingElement = null;
+            }
+            if (!ratingElement) ratingElement = createRatingLineElement(card);
+            ratingElement.dataset.source = 'all';
+            ratingElement.dataset.movieId = data.id.toString();
+            ratingElement.style.display = '';
+            updateCardRatingLine(ratingElement, data);
+            if (!ratingElement.dataset.kpRequested) {
+                ratingElement.dataset.kpRequested = String(Date.now());
+                getKinopoiskRating(data, function () {
+                    if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                        updateCardRatingLine(ratingElement, data);
+                    }
+                });
+            }
+            var lampaKey = (data.seasons || data.first_air_date || data.original_name) ? 'tv_' + data.id : 'movie_' + data.id;
+            getLampaRating(lampaKey).then(function () {
+                if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                    updateCardRatingLine(ratingElement, data);
+                }
+            });
+            return;
         }
 
-        var ja = ['ja', 'zh'];
+        if (ratingElement && ratingElement.classList.contains('card__vote-line')) {
+            ratingElement.remove();
+            ratingElement = null;
+        }
+        if (!ratingElement) ratingElement = createRatingElement(card);
+        ratingElement.dataset.source = source;
+        ratingElement.dataset.movieId = data.id.toString();
+        ratingElement.className = voteClass('rate--' + source);
+        ratingElement.innerHTML = '';
+        ratingElement.style.display = '';
+        if (source === 'tmdb') {
+            var rating = getTMDBRating(data);
+            if (rating !== '0.0') {
+                var color = getRatingColor(rating);
+                ratingElement.innerHTML = '<span style="color:' + color + '">' + formatRating(rating) + '</span> <span class="source--name"></span>';
+            } else {
+                showTmdbFallback(ratingElement, data);
+            }
+        } else if (source === 'lampa') {
+            var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
+            var ratingKey = type + '_' + data.id;
+            var cached = ratingCache.get('lampa_rating', ratingKey);
+            if (cached && cached.rating > 0) {
+                var color = getRatingColor(cached.rating);
+                var html = '<span style="color:' + color + '">' + formatRating(cached.rating) + '</span>';
+                if (cached.medianReaction) {
+                    var reactionSrc = getReactionImageSrc(cached.medianReaction);
+                    html += ' <img style="width:1em;height:1em;margin:0 0.2em;" src="' + reactionSrc + '">';
+                }
+                ratingElement.innerHTML = html;
+                return;
+            }
+            addToQueue(function () {
+                getLampaRating(ratingKey).then(function (result) {
+                    if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                        if (result.rating > 0) {
+                            var color = getRatingColor(result.rating);
+                            var html = '<span style="color:' + color + '">' + formatRating(result.rating) + '</span>';
+                            if (result.medianReaction) {
+                                var reactionSrc = getReactionImageSrc(result.medianReaction);
+                                html += ' <img style="width:1em;height:1em;margin:0 0.2em;" src="' + reactionSrc + '">';
+                            }
+                            ratingElement.innerHTML = html;
+                        } else {
+                            showTmdbFallback(ratingElement, data);
+                        }
+                    }
+                });
+            });
+        } else if (source === 'kp' || source === 'imdb') {
+            getKinopoiskRating(data, function (res) {
+                if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                    var val = source === 'kp' ? res.kp : res.imdb;
+                    if (val && val > 0) {
+                        var text = formatRating(val);
+                        var color = getRatingColor(val);
+                        ratingElement.innerHTML = '<span style="color:' + color + '">' + text + '</span> <span class="source--name"></span>';
+                    } else {
+                        showTmdbFallback(ratingElement, data);
+                    }
+                }
+            });
+        }
+    }
 
-        if (ja.indexOf(object.movie.original_language) >= 0 && isAnime(object.movie.genres)) {
-          url += object.movie.number_of_seasons ? 'anime-tv-series' : 'animes';
+    window.refreshAllRatings = function () {
+        var allCards = document.querySelectorAll('.card');
+        for (var i = 0; i < allCards.length; i++) {
+            var card = allCards[i];
+            var data = card.card_data;
+            if (data && data.id) {
+                var ratingElement = card.querySelector('.card__vote');
+                if (ratingElement) {
+                    ratingElement.remove();
+                }
+                updateCardRating({ card: card, data: data });
+            }
+        }
+    };
+
+    function pollCards() {
+        var allCards = document.querySelectorAll('.card');
+        for (var i = 0; i < allCards.length; i++) {
+            var card = allCards[i];
+            var data = card.card_data;
+            if (data && data.id) {
+                var ratingElement = card.querySelector('.card__vote');
+                var source = Lampa.Storage.get('rating_source', 'tmdb');
+                if (!ratingElement || ratingElement.dataset.source !== source || ratingElement.dataset.movieId !== data.id.toString()) {
+                    updateCardRating({ card: card, data: data });
+                } else if (source === 'all' && ratingElement.classList.contains('card__vote-line')) {
+                    updateCardRatingLine(ratingElement, data);
+                } else {
+                    if (source === 'lampa') {
+                        var ratingKey = (data.seasons || data.first_air_date || data.original_name) ? 'tv_' + data.id : 'movie_' + data.id;
+                        var cached = ratingCache.get('lampa_rating', ratingKey);
+                        if (cached && cached.rating > 0 && ratingElement.innerHTML === '') {
+                            var color = getRatingColor(cached.rating);
+                            var html = '<span style="color:' + color + '">' + formatRating(cached.rating) + '</span>';
+                            if (cached.medianReaction) {
+                                var reactionSrc = getReactionImageSrc(cached.medianReaction);
+                                html += ' <img style="width:1em;height:1em;margin:0 0.2em;" src="' + reactionSrc + '">';
+                            }
+                            ratingElement.innerHTML = html;
+                        }
+                    } else if (source === 'tmdb') {
+                        var ratingKey = data.id;
+                        var cached = ratingCache.get('tmdb_rating', ratingKey);
+                        if (cached && cached.vote_average > 0 && ratingElement.innerHTML === '') {
+                            var text = formatRating(cached.vote_average);
+                            var color = getRatingColor(cached.vote_average);
+                            ratingElement.innerHTML = '<span style="color:' + color + '">' + text + '</span> <span class="source--name"></span>';
+                        }
+                    } else if (source === 'kp' || source === 'imdb') {
+                        var cached = ratingCache.get('kp_rating', data.id);
+                        if (cached && (cached.kp > 0 || cached.imdb > 0) && ratingElement.innerHTML === '') {
+                            var rating = source === 'kp' ? cached.kp : cached.imdb;
+                            var text = formatRating(rating);
+                            var color = getRatingColor(rating);
+                            ratingElement.innerHTML = '<span style="color:' + color + '">' + text + '</span> <span class="source--name"></span>';
+                        }
+                    }
+                }
+            }
+        }
+        setTimeout(pollCards, 500);
+    }
+
+    function colorizeFullCardRatings(render) {
+        if (!Lampa.Storage.get('colored_ratings_poster', true)) return;
+        var scope = $(render).length ? $(render) : $(document);
+        scope.find('.full-start__rate, .full-start-new__rate, .info__rate, .card__imdb-rate, .card__kinopoisk-rate').each(function () {
+            var el = $(this);
+            if (el.closest('.explorer').length) return;
+            var text = el.text().trim();
+            var m = text.match(/(\d+[\.,]\d+|\d+)/);
+            if (!m) return;
+            var v = parseFloat(m[0].replace(',', '.'));
+            if (isNaN(v)) return;
+            var c = v <= 3 ? 'red' : v < 6 ? 'orange' : v < 8 ? 'cornflowerblue' : 'lawngreen';
+            el.css('color', c);
+        });
+    }
+
+    function insertLampaBlock(render) {
+        if (!render) return false;
+        var rateLine = $(render).find('.full-start-new__rate-line');
+        if (rateLine.length === 0) return false;
+        if (rateLine.find('.rate--lampa').length > 0) return true;
+        var lampaBlockHtml = '<div class="full-start__rate rate--lampa"><div class="rate-value">0.0</div><div class="rate-icon"></div><div class="source--name">LAMPA</div></div>';
+        var kpBlock = rateLine.find('.rate--kp');
+        if (kpBlock.length > 0) {
+            kpBlock.after(lampaBlockHtml);
         } else {
-          url += object.movie.number_of_seasons ? 'tv-series' : 'movies';
+            rateLine.append(lampaBlockHtml);
         }
-
-        url = Lampa.Utils.addUrlComponent(url, 'api_token=3i40G5TSECmLF77oAqnEgbx61ZWaOYaE');
-        url = Lampa.Utils.addUrlComponent(url, 'query=' + encodeURIComponent(query));
-        url = Lampa.Utils.addUrlComponent(url, 'field=global');
-        network.clear();
-        network.silent(url, function (json) {
-          if (object.movie.imdb_id) {
-            var imdb = json.data.filter(function (elem) {
-              return elem.imdb_id == object.movie.imdb_id;
-            });
-            if (imdb.length) json.data = imdb;
-          }
-
-          if (json.data && json.data.length) {
-            if (json.data.length == 1 || object.clarification) {
-              if (balanser == 'videocdn') sources[balanser].search(object, json.data);else sources[balanser].search(object, json.data[0].kinopoisk_id);
-            } else {
-              _this2.similars(json.data);
-
-              _this2.loading(false);
-            }
-          } else _this2.empty('По запросу (' + query + ') нет результатов');
-        }, function (a, c) {
-          _this2.empty(network.errorDecode(a, c));
-        });
-      };
-      /**
-       * Есть похожие карточки
-       * @param {Object} json 
-       */
-
-
-      this.similars = function (json) {
-        var _this3 = this;
-
-        json.forEach(function (elem) {
-          var year = elem.start_date || elem.year || '';
-          elem.title = elem.ru_title;
-          elem.quality = year ? (year + '').slice(0, 4) : '----';
-          elem.info = '';
-          var item = Lampa.Template.get('online_folder', elem);
-          item.on('hover:enter', function () {
-            _this3.activity.loader(true);
-
-            _this3.reset();
-
-            object.search_date = year;
-            if (balanser == 'videocdn') sources[balanser].search(object, [elem]);else sources[balanser].search(object, elem.kinopoisk_id);
-          });
-
-          _this3.append(item);
-        });
-      };
-      /**
-       * Очистить список файлов
-       */
-
-
-      this.reset = function () {
-        last = false;
-        scroll.render().find('.empty').remove();
-        filter.render().detach();
-        scroll.clear();
-        scroll.append(filter.render());
-      };
-      /**
-       * Загрузка
-       */
-
-
-      this.loading = function (status) {
-        if (status) this.activity.loader(true);else {
-          this.activity.loader(false);
-          this.activity.toggle();
-        }
-      };
-      /**
-       * Построить фильтр
-       */
-
-
-      this.filter = function (filter_items, choice) {
-        var select = [];
-
-        var add = function add(type, title) {
-          var need = Lampa.Storage.get('online_filter', '{}');
-          var items = filter_items[type];
-          var subitems = [];
-          var value = need[type];
-          items.forEach(function (name, i) {
-            subitems.push({
-              title: name,
-              selected: value == i,
-              index: i
-            });
-          });
-          select.push({
-            title: title,
-            subtitle: items[value],
-            items: subitems,
-            stype: type
-          });
-        };
-
-        filter_items.source = filter_sources;
-        choice.source = filter_sources.indexOf(balanser);
-        select.push({
-          title: 'Сбросить фильтр',
-          reset: true
-        });
-        Lampa.Storage.set('online_filter', choice);
-        if (filter_items.voice && filter_items.voice.length) add('voice', 'Перевод');
-        if (filter_items.season && filter_items.season.length) add('season', 'Сезон');
-        add('source', 'Источник');
-        filter.set('filter', select);
-        this.selected(filter_items);
-      };
-      /**
-       * Закрыть фильтр
-       */
-
-
-      this.closeFilter = function () {
-        if ($('body').hasClass('selectbox--open')) Lampa.Select.close();
-      };
-      /**
-       * Показать что выбрано в фильтре
-       */
-
-
-      this.selected = function (filter_items) {
-        var need = Lampa.Storage.get('online_filter', '{}'),
-            select = [];
-
-        for (var i in need) {
-          if (filter_items[i].length) {
-            if (i == 'voice' || i == 'source') {
-              select.push(filter_translate[i] + ': ' + filter_items[i][need[i]]);
-            } else {
-              if (filter_items.season.length >= 1) {
-                select.push(filter_translate.season + ': ' + filter_items[i][need[i]]);
-              }
-            }
-          }
-        }
-
-        filter.chosen('filter', select);
-      };
-      /**
-       * Добавить файл
-       */
-
-
-      this.append = function (item) {
-        item.on('hover:focus', function (e) {
-          last = e.target;
-          scroll.update($(e.target), true);
-        });
-        scroll.append(item);
-      };
-      /**
-       * Показать пустой результат
-       */
-
-
-      this.empty = function (msg) {
-        var empty = Lampa.Template.get('list_empty');
-        if (msg) empty.find('.empty__descr').text(msg);
-        scroll.append(empty);
-        this.loading(false);
-      };
-      /**
-       * Начать навигацию по файлам
-       */
-
-
-      this.start = function (first_select) {
-        if (first_select) {
-          last = scroll.render().find('.selector').eq(2)[0];
-        }
-
-        Lampa.Controller.add('content', {
-          toggle: function toggle() {
-            Lampa.Controller.collectionSet(scroll.render(), files.render());
-            Lampa.Controller.collectionFocus(last || false, scroll.render());
-          },
-          up: function up() {
-            if (Navigator.canmove('up')) {
-              if (scroll.render().find('.selector').slice(2).index(last) == 0 && last_filter) {
-                Lampa.Controller.collectionFocus(last_filter, scroll.render());
-              } else Navigator.move('up');
-            } else Lampa.Controller.toggle('head');
-          },
-          down: function down() {
-            Navigator.move('down');
-          },
-          right: function right() {
-            Navigator.move('right');
-          },
-          left: function left() {
-            if (Navigator.canmove('left')) Navigator.move('left');else Lampa.Controller.toggle('menu');
-          },
-          back: this.back
-        });
-        Lampa.Controller.toggle('content');
-      };
-
-      this.render = function () {
-        return files.render();
-      };
-
-      this.back = function () {
-        Lampa.Activity.backward();
-      };
-
-      this.pause = function () {};
-
-      this.stop = function () {};
-
-      this.destroy = function () {
-        network.clear();
-        files.destroy();
-        scroll.destroy();
-        network = null;
-        sources.videocdn.destroy();
-        sources.rezka.destroy();
-        sources.kinobase.destroy();
-      };
+        return true;
     }
 
-    function resetTemplates() {
-      Lampa.Template.add('online', "<div class=\"online selector\">\n        <div class=\"online__body\">\n            <div style=\"position: absolute;left: 0;top: -0.3em;width: 2.4em;height: 2.4em\">\n                <svg style=\"height: 2.4em; width:  2.4em;\" viewBox=\"0 0 128 128\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n                    <circle cx=\"64\" cy=\"64\" r=\"56\" stroke=\"white\" stroke-width=\"16\"/>\n                    <path d=\"M90.5 64.3827L50 87.7654L50 41L90.5 64.3827Z\" fill=\"white\"/>\n                </svg>\n            </div>\n            <div class=\"online__title\" style=\"padding-left: 2.1em;\">{title}</div>\n            <div class=\"online__quality\" style=\"padding-left: 3.4em;\">{quality}{info}</div>\n        </div>\n    </div>");
-      Lampa.Template.add('online_folder', "<div class=\"online selector\">\n        <div class=\"online__body\">\n            <div style=\"position: absolute;left: 0;top: -0.3em;width: 2.4em;height: 2.4em\">\n                <svg style=\"height: 2.4em; width:  2.4em;\" viewBox=\"0 0 128 112\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n                    <rect y=\"20\" width=\"128\" height=\"92\" rx=\"13\" fill=\"white\"/>\n                    <path d=\"M29.9963 8H98.0037C96.0446 3.3021 91.4079 0 86 0H42C36.5921 0 31.9555 3.3021 29.9963 8Z\" fill=\"white\" fill-opacity=\"0.23\"/>\n                    <rect x=\"11\" y=\"8\" width=\"106\" height=\"76\" rx=\"13\" fill=\"white\" fill-opacity=\"0.51\"/>\n                </svg>\n            </div>\n            <div class=\"online__title\" style=\"padding-left: 2.1em;\">{title}</div>\n            <div class=\"online__quality\" style=\"padding-left: 3.4em;\">{quality}{info}</div>\n        </div>\n    </div>");
+    function addSettings() {
+        Lampa.SettingsApi.addParam({
+            component: 'interface',
+            param: {
+                name: 'rating_source',
+                type: 'select',
+                values: {
+                    tmdb: 'TMDB',
+                    lampa: 'Lampa',
+                    kp: 'КиноПоиск',
+                    imdb: 'IMDB',
+                    all: 'Все'
+                },
+                default: 'tmdb'
+            },
+            field: {
+                name: 'Источник рейтинга на карточках',
+                description: 'Выберите какой рейтинг отображать на карточках'
+            },
+            onRender: function () {
+                setTimeout(function () {
+                    $('.settings-param > div:contains("Источник рейтинга на карточках")').parent().insertAfter($('div[data-name="interface_size"]'));
+                }, 0);
+            },
+            onChange: function (value) {
+                Lampa.Storage.set('rating_source', value);
+                setTimeout(function () {
+                    window.refreshAllRatings();
+                }, 100);
+            }
+        });
+
+        Lampa.SettingsApi.addParam({
+            component: 'interface',
+            param: {
+                name: 'animated_reactions',
+                type: 'trigger',
+                default: false
+            },
+            field: {
+                name: 'Анимированные реакции на постерах'
+            },
+            onChange: function () {
+                setTimeout(function () {
+                    window.refreshAllRatings();
+                }, 100);
+            },
+            onRender: function (element) {
+                setTimeout(function () {
+                    var anchor = $('div[data-name="rating_source"]');
+                    if (anchor.length) anchor.after(element);
+                }, 0);
+            }
+        });
+
+        Lampa.SettingsApi.addParam({
+            component: 'interface',
+            param: {
+                name: 'colored_ratings_poster',
+                type: 'trigger',
+                default: true
+            },
+            field: {
+                name: 'Цветные рейтинги на постерах',
+                description: 'Окрашивать рейтинг в зависимости от оценки'
+            },
+            onChange: function () {
+                setTimeout(function () {
+                    window.refreshAllRatings();
+                }, 100);
+            },
+            onRender: function (element) {
+                setTimeout(function () {
+                    var anchor = $('div[data-name="animated_reactions"]');
+                    if (anchor.length) anchor.after(element);
+                }, 0);
+            }
+        });
+
+        Lampa.SettingsApi.addParam({
+            component: 'interface',
+            param: {
+                name: 'rating_position',
+                type: 'select',
+                values: {
+                    top: 'Сверху справа',
+                    bottom: 'Снизу справа'
+                },
+                default: 'top'
+            },
+            field: {
+                name: 'Позиция рейтинга на постере',
+                description: 'Выберите где отображать рейтинг на карточке'
+            },
+            onChange: function (value) {
+                Lampa.Storage.set('rating_position', value);
+                setTimeout(function () {
+                    window.refreshAllRatings();
+                }, 100);
+            },
+            onRender: function (element) {
+                setTimeout(function () {
+                    var anchor = $('div[data-name="colored_ratings_poster"]');
+                    if (anchor.length) anchor.after(element);
+                }, 0);
+            }
+        });
     }
 
-    var button = "<div class=\"full-start__button selector view--online\">\n    <svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:svgjs=\"http://svgjs.com/svgjs\" version=\"1.1\" width=\"512\" height=\"512\" x=\"0\" y=\"0\" viewBox=\"0 0 30.051 30.051\" style=\"enable-background:new 0 0 512 512\" xml:space=\"preserve\" class=\"\">\n    <g xmlns=\"http://www.w3.org/2000/svg\">\n        <path d=\"M19.982,14.438l-6.24-4.536c-0.229-0.166-0.533-0.191-0.784-0.062c-0.253,0.128-0.411,0.388-0.411,0.669v9.069   c0,0.284,0.158,0.543,0.411,0.671c0.107,0.054,0.224,0.081,0.342,0.081c0.154,0,0.31-0.049,0.442-0.146l6.24-4.532   c0.197-0.145,0.312-0.369,0.312-0.607C20.295,14.803,20.177,14.58,19.982,14.438z\" fill=\"currentColor\"/>\n        <path d=\"M15.026,0.002C6.726,0.002,0,6.728,0,15.028c0,8.297,6.726,15.021,15.026,15.021c8.298,0,15.025-6.725,15.025-15.021   C30.052,6.728,23.324,0.002,15.026,0.002z M15.026,27.542c-6.912,0-12.516-5.601-12.516-12.514c0-6.91,5.604-12.518,12.516-12.518   c6.911,0,12.514,5.607,12.514,12.518C27.541,21.941,21.937,27.542,15.026,27.542z\" fill=\"currentColor\"/>\n    </g></svg>\n\n    <span>\u041E\u043D\u043B\u0430\u0439\u043D</span>\n    </div>"; // нужна заглушка, а то при страте лампы говорит пусто
-
-    Lampa.Component.add('online', component); //то же самое
-
-    resetTemplates();
-    Lampa.Listener.follow('full', function (e) {
-      if (e.type == 'complite') {
-        var btn = $(button);
-        btn.on('hover:enter', function () {
-          resetTemplates();
-          Lampa.Component.add('online', component);
-          Lampa.Activity.push({
-            url: '',
-            title: 'Онлайн',
-            component: 'online',
-            search: e.data.movie.title,
-            search_one: e.data.movie.title,
-            search_two: e.data.movie.original_title,
-            movie: e.data.movie,
-            page: 1
-          });
+    function setupCardListener() {
+        if (window.lampa_listener_extensions) return;
+        window.lampa_listener_extensions = true;
+        Object.defineProperty(window.Lampa.Card.prototype, 'build', {
+            get: function () { return this._build; },
+            set: function (func) {
+                var self = this;
+                this._build = function () {
+                    func.apply(self);
+                    Lampa.Listener.send('card', { type: 'build', object: self });
+                };
+            }
         });
-        e.object.activity.render().find('.view--torrent').after(btn);
-      }
-    });
+    }
 
+    function initPlugin() {
+        if (isDebug()) return;
+        var style = document.createElement('style');
+        style.type = 'text/css';
+        style.textContent = (
+            '.card .card__view{position:relative!important}' +
+            '.card__vote{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center!important;height:auto!important;max-height:none!important;overflow:visible!important;position:absolute!important;z-index:1!important;border-radius:0.35em!important}' +
+            '.card__vote--top{top:0.3em!important;right:0.3em!important;bottom:auto!important}' +
+            '.card__vote--bottom{top:auto!important;right:0.3em!important;bottom:0.3em!important}' +
+            '.card__vote-line .card__rate-item{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;white-space:nowrap;margin-bottom:0.15em}' +
+            '.card__vote-line .card__rate-item:last-child{margin-bottom:0}' +
+            '.card__vote .source--name{font-size:0;color:transparent;width:16px;height:16px;background-repeat:no-repeat;background-position:center;background-size:contain;margin-left:4px;-webkit-flex-shrink:0;flex-shrink:0}' +
+            '@media (min-width:481px){.card__vote .source--name{width:24px;height:24px;margin-left:6px}}' +
+            '.rate--kp .source--name{background-image:url("data:image/svg+xml,%3Csvg width=\'300\' height=\'300\' viewBox=\'0 0 300 300\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cmask id=\'mask0_1_69\' style=\'mask-type:alpha\' maskUnits=\'userSpaceOnUse\' x=\'0\' y=\'0\' width=\'300\' height=\'300\'%3E%3Ccircle cx=\'150\' cy=\'150\' r=\'150\' fill=\'white\'/%3E%3C/mask%3E%3Cg mask=\'url(%23mask0_1_69)\'%3E%3Ccircle cx=\'150\' cy=\'150\' r=\'150\' fill=\'black\'/%3E%3Cpath d=\'M300 45L145.26 127.827L225.9 45H181.2L126.3 121.203V45H89.9999V255H126.3V178.92L181.2 255H225.9L147.354 174.777L300 255V216L160.776 160.146L300 169.5V130.5L161.658 139.494L300 84V45Z\' fill=\'url(%23paint0_radial_1_69)\'/%3E%3C/g%3E%3Cdefs%3E%3CradialGradient id=\'paint0_radial_1_69\' cx=\'0\' cy=\'0\' r=\'1\' gradientUnits=\'userSpaceOnUse\' gradientTransform=\'translate(89.9999 45) rotate(45) scale(296.985)\'%3E%3Cstop offset=\'0.5\' stop-color=\'%23FF5500\'/%3E%3Cstop offset=\'1\' stop-color=\'%23BBFF00\'/%3E%3C/radialGradient%3E%3C/defs%3E%3C/svg%3E")}' +
+            '.rate--tmdb .source--name{background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 300 300\' width=\'300\' height=\'300\'%3E%3Cdefs%3E%3ClinearGradient id=\'grad\' x1=\'0\' y1=\'0\' x2=\'1\' y2=\'0\'%3E%3Cstop offset=\'0%25\' stop-color=\'%2390cea1\'/%3E%3Cstop offset=\'56%25\' stop-color=\'%233cbec9\'/%3E%3Cstop offset=\'100%25\' stop-color=\'%2300b3e5\'/%3E%3C/linearGradient%3E%3Cstyle%3E.text-style%7Bfont-weight:bold;fill:url(%23grad);text-anchor:start;dominant-baseline:middle;textLength:300;lengthAdjust:spacingAndGlyphs;font-size:120px;%7D%3C/style%3E%3C/defs%3E%3Ctext class=\'text-style\' x=\'0\' y=\'150\' textLength=\'300\' lengthAdjust=\'spacingAndGlyphs\'%3ETMDB%3C/text%3E%3C/svg%3E")}' +
+            '.rate--lampa .rate-icon-reaction{background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%23e040fb\'%3E%3Cpath d=\'M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm2 14h-4v-1h4v1zm0-2h-4v-1h4v1zM9 20h6v1c0 .55-.45 1-1 1h-4c-.55 0-1-.45-1-1v-1z\'/%3E%3C/svg%3E")}' +
+            '.rate-icon-reaction{background-repeat:no-repeat;background-position:center;background-size:contain}' +
+            '.card__vote img[src*=".gif"]{object-fit:contain;-webkit-flex-shrink:0;flex-shrink:0;min-width:1.25em;min-height:1.25em}' +
+            '.rate--lampa.rate--lampa--animated .rate-icon img{min-width:1em;min-height:1em;object-fit:contain}' +
+            '.rate--imdb .source--name{background-image:url("data:image/svg+xml,%3Csvg fill=\'%23ffcc00\' viewBox=\'0 0 32 32\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg id=\'SVGRepo_bgCarrier\' stroke-width=\'0\'%3E%3C/g%3E%3Cg id=\'SVGRepo_tracerCarrier\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3C/g%3E%3Cg id=\'SVGRepo_iconCarrier\'%3E%3Cpath d=\'M 0 7 L 0 25 L 32 25 L 32 7 Z M 2 9 L 30 9 L 30 23 L 2 23 Z M 5 11.6875 L 5 20.3125 L 7 20.3125 L 7 11.6875 Z M 8.09375 11.6875 L 8.09375 20.3125 L 10 20.3125 L 10 15.5 L 10.90625 20.3125 L 12.1875 20.3125 L 13 15.5 L 13 20.3125 L 14.8125 20.3125 L 14.8125 11.6875 L 12 11.6875 L 11.5 15.8125 L 10.8125 11.6875 Z M 15.90625 11.6875 L 15.90625 20.1875 L 18.3125 20.1875 C 19.613281 20.1875 20.101563 19.988281 20.5 19.6875 C 20.898438 19.488281 21.09375 19 21.09375 18.5 L 21.09375 13.3125 C 21.09375 12.710938 20.898438 12.199219 20.5 12 C 20 11.800781 19.8125 11.6875 18.3125 11.6875 Z M 22.09375 11.8125 L 22.09375 20.3125 L 23.90625 20.3125 C 23.90625 20.3125 23.992188 19.710938 24.09375 19.8125 C 24.292969 19.8125 25.101563 20.1875 25.5 20.1875 C 26 20.1875 26.199219 20.195313 26.5 20.09375 C 26.898438 19.894531 27 19.613281 27 19.3125 L 27 14.3125 C 27 13.613281 26.289063 13.09375 25.6875 13.09375 C 25.085938 13.09375 24.511719 13.488281 24.3125 13.6875 L 24.3125 11.8125 Z M 18 13 C 18.398438 13 18.8125 13.007813 18.8125 13.40625 L 18.8125 18.40625 C 18.8125 18.804688 18.300781 18.8125 18 18.8125 Z M 24.59375 14 C 24.695313 14 24.8125 14.105469 24.8125 14.40625 L 24.8125 18.6875 C 24.8125 18.886719 24.792969 19.09375 24.59375 19.09375 C 24.492188 19.09375 24.40625 18.988281 24.40625 18.6875 L 24.40625 14.40625 C 24.40625 14.207031 24.394531 14 24.59375 14 Z\'/%3E%3C/g%3E%3C/svg%3E")}' +
+            '@media (max-width:480px) and (orientation:portrait){.full-start__rate.rate--lampa{min-width:80px}}'
+        );
+        document.head.appendChild(style);
+        addSettings();
+        setupCardListener();
+        pollCards();
+
+        Lampa.Listener.follow('card', function (event) {
+            if (event.type === 'build' && event.object.card) {
+                var data = event.object.card.card_data;
+                if (data && data.id) {
+                    updateCardRating({ card: event.object.card, data: data });
+                }
+            }
+        });
+
+        Lampa.Listener.follow('full', function (event) {
+            if (event.type === 'complite') {
+                var render = event.object.activity.render();
+                if (render && event.object.id) {
+                    var kpBlock = $(render).find('.rate--kp');
+                    var imdbBlock = $(render).find('.rate--imdb');
+                    if (kpBlock.length || imdbBlock.length) {
+                        var kpVal = parseFloat(kpBlock.find('div').first().text().trim()) || 0;
+                        var imdbVal = parseFloat(imdbBlock.find('div').first().text().trim()) || 0;
+                        if (kpVal > 0 || imdbVal > 0) {
+                            var existing = ratingCache.get('kp_rating', event.object.id) || {};
+                            ratingCache.set('kp_rating', event.object.id, {
+                                kp: kpVal > 0 ? kpVal : (existing.kp || 0),
+                                imdb: imdbVal > 0 ? imdbVal : (existing.imdb || 0),
+                                timestamp: Date.now()
+                            });
+                        }
+                    }
+                }
+                if (render && insertLampaBlock(render)) {
+                    if (event.object.method && event.object.id) {
+                        var ratingKey = event.object.method + "_" + event.object.id;
+                        var cached = ratingCache.get('lampa_rating', ratingKey);
+                        if (cached && cached.rating > 0) {
+                            var rateValue = $(render).find('.rate--lampa .rate-value');
+                            var rateIcon = $(render).find('.rate--lampa .rate-icon');
+                            rateValue.text(formatRating(cached.rating));
+                            if (cached.medianReaction) {
+                                var reactionSrc = getReactionImageSrc(cached.medianReaction);
+                                rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + cached.medianReaction + '" src="' + reactionSrc + '">');
+                                if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
+                            }
+                            colorizeFullCardRatings(render);
+                            return;
+                        }
+                        addToQueue(function () {
+                            getLampaRating(ratingKey).then(function (result) {
+                                var rateValue = $(render).find('.rate--lampa .rate-value');
+                                var rateIcon = $(render).find('.rate--lampa .rate-icon');
+                                if (result.rating !== null && result.rating > 0) {
+                                    rateValue.text(formatRating(result.rating));
+                                    if (result.medianReaction) {
+                                        var reactionSrc = getReactionImageSrc(result.medianReaction);
+                                        rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + result.medianReaction + '" src="' + reactionSrc + '">');
+                                        if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
+                                    }
+                                } else {
+                                    $(render).find('.rate--lampa').hide();
+                                }
+                                colorizeFullCardRatings(render);
+                            });
+                        });
+                    }
+                }
+                setTimeout(function () { colorizeFullCardRatings(render); }, 100);
+            }
+        });
+    }
+
+    if (window.appready) {
+        initPlugin();
+    } else {
+        Lampa.Listener.follow('app', function (event) {
+            if (event.type === 'ready') initPlugin();
+        });
+    }
 })();
