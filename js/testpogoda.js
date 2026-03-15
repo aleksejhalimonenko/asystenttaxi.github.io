@@ -2,7 +2,7 @@
     'use strict';
 
     // ⬇️ ВСТАВЬ СЮДА URL своего GAS веб-приложения
-    var GAS_URL = 'https://script.google.com/macros/s/AKfycbwbmbhFKSKTcZx1zQZcYYs8xeNKxCZKRqFNpRSrcS4VvEaSyKNfIQtymnFw0YkL-V6L/execc';
+    var GAS_URL = 'https://script.google.com/macros/s/AKfycbwbmbhFKSKTcZx1zQZcYYs8xeNKxCZKRqFNpRSrcS4VvEaSyKNfIQtymnFw0YkL-V6L/exec';
 
     function startPlugin() {
 
