@@ -170,7 +170,6 @@
         return typeof str1 === 'string' && typeof str2 === 'string' && normalizeString(str1).indexOf(normalizeString(str2)) !== -1;
     }
 
-    // --- Зашифрованный API-ключ из первого плагина ---
     var KP_API_URL = 'https://kinopoiskapiunofficial.tech/';
     var KP_API_HEADERS = {
         'X-API-KEY': decodeSecret([85, 4, 115, 118, 107, 125, 10, 70, 85, 67, 82, 14, 32, 110, 102, 43, 9, 19, 85, 73, 4, 83, 33, 110, 52, 44, 92, 21, 72, 22, 87, 1, 118, 32, 100, 127], atob('X0tQM3Bhc3N3b3Jk'))
@@ -527,145 +526,142 @@
         });
     }
 
- function updateCardRating(item) {
-    var card = item.card || item;
-    if (!card || !card.querySelector || !document.body.contains(card)) return;
-    var data = card.card_data || item.data || {};
-    if (!data.id) return;
-    var source = Lampa.Storage.get('rating_source', 'tmdb');
-    var ratingElement = card.querySelector('.card__vote');
+    function updateCardRating(item) {
+        var card = item.card || item;
+        if (!card || !card.querySelector || !document.body.contains(card)) return;
+        var data = card.card_data || item.data || {};
+        if (!data.id) return;
+        var source = Lampa.Storage.get('rating_source', 'tmdb');
+        var ratingElement = card.querySelector('.card__vote');
 
-    if (source === 'all') {
-        if (ratingElement && !ratingElement.classList.contains('card__vote-line')) {
-            ratingElement.remove();
-            ratingElement = null;
-        }
-        if (!ratingElement) ratingElement = createRatingLineElement(card);
-        ratingElement.dataset.source = 'all';
-        ratingElement.dataset.movieId = data.id.toString();
-        ratingElement.style.display = '';
-        updateCardRatingLine(ratingElement, data);
-        if (!ratingElement.dataset.kpRequested) {
-            ratingElement.dataset.kpRequested = String(Date.now());
-            getKinopoiskRating(data, function () {
+        if (source === 'all') {
+            if (ratingElement && !ratingElement.classList.contains('card__vote-line')) {
+                ratingElement.remove();
+                ratingElement = null;
+            }
+            if (!ratingElement) ratingElement = createRatingLineElement(card);
+            ratingElement.dataset.source = 'all';
+            ratingElement.dataset.movieId = data.id.toString();
+            ratingElement.style.display = '';
+            updateCardRatingLine(ratingElement, data);
+            if (!ratingElement.dataset.kpRequested) {
+                ratingElement.dataset.kpRequested = String(Date.now());
+                getKinopoiskRating(data, function () {
+                    if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                        updateCardRatingLine(ratingElement, data);
+                    }
+                });
+            }
+            var lampaKey = (data.seasons || data.first_air_date || data.original_name) ? 'tv_' + data.id : 'movie_' + data.id;
+            getLampaRating(lampaKey).then(function () {
                 if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
                     updateCardRatingLine(ratingElement, data);
                 }
             });
-        }
-        var lampaKey = (data.seasons || data.first_air_date || data.original_name) ? 'tv_' + data.id : 'movie_' + data.id;
-        getLampaRating(lampaKey).then(function () {
-            if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
-                updateCardRatingLine(ratingElement, data);
-            }
-        });
-        return;
-    }
-
-    // СНАЧАЛА удаляем старые элементы
-    if (ratingElement) {
-        ratingElement.remove();
-        ratingElement = null;
-    }
-
-    // ПОТОМ создаем новый
-    ratingElement = createRatingElement(card);
-    ratingElement.dataset.source = source;
-    ratingElement.dataset.movieId = data.id.toString();
-    ratingElement.style.display = '';
-
-    // ТЕПЕРЬ обрабатываем разные источники
-    if (source === 'kp_imdb') {
-        ratingElement.className = voteClass('rate--kp_imdb');
-        ratingElement.innerHTML = ''; // Очистим, заполним после получения данных
-        
-        getKinopoiskRating(data, function (res) {
-            if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
-                var kpVal = res.kp > 0 ? res.kp : null;
-                var imdbVal = res.imdb > 0 ? res.imdb : null;
-                
-                var html = '';
-                
-                if (kpVal) {
-                    var kpColor = getRatingColor(kpVal);
-                    html += '<div style="display:flex;align-items:center;gap:6px;">' +
-                            '<span style="color:' + kpColor + ';font-size:1.1em;">' + formatRating(kpVal) + '</span>' +
-                            '<span class="source--name rate--kp" style="display:inline-block;width:24px;height:24px;"></span>' +
-                            '</div>';
-                }
-                
-                if (imdbVal) {
-                    var imdbColor = getRatingColor(imdbVal);
-                    html += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
-                            '<span style="color:' + imdbColor + ';font-size:1.1em;">' + formatRating(imdbVal) + '</span>' +
-                            '<span class="source--name rate--imdb" style="display:inline-block;width:24px;height:24px;"></span>' +
-                            '</div>';
-                }
-                
-                if (html) {
-                    ratingElement.innerHTML = html;
-                } else {
-                    showTmdbFallback(ratingElement, data);
-                }
-            }
-        });
-    } else if (source === 'tmdb') {
-        ratingElement.className = voteClass('rate--tmdb');
-        var rating = getTMDBRating(data);
-        if (rating !== '0.0') {
-            var color = getRatingColor(rating);
-            ratingElement.innerHTML = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(rating) + '</span> <span class="source--name" style="width:24px;height:24px;"></span>';
-        } else {
-            showTmdbFallback(ratingElement, data);
-        }
-    } else if (source === 'lampa') {
-        ratingElement.className = voteClass('rate--lampa');
-        var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
-        var ratingKey = type + '_' + data.id;
-        var cached = ratingCache.get('lampa_rating', ratingKey);
-        if (cached && cached.rating > 0) {
-            var color = getRatingColor(cached.rating);
-            var html = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(cached.rating) + '</span>';
-            if (cached.medianReaction) {
-                var reactionSrc = getReactionImageSrc(cached.medianReaction);
-                html += ' <img style="width:24px;height:24px;margin-left:6px;object-fit:contain;" src="' + reactionSrc + '">';
-            }
-            ratingElement.innerHTML = html;
             return;
         }
-        addToQueue(function () {
-            getLampaRating(ratingKey).then(function (result) {
+
+        if (ratingElement) {
+            ratingElement.remove();
+            ratingElement = null;
+        }
+
+        ratingElement = createRatingElement(card);
+        ratingElement.dataset.source = source;
+        ratingElement.dataset.movieId = data.id.toString();
+        ratingElement.style.display = '';
+
+        if (source === 'kp_imdb') {
+            ratingElement.className = voteClass('rate--kp_imdb');
+            ratingElement.innerHTML = '';
+
+            getKinopoiskRating(data, function (res) {
                 if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
-                    if (result.rating > 0) {
-                        var color = getRatingColor(result.rating);
-                        var html = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(result.rating) + '</span>';
-                        if (result.medianReaction) {
-                            var reactionSrc = getReactionImageSrc(result.medianReaction);
-                            html += ' <img style="width:24px;height:24px;margin-left:6px;object-fit:contain;" src="' + reactionSrc + '">';
-                        }
+                    var kpVal = res.kp > 0 ? res.kp : null;
+                    var imdbVal = res.imdb > 0 ? res.imdb : null;
+
+                    var html = '';
+
+                    if (kpVal) {
+                        var kpColor = getRatingColor(kpVal);
+                        html += '<div style="display:flex;align-items:center;gap:6px;">' +
+                                '<span style="color:' + kpColor + ';font-size:1.1em;">' + formatRating(kpVal) + '</span>' +
+                                '<span class="source--name rate--kp" style="display:inline-block;width:24px;height:24px;"></span>' +
+                                '</div>';
+                    }
+
+                    if (imdbVal) {
+                        var imdbColor = getRatingColor(imdbVal);
+                        html += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
+                                '<span style="color:' + imdbColor + ';font-size:1.1em;">' + formatRating(imdbVal) + '</span>' +
+                                '<span class="source--name rate--imdb" style="display:inline-block;width:24px;height:24px;"></span>' +
+                                '</div>';
+                    }
+
+                    if (html) {
                         ratingElement.innerHTML = html;
                     } else {
                         showTmdbFallback(ratingElement, data);
                     }
                 }
             });
-        });
-    } else if (source === 'kp' || source === 'imdb') {
-        ratingElement.className = voteClass('rate--' + source);
-        getKinopoiskRating(data, function (res) {
-            if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
-                var val = source === 'kp' ? res.kp : res.imdb;
-                if (val && val > 0) {
-                    var text = formatRating(val);
-                    var color = getRatingColor(val);
-                    ratingElement.innerHTML = '<span style="color:' + color + ';font-size:1.1em;">' + text + '</span> <span class="source--name" style="width:24px;height:24px;"></span>';
-                } else {
-                    showTmdbFallback(ratingElement, data);
-                }
+        } else if (source === 'tmdb') {
+            ratingElement.className = voteClass('rate--tmdb');
+            var rating = getTMDBRating(data);
+            if (rating !== '0.0') {
+                var color = getRatingColor(rating);
+                ratingElement.innerHTML = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(rating) + '</span> <span class="source--name" style="width:24px;height:24px;"></span>';
+            } else {
+                showTmdbFallback(ratingElement, data);
             }
-        });
+        } else if (source === 'lampa') {
+            ratingElement.className = voteClass('rate--lampa');
+            var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
+            var ratingKey = type + '_' + data.id;
+            var cached = ratingCache.get('lampa_rating', ratingKey);
+            if (cached && cached.rating > 0) {
+                var color = getRatingColor(cached.rating);
+                var html = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(cached.rating) + '</span>';
+                if (cached.medianReaction) {
+                    var reactionSrc = getReactionImageSrc(cached.medianReaction);
+                    html += ' <img style="width:24px;height:24px;margin-left:6px;object-fit:contain;" src="' + reactionSrc + '">';
+                }
+                ratingElement.innerHTML = html;
+                return;
+            }
+            addToQueue(function () {
+                getLampaRating(ratingKey).then(function (result) {
+                    if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                        if (result.rating > 0) {
+                            var color = getRatingColor(result.rating);
+                            var html = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(result.rating) + '</span>';
+                            if (result.medianReaction) {
+                                var reactionSrc = getReactionImageSrc(result.medianReaction);
+                                html += ' <img style="width:24px;height:24px;margin-left:6px;object-fit:contain;" src="' + reactionSrc + '">';
+                            }
+                            ratingElement.innerHTML = html;
+                        } else {
+                            showTmdbFallback(ratingElement, data);
+                        }
+                    }
+                });
+            });
+        } else if (source === 'kp' || source === 'imdb') {
+            ratingElement.className = voteClass('rate--' + source);
+            getKinopoiskRating(data, function (res) {
+                if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                    var val = source === 'kp' ? res.kp : res.imdb;
+                    if (val && val > 0) {
+                        var text = formatRating(val);
+                        var color = getRatingColor(val);
+                        ratingElement.innerHTML = '<span style="color:' + color + ';font-size:1.1em;">' + text + '</span> <span class="source--name" style="width:24px;height:24px;"></span>';
+                    } else {
+                        showTmdbFallback(ratingElement, data);
+                    }
+                }
+            });
+        }
     }
-}
 
     window.refreshAllRatings = function () {
         var allCards = document.querySelectorAll('.card');
@@ -772,7 +768,7 @@
                     lampa: 'Lampa',
                     kp: 'КиноПоиск',
                     imdb: 'IMDB',
-                    kp_imdb: 'КиноПоиск + IMDB',  // ← НОВЫЙ ПУНКТ
+                    kp_imdb: 'КиноПоиск + IMDB',
                     all: 'Все'
                 },
                 default: 'tmdb'
@@ -906,15 +902,12 @@
             '.card__vote img[src*=".gif"]{object-fit:contain;-webkit-flex-shrink:0;flex-shrink:0;min-width:1.25em;min-height:1.25em}' +
             '.rate--lampa.rate--lampa--animated .rate-icon img{min-width:1em;min-height:1em;object-fit:contain}' +
             '.rate--imdb .source--name{background-image:url("data:image/svg+xml,%3Csvg fill=\'%23ffcc00\' viewBox=\'0 0 32 32\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg id=\'SVGRepo_bgCarrier\' stroke-width=\'0\'%3E%3C/g%3E%3Cg id=\'SVGRepo_tracerCarrier\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3C/g%3E%3Cg id=\'SVGRepo_iconCarrier\'%3E%3Cpath d=\'M 0 7 L 0 25 L 32 25 L 32 7 Z M 2 9 L 30 9 L 30 23 L 2 23 Z M 5 11.6875 L 5 20.3125 L 7 20.3125 L 7 11.6875 Z M 8.09375 11.6875 L 8.09375 20.3125 L 10 20.3125 L 10 15.5 L 10.90625 20.3125 L 12.1875 20.3125 L 13 15.5 L 13 20.3125 L 14.8125 20.3125 L 14.8125 11.6875 L 12 11.6875 L 11.5 15.8125 L 10.8125 11.6875 Z M 15.90625 11.6875 L 15.90625 20.1875 L 18.3125 20.1875 C 19.613281 20.1875 20.101563 19.988281 20.5 19.6875 C 20.898438 19.488281 21.09375 19 21.09375 18.5 L 21.09375 13.3125 C 21.09375 12.710938 20.898438 12.199219 20.5 12 C 20 11.800781 19.8125 11.6875 18.3125 11.6875 Z M 22.09375 11.8125 L 22.09375 20.3125 L 23.90625 20.3125 C 23.90625 20.3125 23.992188 19.710938 24.09375 19.8125 C 24.292969 19.8125 25.101563 20.1875 25.5 20.1875 C 26 20.1875 26.199219 20.195313 26.5 20.09375 C 26.898438 19.894531 27 19.613281 27 19.3125 L 27 14.3125 C 27 13.613281 26.289063 13.09375 25.6875 13.09375 C 25.085938 13.09375 24.511719 13.488281 24.3125 13.6875 L 24.3125 11.8125 Z M 18 13 C 18.398438 13 18.8125 13.007813 18.8125 13.40625 L 18.8125 18.40625 C 18.8125 18.804688 18.300781 18.8125 18 18.8125 Z M 24.59375 14 C 24.695313 14 24.8125 14.105469 24.8125 14.40625 L 24.8125 18.6875 C 24.8125 18.886719 24.792969 19.09375 24.59375 19.09375 C 24.492188 19.09375 24.40625 18.988281 24.40625 18.6875 L 24.40625 14.40625 C 24.40625 14.207031 24.394531 14 24.59375 14 Z\'/%3E%3C/g%3E%3C/svg%3E")}' +
-            
-             // ↓↓↓ ВСТАВЬТЕ СЮДА стили для кинопоиска и ибд ↓↓↓
-'.rate--kp_imdb { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }' +
-'.rate--kp_imdb .source--name { width: 24px !important; height: 24px !important; display: inline-block !important; background-size: contain; background-repeat: no-repeat; background-position: center; }' +
-'.rate--kp_imdb div { display: flex; align-items: center; gap: 6px; justify-content: flex-end; width: 100%; }' +
-'.rate--kp_imdb span:first-child { font-size: 1.1em; line-height: 1; }' +
-'.rate--kp_imdb .rate--kp.source--name { background-image: url("data:image/svg+xml,%3Csvg width=\'300\' height=\'300\' viewBox=\'0 0 300 300\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cmask id=\'mask0_1_69\' style=\'mask-type:alpha\' maskUnits=\'userSpaceOnUse\' x=\'0\' y=\'0\' width=\'300\' height=\'300\'%3E%3Ccircle cx=\'150\' cy=\'150\' r=\'150\' fill=\'white\'/%3E%3C/mask%3E%3Cg mask=\'url(%23mask0_1_69)\'%3E%3Ccircle cx=\'150\' cy=\'150\' r=\'150\' fill=\'black\'/%3E%3Cpath d=\'M300 45L145.26 127.827L225.9 45H181.2L126.3 121.203V45H89.9999V255H126.3V178.92L181.2 255H225.9L147.354 174.777L300 255V216L160.776 160.146L300 169.5V130.5L161.658 139.494L300 84V45Z\' fill=\'url(%23paint0_radial_1_69)\'/%3E%3C/g%3E%3Cdefs%3E%3CradialGradient id=\'paint0_radial_1_69\' cx=\'0\' cy=\'0\' r=\'1\' gradientUnits=\'userSpaceOnUse\' gradientTransform=\'translate(89.9999 45) rotate(45) scale(296.985)\'%3E%3Cstop offset=\'0.5\' stop-color=\'%23FF5500\'/%3E%3Cstop offset=\'1\' stop-color=\'%23BBFF00\'/%3E%3C/radialGradient%3E%3C/defs%3E%3C/svg%3E"); }' +
-'.rate--kp_imdb .rate--imdb.source--name { background-image: url("data:image/svg+xml,%3Csvg fill=\'%23ffcc00\' viewBox=\'0 0 32 32\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg id=\'SVGRepo_bgCarrier\' stroke-width=\'0\'%3E%3C/g%3E%3Cg id=\'SVGRepo_tracerCarrier\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3C/g%3E%3Cg id=\'SVGRepo_iconCarrier\'%3E%3Cpath d=\'M 0 7 L 0 25 L 32 25 L 32 7 Z M 2 9 L 30 9 L 30 23 L 2 23 Z M 5 11.6875 L 5 20.3125 L 7 20.3125 L 7 11.6875 Z M 8.09375 11.6875 L 8.09375 20.3125 L 10 20.3125 L 10 15.5 L 10.90625 20.3125 L 12.1875 20.3125 L 13 15.5 L 13 20.3125 L 14.8125 20.3125 L 14.8125 11.6875 L 12 11.6875 L 11.5 15.8125 L 10.8125 11.6875 Z M 15.90625 11.6875 L 15.90625 20.1875 L 18.3125 20.1875 C 19.613281 20.1875 20.101563 19.988281 20.5 19.6875 C 20.898438 19.488281 21.09375 19 21.09375 18.5 L 21.09375 13.3125 C 21.09375 12.710938 20.898438 12.199219 20.5 12 C 20 11.800781 19.8125 11.6875 18.3125 11.6875 Z M 22.09375 11.8125 L 22.09375 20.3125 L 23.90625 20.3125 C 23.90625 20.3125 23.992188 19.710938 24.09375 19.8125 C 24.292969 19.8125 25.101563 20.1875 25.5 20.1875 C 26 20.1875 26.199219 20.195313 26.5 20.09375 C 26.898438 19.894531 27 19.613281 27 19.3125 L 27 14.3125 C 27 13.613281 26.289063 13.09375 25.6875 13.09375 C 25.085938 13.09375 24.511719 13.488281 24.3125 13.6875 L 24.3125 11.8125 Z M 18 13 C 18.398438 13 18.8125 13.007813 18.8125 13.40625 L 18.8125 18.40625 C 18.8125 18.804688 18.300781 18.8125 18 18.8125 Z M 24.59375 14 C 24.695313 14 24.8125 14.105469 24.8125 14.40625 L 24.8125 18.6875 C 24.8125 18.886719 24.792969 19.09375 24.59375 19.09375 C 24.492188 19.09375 24.40625 18.988281 24.40625 18.6875 L 24.40625 14.40625 C 24.40625 14.207031 24.394531 14 24.59375 14 Z\'/%3E%3C/g%3E%3C/svg%3E"); }' +
-            
+            '.rate--kp_imdb{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}' +
+            '.rate--kp_imdb .source--name{width:24px!important;height:24px!important;display:inline-block!important;background-size:contain;background-repeat:no-repeat;background-position:center;}' +
+            '.rate--kp_imdb div{display:flex;align-items:center;gap:6px;justify-content:flex-end;width:100%;}' +
+            '.rate--kp_imdb span:first-child{font-size:1.1em;line-height:1;}' +
+            '.rate--kp_imdb .rate--kp.source--name{background-image:url("data:image/svg+xml,%3Csvg width=\'300\' height=\'300\' viewBox=\'0 0 300 300\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cmask id=\'mask0_1_69\' style=\'mask-type:alpha\' maskUnits=\'userSpaceOnUse\' x=\'0\' y=\'0\' width=\'300\' height=\'300\'%3E%3Ccircle cx=\'150\' cy=\'150\' r=\'150\' fill=\'white\'/%3E%3C/mask%3E%3Cg mask=\'url(%23mask0_1_69)\'%3E%3Ccircle cx=\'150\' cy=\'150\' r=\'150\' fill=\'black\'/%3E%3Cpath d=\'M300 45L145.26 127.827L225.9 45H181.2L126.3 121.203V45H89.9999V255H126.3V178.92L181.2 255H225.9L147.354 174.777L300 255V216L160.776 160.146L300 169.5V130.5L161.658 139.494L300 84V45Z\' fill=\'url(%23paint0_radial_1_69)\'/%3E%3C/g%3E%3Cdefs%3E%3CradialGradient id=\'paint0_radial_1_69\' cx=\'0\' cy=\'0\' r=\'1\' gradientUnits=\'userSpaceOnUse\' gradientTransform=\'translate(89.9999 45) rotate(45) scale(296.985)\'%3E%3Cstop offset=\'0.5\' stop-color=\'%23FF5500\'/%3E%3Cstop offset=\'1\' stop-color=\'%23BBFF00\'/%3E%3C/radialGradient%3E%3C/defs%3E%3C/svg%3E");}' +
+            '.rate--kp_imdb .rate--imdb.source--name{background-image:url("data:image/svg+xml,%3Csvg fill=\'%23ffcc00\' viewBox=\'0 0 32 32\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg id=\'SVGRepo_bgCarrier\' stroke-width=\'0\'%3E%3C/g%3E%3Cg id=\'SVGRepo_tracerCarrier\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3C/g%3E%3Cg id=\'SVGRepo_iconCarrier\'%3E%3Cpath d=\'M 0 7 L 0 25 L 32 25 L 32 7 Z M 2 9 L 30 9 L 30 23 L 2 23 Z M 5 11.6875 L 5 20.3125 L 7 20.3125 L 7 11.6875 Z M 8.09375 11.6875 L 8.09375 20.3125 L 10 20.3125 L 10 15.5 L 10.90625 20.3125 L 12.1875 20.3125 L 13 15.5 L 13 20.3125 L 14.8125 20.3125 L 14.8125 11.6875 L 12 11.6875 L 11.5 15.8125 L 10.8125 11.6875 Z M 15.90625 11.6875 L 15.90625 20.1875 L 18.3125 20.1875 C 19.613281 20.1875 20.101563 19.988281 20.5 19.6875 C 20.898438 19.488281 21.09375 19 21.09375 18.5 L 21.09375 13.3125 C 21.09375 12.710938 20.898438 12.199219 20.5 12 C 20 11.800781 19.8125 11.6875 18.3125 11.6875 Z M 22.09375 11.8125 L 22.09375 20.3125 L 23.90625 20.3125 C 23.90625 20.3125 23.992188 19.710938 24.09375 19.8125 C 24.292969 19.8125 25.101563 20.1875 25.5 20.1875 C 26 20.1875 26.199219 20.195313 26.5 20.09375 C 26.898438 19.894531 27 19.613281 27 19.3125 L 27 14.3125 C 27 13.613281 26.289063 13.09375 25.6875 13.09375 C 25.085938 13.09375 24.511719 13.488281 24.3125 13.6875 L 24.3125 11.8125 Z M 18 13 C 18.398438 13 18.8125 13.007813 18.8125 13.40625 L 18.8125 18.40625 C 18.8125 18.804688 18.300781 18.8125 18 18.8125 Z M 24.59375 14 C 24.695313 14 24.8125 14.105469 24.8125 14.40625 L 24.8125 18.6875 C 24.8125 18.886719 24.792969 19.09375 24.59375 19.09375 C 24.492188 19.09375 24.40625 18.988281 24.40625 18.6875 L 24.40625 14.40625 C 24.40625 14.207031 24.394531 14 24.59375 14 Z\'/%3E%3C/g%3E%3C/svg%3E");}' +
             '@media (max-width:480px) and (orientation:portrait){.full-start__rate.rate--lampa{min-width:80px}}'
         );
         document.head.appendChild(style);
@@ -931,99 +924,136 @@
             }
         });
 
+        // =====================================================================
+        // ПОЛНАЯ КАРТОЧКА (страница с описанием фильма/сериала)
+        // Логика: если режим kp_imdb — сначала пробуем KP/IMDB.
+        //   Есть хотя бы один → показываем их, скрываем TMDB.
+        //   Нет ни одного    → fallback на TMDB + Lampa.
+        // Для остальных режимов — стандартное поведение (TMDB + Lampa).
+        // =====================================================================
         Lampa.Listener.follow('full', function (event) {
-            if (event.type === 'complite') {
-                var render = event.object.activity.render();
-                if (render && event.object.id) {
-                    var kpBlock = $(render).find('.rate--kp');
-                    var imdbBlock = $(render).find('.rate--imdb');
-                    if (kpBlock.length || imdbBlock.length) {
-                        var kpVal = parseFloat(kpBlock.find('div').first().text().trim()) || 0;
-                        var imdbVal = parseFloat(imdbBlock.find('div').first().text().trim()) || 0;
-                        if (kpVal > 0 || imdbVal > 0) {
-                            var existing = ratingCache.get('kp_rating', event.object.id) || {};
-                            ratingCache.set('kp_rating', event.object.id, {
-                                kp: kpVal > 0 ? kpVal : (existing.kp || 0),
-                                imdb: imdbVal > 0 ? imdbVal : (existing.imdb || 0),
-                                timestamp: Date.now()
-                            });
-                        }
-                    }
-                }
-                if (render && insertLampaBlock(render)) {
-                    if (event.object.method && event.object.id) {
-                        var ratingKey = event.object.method + "_" + event.object.id;
-                        var cached = ratingCache.get('lampa_rating', ratingKey);
-                        if (cached && cached.rating > 0) {
-                            var rateValue = $(render).find('.rate--lampa .rate-value');
-                            var rateIcon = $(render).find('.rate--lampa .rate-icon');
-                            rateValue.text(formatRating(cached.rating));
-                            if (cached.medianReaction) {
-                                var reactionSrc = getReactionImageSrc(cached.medianReaction);
-                                rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + cached.medianReaction + '" src="' + reactionSrc + '">');
-                                if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
-                            }
-                            colorizeFullCardRatings(render);
-                            return;
-                        }
-                        addToQueue(function () {
-                            getLampaRating(ratingKey).then(function (result) {
-                                var rateValue = $(render).find('.rate--lampa .rate-value');
-                                var rateIcon = $(render).find('.rate--lampa .rate-icon');
-                                if (result.rating !== null && result.rating > 0) {
-                                    rateValue.text(formatRating(result.rating));
-                                    if (result.medianReaction) {
-                                        var reactionSrc = getReactionImageSrc(result.medianReaction);
-                                        rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + result.medianReaction + '" src="' + reactionSrc + '">');
-                                        if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
-                                    }
-                                } else {
-                                    $(render).find('.rate--lampa').hide();
-                                }
-                                colorizeFullCardRatings(render);
-                            });
-                        });
-                    }
-                }
+            if (event.type !== 'complite') return;
 
-// НОВЫЙ БЛОК: Обработка KP+IMDB в полной карточке
-        if (Lampa.Storage.get('rating_source') === 'kp_imdb') {
-            if (event.object.id) {
-                getKinopoiskRating({ id: event.object.id }, function (res) {
-                    var rateLine = $(render).find('.full-start-new__rate-line, .info__rate');
-                    if (rateLine.length === 0) rateLine = $(render).find('.full-start__buttons');
-                    
-                    // Удаляем старые блоки если есть
-                    rateLine.find('.rate--kp_full, .rate--imdb_full').remove();
-                    
-                    if (res.kp > 0) {
-                        var kpColor = getRatingColor(res.kp);
-                        var kpBlock = $('<div class="full-start__rate rate--kp_full" style="display:inline-flex;align-items:center;margin-right:10px;">' +
-                            '<span style="color:' + kpColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(res.kp) + '</span>' +
-                            '<span class="source--name rate--kp" style="width:28px;height:28px;display:inline-block;"></span>' +
-                            '</div>');
-                        rateLine.prepend(kpBlock);
+            var render = event.object.activity.render();
+            var source = Lampa.Storage.get('rating_source', 'tmdb');
+
+            if (source === 'kp_imdb' && event.object.id) {
+
+                // Собираем данные для поиска по KP API
+                var itemData = {
+                    id:             event.object.id,
+                    kinopoisk_id:   event.object.kinopoisk_id,
+                    imdb_id:        event.object.imdb_id,
+                    title:          event.object.title  || event.object.name,
+                    original_title: event.object.original_title || event.object.original_name,
+                    release_date:   event.object.release_date,
+                    first_air_date: event.object.first_air_date
+                };
+
+                getKinopoiskRating(itemData, function (res) {
+                    var hasKp   = res.kp   > 0;
+                    var hasImdb = res.imdb > 0;
+
+                    if (hasKp || hasImdb) {
+                        // --- Есть данные KP/IMDB ---
+                        var rateLine = $(render).find('.full-start-new__rate-line');
+
+                        // Скрываем стандартный TMDB-блок
+                        rateLine.find('.rate--tmdb').hide();
+
+                        // Убираем ранее вставленные блоки (на случай повторного вызова)
+                        rateLine.find('.rate--kp_full, .rate--imdb_full').remove();
+
+                        if (hasKp) {
+                            var kpColor = getRatingColor(res.kp);
+                            rateLine.prepend(
+                                '<div class="full-start__rate rate--kp_full" style="display:inline-flex;align-items:center;margin-right:10px;">' +
+                                '<span style="color:' + kpColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(res.kp) + '</span>' +
+                                '<span class="source--name rate--kp" style="width:28px;height:28px;display:inline-block;"></span>' +
+                                '</div>'
+                            );
+                        }
+
+                        if (hasImdb) {
+                            var imdbColor = getRatingColor(res.imdb);
+                            rateLine.prepend(
+                                '<div class="full-start__rate rate--imdb_full" style="display:inline-flex;align-items:center;margin-right:10px;">' +
+                                '<span style="color:' + imdbColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(res.imdb) + '</span>' +
+                                '<span class="source--name rate--imdb" style="width:28px;height:28px;display:inline-block;"></span>' +
+                                '</div>'
+                            );
+                        }
+
+                        colorizeFullCardRatings(render);
+
+                    } else {
+                        // --- Нет KP/IMDB → fallback: TMDB + Lampa ---
+                        _showFullCardLampa(render, event);
+                        setTimeout(function () { colorizeFullCardRatings(render); }, 100);
                     }
-                    
-                    if (res.imdb > 0) {
-                        var imdbColor = getRatingColor(res.imdb);
-                        var imdbBlock = $('<div class="full-start__rate rate--imdb_full" style="display:inline-flex;align-items:center;margin-right:10px;">' +
-                            '<span style="color:' + imdbColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(res.imdb) + '</span>' +
-                            '<span class="source--name rate--imdb" style="width:28px;height:28px;display:inline-block;"></span>' +
-                            '</div>');
-                        rateLine.prepend(imdbBlock);
-                    }
-                    
-                    colorizeFullCardRatings(render);
+                });
+
+            } else {
+                // Все остальные режимы — стандартное поведение
+                _showFullCardKpFromPage(render, event);
+                _showFullCardLampa(render, event);
+                setTimeout(function () { colorizeFullCardRatings(render); }, 100);
+            }
+        });
+    }
+
+    // Вспомогательная: читаем KP/IMDB из самой страницы (стандартное поведение)
+    function _showFullCardKpFromPage(render, event) {
+        if (!render || !event.object.id) return;
+        var kpBlock   = $(render).find('.rate--kp');
+        var imdbBlock = $(render).find('.rate--imdb');
+        if (kpBlock.length || imdbBlock.length) {
+            var kpVal   = parseFloat(kpBlock.find('div').first().text().trim())   || 0;
+            var imdbVal = parseFloat(imdbBlock.find('div').first().text().trim()) || 0;
+            if (kpVal > 0 || imdbVal > 0) {
+                var existing = ratingCache.get('kp_rating', event.object.id) || {};
+                ratingCache.set('kp_rating', event.object.id, {
+                    kp:    kpVal   > 0 ? kpVal   : (existing.kp   || 0),
+                    imdb:  imdbVal > 0 ? imdbVal : (existing.imdb || 0),
+                    timestamp: Date.now()
                 });
             }
         }
+    }
 
+    // Вспомогательная: вставляем и заполняем Lampa-блок на полной карточке
+    function _showFullCardLampa(render, event) {
+        if (!render || !insertLampaBlock(render)) return;
+        if (!event.object.method || !event.object.id) return;
 
-                
-                 setTimeout(function () { colorizeFullCardRatings(render); }, 100);
+        var ratingKey = event.object.method + '_' + event.object.id;
+        var cached    = ratingCache.get('lampa_rating', ratingKey);
+
+        function applyLampa(result) {
+            var rateValue = $(render).find('.rate--lampa .rate-value');
+            var rateIcon  = $(render).find('.rate--lampa .rate-icon');
+            if (result && result.rating > 0) {
+                rateValue.text(formatRating(result.rating));
+                if (result.medianReaction) {
+                    var reactionSrc = getReactionImageSrc(result.medianReaction);
+                    rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + result.medianReaction + '" src="' + reactionSrc + '">');
+                    if (Lampa.Storage.get('animated_reactions', false)) {
+                        $(render).find('.rate--lampa').addClass('rate--lampa--animated');
+                    }
+                }
+            } else {
+                $(render).find('.rate--lampa').hide();
             }
-        });
+            colorizeFullCardRatings(render);
+        }
+
+        if (cached && cached.rating > 0) {
+            applyLampa(cached);
+        } else {
+            addToQueue(function () {
+                getLampaRating(ratingKey).then(applyLampa);
+            });
+        }
     }
 
     if (window.appready) {
