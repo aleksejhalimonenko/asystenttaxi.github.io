@@ -985,7 +985,43 @@
                         });
                     }
                 }
-                setTimeout(function () { colorizeFullCardRatings(render); }, 100);
+
+// НОВЫЙ БЛОК: Обработка KP+IMDB в полной карточке
+        if (Lampa.Storage.get('rating_source') === 'kp_imdb') {
+            if (event.object.id) {
+                getKinopoiskRating({ id: event.object.id }, function (res) {
+                    var rateLine = $(render).find('.full-start-new__rate-line, .info__rate');
+                    if (rateLine.length === 0) rateLine = $(render).find('.full-start__buttons');
+                    
+                    // Удаляем старые блоки если есть
+                    rateLine.find('.rate--kp_full, .rate--imdb_full').remove();
+                    
+                    if (res.kp > 0) {
+                        var kpColor = getRatingColor(res.kp);
+                        var kpBlock = $('<div class="full-start__rate rate--kp_full" style="display:inline-flex;align-items:center;margin-right:10px;">' +
+                            '<span style="color:' + kpColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(res.kp) + '</span>' +
+                            '<span class="source--name rate--kp" style="width:28px;height:28px;display:inline-block;"></span>' +
+                            '</div>');
+                        rateLine.prepend(kpBlock);
+                    }
+                    
+                    if (res.imdb > 0) {
+                        var imdbColor = getRatingColor(res.imdb);
+                        var imdbBlock = $('<div class="full-start__rate rate--imdb_full" style="display:inline-flex;align-items:center;margin-right:10px;">' +
+                            '<span style="color:' + imdbColor + ';font-size:1.2em;margin-right:4px;">' + formatRating(res.imdb) + '</span>' +
+                            '<span class="source--name rate--imdb" style="width:28px;height:28px;display:inline-block;"></span>' +
+                            '</div>');
+                        rateLine.prepend(imdbBlock);
+                    }
+                    
+                    colorizeFullCardRatings(render);
+                });
+            }
+        }
+
+
+                
+                 setTimeout(function () { colorizeFullCardRatings(render); }, 100);
             }
         });
     }
