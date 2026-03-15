@@ -527,155 +527,145 @@
         });
     }
 
-    function updateCardRating(item) {
-        var card = item.card || item;
-        if (!card || !card.querySelector || !document.body.contains(card)) return;
-        var data = card.card_data || item.data || {};
-        if (!data.id) return;
-        var source = Lampa.Storage.get('rating_source', 'tmdb');
-        var ratingElement = card.querySelector('.card__vote');
+ function updateCardRating(item) {
+    var card = item.card || item;
+    if (!card || !card.querySelector || !document.body.contains(card)) return;
+    var data = card.card_data || item.data || {};
+    if (!data.id) return;
+    var source = Lampa.Storage.get('rating_source', 'tmdb');
+    var ratingElement = card.querySelector('.card__vote');
 
-        if (source === 'all') {
-            if (ratingElement && !ratingElement.classList.contains('card__vote-line')) {
-                ratingElement.remove();
-                ratingElement = null;
-            }
-            if (!ratingElement) ratingElement = createRatingLineElement(card);
-            ratingElement.dataset.source = 'all';
-            ratingElement.dataset.movieId = data.id.toString();
-            ratingElement.style.display = '';
-            updateCardRatingLine(ratingElement, data);
-            if (!ratingElement.dataset.kpRequested) {
-                ratingElement.dataset.kpRequested = String(Date.now());
-                getKinopoiskRating(data, function () {
-                    if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
-                        updateCardRatingLine(ratingElement, data);
-                    }
-                });
-            }
-            var lampaKey = (data.seasons || data.first_air_date || data.original_name) ? 'tv_' + data.id : 'movie_' + data.id;
-            getLampaRating(lampaKey).then(function () {
+    if (source === 'all') {
+        if (ratingElement && !ratingElement.classList.contains('card__vote-line')) {
+            ratingElement.remove();
+            ratingElement = null;
+        }
+        if (!ratingElement) ratingElement = createRatingLineElement(card);
+        ratingElement.dataset.source = 'all';
+        ratingElement.dataset.movieId = data.id.toString();
+        ratingElement.style.display = '';
+        updateCardRatingLine(ratingElement, data);
+        if (!ratingElement.dataset.kpRequested) {
+            ratingElement.dataset.kpRequested = String(Date.now());
+            getKinopoiskRating(data, function () {
                 if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
                     updateCardRatingLine(ratingElement, data);
                 }
             });
-            return;
         }
+        var lampaKey = (data.seasons || data.first_air_date || data.original_name) ? 'tv_' + data.id : 'movie_' + data.id;
+        getLampaRating(lampaKey).then(function () {
+            if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                updateCardRatingLine(ratingElement, data);
+            }
+        });
+        return;
+    }
 
-
-// Добавляю этот код после блока 'all' или перед проверкой 'tmdb'
-else if (source === 'kp_imdb') {
-    if (ratingElement && ratingElement.classList.contains('card__vote-line')) {
+    // СНАЧАЛА удаляем старые элементы
+    if (ratingElement) {
         ratingElement.remove();
         ratingElement = null;
     }
-    if (!ratingElement) ratingElement = createRatingElement(card);
+
+    // ПОТОМ создаем новый
+    ratingElement = createRatingElement(card);
     ratingElement.dataset.source = source;
     ratingElement.dataset.movieId = data.id.toString();
-    ratingElement.className = voteClass('rate--kp_imdb');
-    ratingElement.innerHTML = ''; // Очистим, заполним после получения данных
     ratingElement.style.display = '';
 
-    getKinopoiskRating(data, function (res) {
-        if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
-            var kpVal = res.kp > 0 ? res.kp : null;
-            var imdbVal = res.imdb > 0 ? res.imdb : null;
-            
-            var html = '';
-            
-            if (kpVal) {
-                var kpColor = getRatingColor(kpVal);
-                html += '<div style="display:flex;align-items:center;gap:4px;">' +
-                        '<span style="color:' + kpColor + '">' + formatRating(kpVal) + '</span>' +
-                        '<span class="source--name rate--kp" style="display:inline-block;"></span>' +
-                        '</div>';
-            }
-            
-            if (imdbVal) {
-                var imdbColor = getRatingColor(imdbVal);
-                html += '<div style="display:flex;align-items:center;gap:4px;margin-top:2px;">' +
-                        '<span style="color:' + imdbColor + '">' + formatRating(imdbVal) + '</span>' +
-                        '<span class="source--name rate--imdb" style="display:inline-block;"></span>' +
-                        '</div>';
-            }
-            
-            if (html) {
-                ratingElement.innerHTML = html;
-            } else {
-                showTmdbFallback(ratingElement, data);
-            }
-        }
-    });
-}
-
-
-
+    // ТЕПЕРЬ обрабатываем разные источники
+    if (source === 'kp_imdb') {
+        ratingElement.className = voteClass('rate--kp_imdb');
+        ratingElement.innerHTML = ''; // Очистим, заполним после получения данных
         
-
-        if (ratingElement && ratingElement.classList.contains('card__vote-line')) {
-            ratingElement.remove();
-            ratingElement = null;
-        }
-        if (!ratingElement) ratingElement = createRatingElement(card);
-        ratingElement.dataset.source = source;
-        ratingElement.dataset.movieId = data.id.toString();
-        ratingElement.className = voteClass('rate--' + source);
-        ratingElement.innerHTML = '';
-        ratingElement.style.display = '';
-        if (source === 'tmdb') {
-            var rating = getTMDBRating(data);
-            if (rating !== '0.0') {
-                var color = getRatingColor(rating);
-                ratingElement.innerHTML = '<span style="color:' + color + '">' + formatRating(rating) + '</span> <span class="source--name"></span>';
-            } else {
-                showTmdbFallback(ratingElement, data);
-            }
-        } else if (source === 'lampa') {
-            var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
-            var ratingKey = type + '_' + data.id;
-            var cached = ratingCache.get('lampa_rating', ratingKey);
-            if (cached && cached.rating > 0) {
-                var color = getRatingColor(cached.rating);
-                var html = '<span style="color:' + color + '">' + formatRating(cached.rating) + '</span>';
-                if (cached.medianReaction) {
-                    var reactionSrc = getReactionImageSrc(cached.medianReaction);
-                    html += ' <img style="width:1em;height:1em;margin:0 0.2em;" src="' + reactionSrc + '">';
+        getKinopoiskRating(data, function (res) {
+            if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                var kpVal = res.kp > 0 ? res.kp : null;
+                var imdbVal = res.imdb > 0 ? res.imdb : null;
+                
+                var html = '';
+                
+                if (kpVal) {
+                    var kpColor = getRatingColor(kpVal);
+                    html += '<div style="display:flex;align-items:center;gap:6px;">' +
+                            '<span style="color:' + kpColor + ';font-size:1.1em;">' + formatRating(kpVal) + '</span>' +
+                            '<span class="source--name rate--kp" style="display:inline-block;width:24px;height:24px;"></span>' +
+                            '</div>';
                 }
-                ratingElement.innerHTML = html;
-                return;
+                
+                if (imdbVal) {
+                    var imdbColor = getRatingColor(imdbVal);
+                    html += '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
+                            '<span style="color:' + imdbColor + ';font-size:1.1em;">' + formatRating(imdbVal) + '</span>' +
+                            '<span class="source--name rate--imdb" style="display:inline-block;width:24px;height:24px;"></span>' +
+                            '</div>';
+                }
+                
+                if (html) {
+                    ratingElement.innerHTML = html;
+                } else {
+                    showTmdbFallback(ratingElement, data);
+                }
             }
-            addToQueue(function () {
-                getLampaRating(ratingKey).then(function (result) {
-                    if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
-                        if (result.rating > 0) {
-                            var color = getRatingColor(result.rating);
-                            var html = '<span style="color:' + color + '">' + formatRating(result.rating) + '</span>';
-                            if (result.medianReaction) {
-                                var reactionSrc = getReactionImageSrc(result.medianReaction);
-                                html += ' <img style="width:1em;height:1em;margin:0 0.2em;" src="' + reactionSrc + '">';
-                            }
-                            ratingElement.innerHTML = html;
-                        } else {
-                            showTmdbFallback(ratingElement, data);
-                        }
-                    }
-                });
-            });
-        } else if (source === 'kp' || source === 'imdb') {
-            getKinopoiskRating(data, function (res) {
+        });
+    } else if (source === 'tmdb') {
+        ratingElement.className = voteClass('rate--tmdb');
+        var rating = getTMDBRating(data);
+        if (rating !== '0.0') {
+            var color = getRatingColor(rating);
+            ratingElement.innerHTML = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(rating) + '</span> <span class="source--name" style="width:24px;height:24px;"></span>';
+        } else {
+            showTmdbFallback(ratingElement, data);
+        }
+    } else if (source === 'lampa') {
+        ratingElement.className = voteClass('rate--lampa');
+        var type = (data.seasons || data.first_air_date || data.original_name) ? 'tv' : 'movie';
+        var ratingKey = type + '_' + data.id;
+        var cached = ratingCache.get('lampa_rating', ratingKey);
+        if (cached && cached.rating > 0) {
+            var color = getRatingColor(cached.rating);
+            var html = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(cached.rating) + '</span>';
+            if (cached.medianReaction) {
+                var reactionSrc = getReactionImageSrc(cached.medianReaction);
+                html += ' <img style="width:24px;height:24px;margin-left:6px;object-fit:contain;" src="' + reactionSrc + '">';
+            }
+            ratingElement.innerHTML = html;
+            return;
+        }
+        addToQueue(function () {
+            getLampaRating(ratingKey).then(function (result) {
                 if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
-                    var val = source === 'kp' ? res.kp : res.imdb;
-                    if (val && val > 0) {
-                        var text = formatRating(val);
-                        var color = getRatingColor(val);
-                        ratingElement.innerHTML = '<span style="color:' + color + '">' + text + '</span> <span class="source--name"></span>';
+                    if (result.rating > 0) {
+                        var color = getRatingColor(result.rating);
+                        var html = '<span style="color:' + color + ';font-size:1.1em;">' + formatRating(result.rating) + '</span>';
+                        if (result.medianReaction) {
+                            var reactionSrc = getReactionImageSrc(result.medianReaction);
+                            html += ' <img style="width:24px;height:24px;margin-left:6px;object-fit:contain;" src="' + reactionSrc + '">';
+                        }
+                        ratingElement.innerHTML = html;
                     } else {
                         showTmdbFallback(ratingElement, data);
                     }
                 }
             });
-        }
+        });
+    } else if (source === 'kp' || source === 'imdb') {
+        ratingElement.className = voteClass('rate--' + source);
+        getKinopoiskRating(data, function (res) {
+            if (ratingElement.parentNode && ratingElement.dataset.movieId === data.id.toString()) {
+                var val = source === 'kp' ? res.kp : res.imdb;
+                if (val && val > 0) {
+                    var text = formatRating(val);
+                    var color = getRatingColor(val);
+                    ratingElement.innerHTML = '<span style="color:' + color + ';font-size:1.1em;">' + text + '</span> <span class="source--name" style="width:24px;height:24px;"></span>';
+                } else {
+                    showTmdbFallback(ratingElement, data);
+                }
+            }
+        });
     }
+}
 
     window.refreshAllRatings = function () {
         var allCards = document.querySelectorAll('.card');
@@ -918,8 +908,10 @@ else if (source === 'kp_imdb') {
             '.rate--imdb .source--name{background-image:url("data:image/svg+xml,%3Csvg fill=\'%23ffcc00\' viewBox=\'0 0 32 32\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg id=\'SVGRepo_bgCarrier\' stroke-width=\'0\'%3E%3C/g%3E%3Cg id=\'SVGRepo_tracerCarrier\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3C/g%3E%3Cg id=\'SVGRepo_iconCarrier\'%3E%3Cpath d=\'M 0 7 L 0 25 L 32 25 L 32 7 Z M 2 9 L 30 9 L 30 23 L 2 23 Z M 5 11.6875 L 5 20.3125 L 7 20.3125 L 7 11.6875 Z M 8.09375 11.6875 L 8.09375 20.3125 L 10 20.3125 L 10 15.5 L 10.90625 20.3125 L 12.1875 20.3125 L 13 15.5 L 13 20.3125 L 14.8125 20.3125 L 14.8125 11.6875 L 12 11.6875 L 11.5 15.8125 L 10.8125 11.6875 Z M 15.90625 11.6875 L 15.90625 20.1875 L 18.3125 20.1875 C 19.613281 20.1875 20.101563 19.988281 20.5 19.6875 C 20.898438 19.488281 21.09375 19 21.09375 18.5 L 21.09375 13.3125 C 21.09375 12.710938 20.898438 12.199219 20.5 12 C 20 11.800781 19.8125 11.6875 18.3125 11.6875 Z M 22.09375 11.8125 L 22.09375 20.3125 L 23.90625 20.3125 C 23.90625 20.3125 23.992188 19.710938 24.09375 19.8125 C 24.292969 19.8125 25.101563 20.1875 25.5 20.1875 C 26 20.1875 26.199219 20.195313 26.5 20.09375 C 26.898438 19.894531 27 19.613281 27 19.3125 L 27 14.3125 C 27 13.613281 26.289063 13.09375 25.6875 13.09375 C 25.085938 13.09375 24.511719 13.488281 24.3125 13.6875 L 24.3125 11.8125 Z M 18 13 C 18.398438 13 18.8125 13.007813 18.8125 13.40625 L 18.8125 18.40625 C 18.8125 18.804688 18.300781 18.8125 18 18.8125 Z M 24.59375 14 C 24.695313 14 24.8125 14.105469 24.8125 14.40625 L 24.8125 18.6875 C 24.8125 18.886719 24.792969 19.09375 24.59375 19.09375 C 24.492188 19.09375 24.40625 18.988281 24.40625 18.6875 L 24.40625 14.40625 C 24.40625 14.207031 24.394531 14 24.59375 14 Z\'/%3E%3C/g%3E%3C/svg%3E")}' +
             
              // ↓↓↓ ВСТАВЬТЕ СЮДА стили для кинопоиска и ибд ↓↓↓
-        '.rate--kp_imdb .source--name { display: inline-block !important; }' +
-        '.rate--kp_imdb { display: flex; flex-direction: column; align-items: flex-end; }' +
+'.rate--kp_imdb { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }' +
+'.rate--kp_imdb .source--name { width: 24px !important; height: 24px !important; display: inline-block !important; }' +
+'.rate--kp_imdb div { display: flex; align-items: center; gap: 6px; }' +
+'.rate--kp_imdb span:first-child { font-size: 1.1em; }' +
             
             '@media (max-width:480px) and (orientation:portrait){.full-start__rate.rate--lampa{min-width:80px}}'
         );
