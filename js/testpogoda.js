@@ -35,9 +35,36 @@
                 '</div>');
 
                 // Обработчик нажатия
-                btn.on('hover:enter click', function () {
-                    Lampa.Noty.show('Плагин работает! Кнопка нажата.');
-                });
+btn.on('hover:enter click', function () {
+    // Вызываем модальное окно Lampa
+    Lampa.Modal.open({
+        title: 'Тестовое окно',
+        html: '<div style="padding: 20px; text-align: center;">' +
+                '<h2 style="margin-bottom: 10px;">Привет!</h2>' +
+                '<p>Это полноценное всплывающее окно плагина.</p>' +
+                '<p style="color: #ccc; margin-top: 10px;">Здесь можно разместить любой HTML-контент или настройки.</p>' +
+              '</div>',
+        size: 'small', // Может быть 'medium', 'large' или 'full'
+        buttons: [
+            {
+                name: 'Закрыть',
+                onSelect: function () {
+                    Lampa.Modal.close();
+                }
+            },
+            {
+                name: 'Ок, понятно',
+                onSelect: function () {
+                    Lampa.Noty.show('Вы подтвердили действие');
+                    Lampa.Modal.close();
+                }
+            }
+        ],
+        onBack: function() {
+            Lampa.Modal.close();
+        }
+    });
+});
 
                 head.prepend(btn);
             }
