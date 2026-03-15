@@ -235,7 +235,7 @@
 
                 var closeBtn = html.find('.sfm-close');
                 closeBtn.show();
-                closeBtn.on('click', function () {
+                closeBtn.on('click hover:enter', function () {
                     Lampa.Modal.close();
                     Lampa.Controller.toggle('content');
                 });
@@ -262,20 +262,20 @@
         }
 
         // ── Кнопка в шапке ─────────────────────────────────────────────────
-        function renderButton() {
-            if ($('.stub-fuel-button').length > 0) return;
-            var head = $('.head__actions');
-            if (!head.length) return;
-            var btn = $('<div class="head__action stub-fuel-button selector" title="Топливо">' +
-                '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
-                '<path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/>' +
-                '<path d="M17 12h1a2 2 0 0 1 2 2v1a2 2 0 0 0 4 0V9l-3-3"/>' +
-                '<path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/>' +
-                '</svg>' +
-            '</div>');
-            btn.on('click', function () { showModal(); });
-            head.prepend(btn);
-        }
+function renderButton() {
+    if ($('.stub-fuel-button').length > 0) return;
+    var head = $('.head__actions');
+    if (!head.length) return;
+    var btn = $('<div class="head__action stub-fuel-button selector" title="Топливо">' +
+        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/>' +
+        '<path d="M17 12h1a2 2 0 0 1 2 2v1a2 2 0 0 0 4 0V9l-3-3"/>' +
+        '<path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/>' +
+        '</svg>' +
+    '</div>');
+    btn.on('click hover:enter', function () { showModal(); });
+    head.prepend(btn);
+}
 
         Lampa.Listener.follow('app', function (e) {
             if (e.type === 'ready' || e.type === 'full:complite') renderButton();
