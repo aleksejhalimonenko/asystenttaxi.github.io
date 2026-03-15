@@ -931,64 +931,62 @@
             }
         });
 
-Lampa.Listener.follow('full', function (event) {
-    if (event.type === 'complite') {
-        var render = event.object.activity.render();
-        if (render && event.object.id) {
-            var kpBlock = $(render).find('.rate--kp');
-            var imdbBlock = $(render).find('.rate--imdb');
-            if (kpBlock.length || imdbBlock.length) {
-                var kpVal = parseFloat(kpBlock.find('div').first().text().trim()) || 0;
-                var imdbVal = parseFloat(imdbBlock.find('div').first().text().trim()) || 0;
-                if (kpVal > 0 || imdbVal > 0) {
-                    var existing = ratingCache.get('kp_rating', event.object.id) || {};
-                    ratingCache.set('kp_rating', event.object.id, {
-                        kp: kpVal > 0 ? kpVal : (existing.kp || 0),
-                        imdb: imdbVal > 0 ? imdbVal : (existing.imdb || 0),
-                        timestamp: Date.now()
-                    });
-                }
-            }
-        }
-        
-        // Блок для Lampa рейтинга
-        if (render && insertLampaBlock(render)) {
-            if (event.object.method && event.object.id) {
-                var ratingKey = event.object.method + "_" + event.object.id;
-                var cached = ratingCache.get('lampa_rating', ratingKey);
-                if (cached && cached.rating > 0) {
-                    var rateValue = $(render).find('.rate--lampa .rate-value');
-                    var rateIcon = $(render).find('.rate--lampa .rate-icon');
-                    rateValue.text(formatRating(cached.rating));
-                    if (cached.medianReaction) {
-                        var reactionSrc = getReactionImageSrc(cached.medianReaction);
-                        rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + cached.medianReaction + '" src="' + reactionSrc + '">');
-                        if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
+        Lampa.Listener.follow('full', function (event) {
+            if (event.type === 'complite') {
+                var render = event.object.activity.render();
+                if (render && event.object.id) {
+                    var kpBlock = $(render).find('.rate--kp');
+                    var imdbBlock = $(render).find('.rate--imdb');
+                    if (kpBlock.length || imdbBlock.length) {
+                        var kpVal = parseFloat(kpBlock.find('div').first().text().trim()) || 0;
+                        var imdbVal = parseFloat(imdbBlock.find('div').first().text().trim()) || 0;
+                        if (kpVal > 0 || imdbVal > 0) {
+                            var existing = ratingCache.get('kp_rating', event.object.id) || {};
+                            ratingCache.set('kp_rating', event.object.id, {
+                                kp: kpVal > 0 ? kpVal : (existing.kp || 0),
+                                imdb: imdbVal > 0 ? imdbVal : (existing.imdb || 0),
+                                timestamp: Date.now()
+                            });
+                        }
                     }
-                    colorizeFullCardRatings(render);
-                    return;
                 }
-                addToQueue(function () {
-                    getLampaRating(ratingKey).then(function (result) {
-                        var rateValue = $(render).find('.rate--lampa .rate-value');
-                        var rateIcon = $(render).find('.rate--lampa .rate-icon');
-                        if (result.rating !== null && result.rating > 0) {
-                            rateValue.text(formatRating(result.rating));
-                            if (result.medianReaction) {
-                                var reactionSrc = getReactionImageSrc(result.medianReaction);
-                                rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + result.medianReaction + '" src="' + reactionSrc + '">');
+                if (render && insertLampaBlock(render)) {
+                    if (event.object.method && event.object.id) {
+                        var ratingKey = event.object.method + "_" + event.object.id;
+                        var cached = ratingCache.get('lampa_rating', ratingKey);
+                        if (cached && cached.rating > 0) {
+                            var rateValue = $(render).find('.rate--lampa .rate-value');
+                            var rateIcon = $(render).find('.rate--lampa .rate-icon');
+                            rateValue.text(formatRating(cached.rating));
+                            if (cached.medianReaction) {
+                                var reactionSrc = getReactionImageSrc(cached.medianReaction);
+                                rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + cached.medianReaction + '" src="' + reactionSrc + '">');
                                 if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
                             }
-                        } else {
-                            $(render).find('.rate--lampa').hide();
+                            colorizeFullCardRatings(render);
+                            return;
                         }
-                        colorizeFullCardRatings(render);
-                    });
-                });
-            }
-        }
+                        addToQueue(function () {
+                            getLampaRating(ratingKey).then(function (result) {
+                                var rateValue = $(render).find('.rate--lampa .rate-value');
+                                var rateIcon = $(render).find('.rate--lampa .rate-icon');
+                                if (result.rating !== null && result.rating > 0) {
+                                    rateValue.text(formatRating(result.rating));
+                                    if (result.medianReaction) {
+                                        var reactionSrc = getReactionImageSrc(result.medianReaction);
+                                        rateIcon.html('<img style="width:1em;height:1em;margin:0 0.2em;" data-reaction-type="' + result.medianReaction + '" src="' + reactionSrc + '">');
+                                        if (Lampa.Storage.get('animated_reactions', false)) $(render).find('.rate--lampa').addClass('rate--lampa--animated');
+                                    }
+                                } else {
+                                    $(render).find('.rate--lampa').hide();
+                                }
+                                colorizeFullCardRatings(render);
+                            });
+                        });
+                    }
+                }
 
-        // НОВЫЙ БЛОК: Обработка KP+IMDB в полной карточке
+// НОВЫЙ БЛОК: Обработка KP+IMDB в полной карточке
         if (Lampa.Storage.get('rating_source') === 'kp_imdb') {
             if (event.object.id) {
                 getKinopoiskRating({ id: event.object.id }, function (res) {
@@ -1020,11 +1018,13 @@ Lampa.Listener.follow('full', function (event) {
                 });
             }
         }
-        
-        setTimeout(function () { colorizeFullCardRatings(render); }, 100);
-    }
-});
 
+
+                
+                 setTimeout(function () { colorizeFullCardRatings(render); }, 100);
+            }
+        });
+    }
 
     if (window.appready) {
         initPlugin();
