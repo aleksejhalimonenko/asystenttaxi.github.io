@@ -104,6 +104,20 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
   font-size: 12px; font-weight: 600; padding: 5px 11px;
   border-radius: 20px; display: flex; align-items: center; gap: 5px;
 }
+.add-fuel-badge {
+  background: var(--orange-bg); color: var(--orange);
+  cursor: pointer; padding: 5px 11px;
+  font-size: 12px; font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.add-fuel-badge:active { opacity: 0.65; }
+.add-service-badge {
+  background: var(--accent-bg); color: var(--accent);
+  cursor: pointer; padding: 5px 11px;
+  font-size: 12px; font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.add-service-badge:active { opacity: 0.65; }
 
 /* ── CONTENT AREA ────────────────────────────────── */
 .content-area {
@@ -704,4 +718,77 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 .refresh-toast.visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* ── ACTION SHEET ────────────────────────────────── */
+.as-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.4);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease;
+}
+.as-overlay.visible { opacity: 1; pointer-events: auto; }
+
+.as-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 201;
+  background: var(--grouped);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 16px calc(var(--safe-b) + 16px);
+  transform: translateY(100%);
+  transition: transform .3s cubic-bezier(.32,1,.46,1);
+  box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+}
+.as-sheet.visible { transform: translateY(0); }
+
+.as-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--sep); margin: 0 auto 16px;
+}
+.as-title {
+  font-size: 13px; font-weight: 600; color: var(--text2);
+  text-align: center; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 12px;
+}
+.as-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 4px; text-decoration: none; color: var(--text);
+  border-bottom: 1px solid var(--sep);
+}
+.as-item:last-of-type { border-bottom: none; }
+.as-item:active { opacity: 0.6; }
+.as-item-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.as-item-body { flex: 1; }
+.as-item-title { font-size: 16px; font-weight: 600; }
+.as-item-sub { font-size: 13px; color: var(--text2); margin-top: 1px; }
+.as-item-chevron { color: var(--text2); flex-shrink: 0; }
+
+.as-cancel {
+  display: block; width: 100%; margin-top: 10px;
+  padding: 15px; border: none; border-radius: 14px;
+  background: var(--card); color: var(--accent);
+  font-size: 17px; font-weight: 600;
+  font-family: var(--font); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.as-cancel:active { opacity: 0.7; }
+
+/* ── iOS SEGMENT CONTROL ─────────────────────────────── */
+.ios-seg {
+  display: inline-flex; background: var(--bg2);
+  border-radius: 9px; padding: 2px; gap: 2px;
+}
+.ios-seg-btn {
+  padding: 5px 14px; border-radius: 7px; font-size: 13px;
+  font-weight: 500; color: var(--text2); cursor: pointer;
+  transition: all .18s ease; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.ios-seg-btn.active {
+  background: var(--grouped); color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,.10);
 }

@@ -18,6 +18,14 @@
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span id="kmBadgeVal">—</span>
       </div>
+      <div class="km-badge add-fuel-badge" id="addFuelBadge" style="display:none" onclick="location.href='?page=addfuel'" title="Добавить заправку">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Заправка</span>
+      </div>
+      <div class="km-badge add-service-badge" id="addServiceBadge" style="display:none" onclick="location.href='?page=addservice'" title="Добавить запись сервиса">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Сервис</span>
+      </div>
     </div>
     <div class="ios-hdr-sub" id="headerSub">Бортовой журнал</div>
   </div>
@@ -66,7 +74,7 @@
       </div>
       <span class="tab-lbl">Топливо</span>
     </a>
-    <a href="?page=addfuel" class="tab add-tab" data-page="addfuel">
+    <a href="#" class="tab add-tab" data-page="addfuel" onclick="showAddSheet(event)">
       <div class="tab-icon-wrap add-icon-wrap">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       </div>
@@ -94,6 +102,34 @@
       <span class="tab-lbl">Настройки</span>
     </a>
   </nav>
+
+  <!-- ── ACTION SHEET "Добавить" ──────────── -->
+  <div class="as-overlay" id="addSheetOverlay" onclick="hideAddSheet()"></div>
+  <div class="as-sheet" id="addSheet">
+    <div class="as-handle"></div>
+    <div class="as-title">Добавить запись</div>
+    <a class="as-item" href="?page=addfuel" onclick="hideAddSheet()">
+      <div class="as-item-icon" style="background:var(--orange-bg);color:var(--orange)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M17 12h1a2 2 0 0 1 2 2v1a2 2 0 0 0 4 0V9l-3-3"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>
+      </div>
+      <div class="as-item-body">
+        <div class="as-item-title">Заправка</div>
+        <div class="as-item-sub">Топливо, объём, стоимость</div>
+      </div>
+      <svg class="as-item-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+    <a class="as-item" href="?page=addservice" onclick="hideAddSheet()">
+      <div class="as-item-icon" style="background:var(--accent-bg);color:var(--accent)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      </div>
+      <div class="as-item-body">
+        <div class="as-item-title">Обслуживание</div>
+        <div class="as-item-sub">Сервис, ремонт, запчасти</div>
+      </div>
+      <svg class="as-item-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+    <button class="as-cancel" onclick="hideAddSheet()">Отмена</button>
+  </div>
 
 </div><!-- /app -->
 

@@ -11,22 +11,26 @@ const DOM = {
   errorMsg:    document.getElementById('errorMsg'),
   headerTitle: document.getElementById('headerTitle'),
   headerSub:   document.getElementById('headerSub'),
-  kmBadge:     document.getElementById('kmBadge'),
-  kmBadgeVal:  document.getElementById('kmBadgeVal'),
+  kmBadge:        document.getElementById('kmBadge'),
+  kmBadgeVal:     document.getElementById('kmBadgeVal'),
+  addFuelBadge:   document.getElementById('addFuelBadge'),
+  addServiceBadge:document.getElementById('addServiceBadge'),
   tabs:        document.querySelectorAll('.tab'),
 };
 
 // ── CONSTANTS ──────────────────────────────────────────
 const TITLE_MAP = {
-  home:     'Главная',
-  fuel:     'Топливо',
-  service:  'Обслуживание',
-  addfuel:  'Добавить запись',
-  settings: 'Настройки',
-  tco:      'Стоимость владения',   // <-- добавьте это
+  home:       'Главная',
+  fuel:       'Топливо',
+  service:    'Обслуживание',
+  addfuel:    'Добавить запись',
+  addservice: 'Добавить сервис',
+  settings:   'Настройки',
+  tco:        'Стоимость владения',   // <-- добавьте это
 };
 
-const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbwbmbhFKSKTcZx1zQZcYYs8xeNKxCZKRqFNpRSrcS4VvEaSyKNfIQtymnFw0YkL-V6L/exec';
+const GAS_BASE_URL = 'https://script.google.com/macros/s/AKfycbwrKqSXxg0nNnTF0tvqWFRYyPiJ9yQyORsnsPz35iYpwMmNI8BSkHnF20iHePZbQIDf/exec';
+
 
 // ── UTILS ──────────────────────────────────────────────
 function getQueryParam(name) {
@@ -100,10 +104,27 @@ function showError(msg) {
   DOM.errorMsg.textContent = msg;
 }
 
+// ── ACTION SHEET "Добавить" ───────────────────────────
+function showAddSheet(e) {
+  if (e) e.preventDefault();
+  document.getElementById('addSheetOverlay').classList.add('visible');
+  document.getElementById('addSheet').classList.add('visible');
+}
+function hideAddSheet() {
+  document.getElementById('addSheetOverlay').classList.remove('visible');
+  document.getElementById('addSheet').classList.remove('visible');
+}
+// Закрытие по Escape (десктоп)
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') hideAddSheet();
+});
+
 function setActiveTab(page) {
   const p = page || 'home';
   DOM.tabs.forEach(t => t.classList.remove('active'));
-  const active = document.querySelector(`.tab[data-page="${p}"]`);
+  // Для форм добавления подсвечиваем родительский раздел
+  const tabPage = p === 'addfuel' ? 'fuel' : p === 'addservice' ? 'service' : p;
+  const active = document.querySelector(`.tab[data-page="${tabPage}"]`);
   if (active) active.classList.add('active');
 
   DOM.headerTitle.textContent = TITLE_MAP[p] || p;
@@ -117,9 +138,8 @@ const CACHE_TTL = {
   service:  120 * 60 * 1000,  // 2 часа
   tco:      60 * 60 * 1000,   // 1 час
   settings: 24 * 60 * 60 * 1000, // 24 часа
-  // Кэшируем только серверный ответ (последний пробег),
-  // сама форма каждый раз рендерится пустой.
-  addfuel:  60 * 60 * 1000,   // 1 час
+  addfuel:    0,                 // не кэшируем форму
+  addservice: 0,                 // не кэшируем форму
 };
 
 // Читает кэш и проверяет TTL. Возвращает {data, stale} или null.
@@ -138,6 +158,7 @@ function readCache(page) {
 
 // Сохраняет данные в кэш с меткой времени.
 function writeCache(page, data) {
+  if ((CACHE_TTL[page] ?? 1) === 0) return; // addfuel не кэшируем
   localStorage.setItem(`cache_v2_${page}`, JSON.stringify({
     _cachedAt: Date.now(),
     _data: data,
@@ -148,8 +169,20 @@ async function loadData() {
   const page = getQueryParam('page') || 'home';
   setActiveTab(page);
   DOM.kmBadge.style.display = 'none';
+  DOM.addFuelBadge.style.display = 'none';
+  DOM.addServiceBadge.style.display = 'none';
+  if (page === 'fuel')    DOM.addFuelBadge.style.display = 'flex';
+  if (page === 'service') DOM.addServiceBadge.style.display = 'flex';
 
   if (typeof destroyFuelChart === 'function') destroyFuelChart();
+
+  // Статические формы не требуют данных от GAS — рендерим сразу
+  if ((CACHE_TTL[page] ?? 1) === 0) {
+    hideSkeleton();
+    const homeCache = readCache('home');
+    renderByPage(page, homeCache ? homeCache.data : {});
+    return;
+  }
 
   const cached = readCache(page);
 
@@ -214,11 +247,12 @@ function _showRefreshToast() {
 function renderByPage(page, data) {
   DOM.errorCard.style.display = 'none';
   const map = {
-    home:     renderHome,
-    fuel:     renderFuel,
-    addfuel:  renderAddFuel,
-    service:  renderService,
-    settings: renderSettings,
+    home:       renderHome,
+    fuel:       renderFuel,
+    addfuel:    renderAddFuel,
+    addservice: renderAddService,
+    service:    renderService,
+    settings:   renderSettings,
   tco: renderTCO,   // <-- новая страница
   };
   DOM.pageContent.innerHTML = '';
@@ -606,6 +640,30 @@ function renderFuel(data) {
     ? (parseFloat(costPetrolPer100) - parseFloat(costGasPer100)).toFixed(2)
     : null;
 
+  // Валюта
+  var ccy='zł'; try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
+
+  // Тренд расхода: текущий месяц vs предыдущий (по газу)
+  const nowM = new Date();
+  const curMonthKey  = `${nowM.getFullYear()}-${String(nowM.getMonth()+1).padStart(2,'0')}`;
+  const prevMonthKey = (function(){ const d=new Date(nowM); d.setMonth(d.getMonth()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
+  const gasConsData  = gasData.filter(e=>parseFloat(e.fuelConsumption)>0);
+  function avgConsForMonth(mk){ const rows=gasConsData.filter(e=>{const d=parseCustomDate(e.date);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===mk;}); return rows.length?(rows.reduce((s,e)=>s+parseFloat(e.fuelConsumption),0)/rows.length):null; }
+  const curMonthCons  = avgConsForMonth(curMonthKey);
+  const prevMonthCons = avgConsForMonth(prevMonthKey);
+  let consTrendHTML = '';
+  if (curMonthCons && prevMonthCons) {
+    const diff = curMonthCons - prevMonthCons;
+    const sign = diff > 0 ? '+' : '';
+    const cls  = diff > 0
+      ? 'style="color:#fff;background:rgba(255,255,255,.22);padding:1px 7px;border-radius:6px;font-weight:600"'
+      : 'style="color:#fff;background:rgba(255,255,255,.22);padding:1px 7px;border-radius:6px;font-weight:600"';
+    const arrow = diff > 0 ? '↑' : '↓';
+    consTrendHTML = `<span ${cls}>${arrow} ${sign}${diff.toFixed(1)} л/100 vs прошлый мес.</span>`;
+  } else if (curMonthCons) {
+    consTrendHTML = `<span style="color:rgba(255,255,255,.7)">Расход ${curMonthCons.toFixed(1)} л/100 в этом мес.</span>`;
+  }
+
   DOM.pageContent.innerHTML = `
     <div class="anim">
 
@@ -613,7 +671,7 @@ function renderFuel(data) {
       <div class="hero orange">
         <div class="hero-lbl">Всего на топливо</div>
         <div class="hero-val">${Math.round(totalFuelCost).toLocaleString('ru')} <span class="hero-unit">zł</span></div>
-        <div class="hero-sub">${totalFills} заправок за весь период</div>
+        <div class="hero-sub">${totalFills} заправок · ${consTrendHTML || 'за весь период'}</div>
         <div class="hero-icon">
           <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M17 12h1a2 2 0 0 1 2 2v1a2 2 0 0 0 4 0V9l-3-3"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>
         </div>
@@ -664,49 +722,58 @@ function renderFuel(data) {
       <!-- ⑤ ТРЕНД: SVG chart как в Auris iOS -->
       <div class="slbl">Средний расход л/100 км по месяцам</div>
       <div class="group" style="padding:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+          <div class="ios-seg" id="fuelChartSeg">
+            <div class="ios-seg-btn active" data-fuel="gas">Газ</div>
+            <div class="ios-seg-btn" data-fuel="petrol">Бензин</div>
+            <div class="ios-seg-btn" data-fuel="all">Все</div>
+          </div>
+          <div class="chips" id="chartPeriodChips" style="margin-bottom:0">
+            <div class="chip" data-cperiod="3">3 мес</div>
+            <div class="chip active" data-cperiod="6">6 мес</div>
+            <div class="chip" data-cperiod="12">Год</div>
+            <div class="chip" data-cperiod="all">Всё</div>
+          </div>
+        </div>
         <div class="chart-wrap" id="svgChartWrap">
           <svg class="chart-svg" id="svgConsChart" height="160"></svg>
           <div class="chart-tooltip" id="svgChartTip"></div>
         </div>
         <div class="chart-legend" style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--sep);display:flex;gap:18px">
-          <div class="cl"><div class="cl-sw" style="background:var(--accent)"></div>Расход л/100 км</div>
+          <div class="cl"><div class="cl-sw" id="chartLegendSw" style="background:var(--accent)"></div>Расход л/100 км</div>
           <div class="cl"><div class="cl-sw" style="background:var(--orange);opacity:.7"></div><span id="avgLegendLabel">Среднее</span></div>
         </div>
       </div>
 
-      <!-- ⑥ ГБО ЭКОНОМИЯ -->
+      <!-- ⑥ ГБО ЭКОНОМИЯ — карточка сравнения -->
       <div class="slbl">Газ vs Бензин</div>
-      <div class="group">
-        <div class="row">
-          <div class="row-icon" style="background:var(--green-bg)">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+      <div class="group" style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <div>
+            <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;font-weight:600;margin-bottom:4px">Экономия на 100 км</div>
+            <div style="font-size:28px;font-weight:700;color:var(--green);letter-spacing:-1px;font-family:var(--font-r)">${savings ? '+'+savings : '—'} <span style="font-size:15px;font-weight:400;color:var(--text2)">${ccy}</span></div>
           </div>
-          <div class="row-body">
-            <div class="row-title">Экономия на 100 км</div>
-            <div class="row-sub">газ против бензина</div>
+          ${savings && costPetrolPer100 ? `<div style="background:var(--green-bg);color:var(--green);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">${Math.round(parseFloat(savings)/parseFloat(costPetrolPer100)*100)}% дешевле</div>` : ''}
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:13px;color:var(--text);display:flex;align-items:center;gap:5px">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>Газ</span>
+            <span style="font-size:13px;font-weight:600;color:var(--orange)">${avgGas} л/100 · ${costGasPer100||'—'} ${ccy}/100км</span>
           </div>
-          <div class="row-right">
-            <div class="row-val green">${savings ? '+' + savings + ' zł' : '—'}</div>
+          <div style="height:7px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-bottom:10px">
+            <div style="height:100%;border-radius:4px;background:var(--orange);width:${costGasPer100&&costPetrolPer100?Math.round(parseFloat(costGasPer100)/parseFloat(costPetrolPer100)*100):50}%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:13px;color:var(--text);display:flex;align-items:center;gap:5px">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/></svg>Бензин</span>
+            <span style="font-size:13px;font-weight:600;color:var(--red)">${avgPetrolCons?avgPetrolCons.toFixed(1):'—'} л/100 · ${costPetrolPer100||'—'} ${ccy}/100км</span>
+          </div>
+          <div style="height:7px;background:var(--bg2);border-radius:4px;overflow:hidden">
+            <div style="height:100%;border-radius:4px;background:var(--red);width:100%"></div>
           </div>
         </div>
-        <div class="row">
-          <div class="row-icon" style="background:var(--red-bg)">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>
-          </div>
-          <div class="row-body"><div class="row-title">Расход бензин</div></div>
-          <div class="row-right">
-            <div class="row-val">${avgPetrolCons ? avgPetrolCons.toFixed(1) : '—'} л/100</div>
-          </div>
-        </div>
-        <div class="row">
-          <div class="row-icon" style="background:var(--orange-bg)">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
-          </div>
-          <div class="row-body"><div class="row-title">Расход газ (средний)</div></div>
-          <div class="row-right">
-            <div class="row-val">${avgGas} л/100</div>
-          </div>
-        </div>
+        <div style="font-size:12px;color:var(--text2);padding-top:10px;border-top:.5px solid var(--sep)">На основе последних 5 заправок каждого типа</div>
       </div>
 
       <!-- ⑦ ИСТОРИЯ -->
@@ -781,25 +848,72 @@ function renderFuel(data) {
     });
   });
 
-  // SVG chart (built from fuelChart data pipeline)
-  setTimeout(() => buildSVGFuelChart(data), 80);
+  // SVG chart
+  window._fuelRawData     = data;
+  window._fuelChartMonths = 6;
+  window._fuelChartMode   = 'gas';
+  setTimeout(() => {
+    buildSVGFuelChart(data, 6, 'gas');
+
+    // Период
+    document.querySelectorAll('#chartPeriodChips .chip').forEach(chip => {
+      chip.addEventListener('click', function() {
+        document.querySelectorAll('#chartPeriodChips .chip').forEach(c => c.classList.remove('active'));
+        this.classList.add('active');
+        const val = this.dataset.cperiod;
+        window._fuelChartMonths = val === 'all' ? 9999 : parseInt(val);
+        buildSVGFuelChart(window._fuelRawData, window._fuelChartMonths, window._fuelChartMode);
+      });
+    });
+
+    // Тип топлива
+    document.querySelectorAll('#fuelChartSeg .ios-seg-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('#fuelChartSeg .ios-seg-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        window._fuelChartMode = this.dataset.fuel;
+        buildSVGFuelChart(window._fuelRawData, window._fuelChartMonths, window._fuelChartMode);
+      });
+    });
+  }, 80);
 
   // Range card
   if (typeof updateFuelRangeDisplay === 'function') updateFuelRangeDisplay(data);
 }
 
 // ── SVG FUEL CHART (like Auris iOS v4) ─────────────────
-function buildSVGFuelChart(rawData) {
-  // All gas data over entire period (no 6-month filter)
+function buildSVGFuelChart(rawData, months, mode) {
+  months = (months === undefined) ? (window._fuelChartMonths || 6) : months;
+  mode   = mode || window._fuelChartMode || 'gas';
+  // Фильтр по дате
+  let periodData = rawData;
+  if (months && months < 9999) {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+    cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+    periodData = Array.isArray(rawData) ? rawData.filter(e => {
+      if (!e.date) return false;
+      const d = parseCustomDate(e.date);
+      return !isNaN(d.getTime()) && d >= cutoff;
+    }) : [];
+  }
+
+  // Цвет зависит от режима
+  const lineColor = mode === 'petrol' ? 'var(--red)' : mode === 'all' ? 'var(--indigo)' : 'var(--accent)';
+  const sw = document.getElementById('chartLegendSw');
+  if (sw) sw.style.background = lineColor;
+
   let monthlyData = [];
   if (typeof calculateMonthlyAverages === 'function' && typeof sortMonthlyData === 'function') {
-    // Filter only gas with valid consumption — no date restriction
-    const gasAll = Array.isArray(rawData) ? rawData.filter(e => {
-      const isGas = e.fuelType && e.fuelType.toString().toLowerCase().includes('газ');
+    const filtered = Array.isArray(periodData) ? periodData.filter(e => {
+      const t = (e.fuelType||'').toLowerCase();
+      const isGas    = t.includes('газ');
+      const isPetrol = t.includes('бензин') || t.includes('petrol');
+      const matchMode = mode === 'gas' ? isGas : mode === 'petrol' ? isPetrol : (isGas || isPetrol);
       const hasCons = e.fuelConsumption && !isNaN(parseFloat(e.fuelConsumption)) && parseFloat(e.fuelConsumption) > 0;
-      return isGas && hasCons;
+      return matchMode && hasCons;
     }) : [];
-    const monthly = calculateMonthlyAverages(gasAll);
+    const monthly = calculateMonthlyAverages(filtered);
     monthlyData   = sortMonthlyData(monthly);
   }
 
@@ -809,10 +923,32 @@ function buildSVGFuelChart(rawData) {
   if (!svg || !wrap) return;
 
   if (!monthlyData || monthlyData.length < 2) {
+    // Убираем старое сообщение если было
+    const oldMsg = wrap.querySelector('.chart-empty-msg');
+    if (oldMsg) oldMsg.remove();
     svg.style.display = 'none';
-    wrap.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text2);font-size:14px">Недостаточно данных за 6 месяцев</div>';
+
+    const isPetrolMode = mode === 'petrol';
+    const icon = isPetrolMode
+      ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>'
+      : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    const title = isPetrolMode ? 'Недостаточно данных о расходе' : 'Нет данных за выбранный период';
+    const sub = isPetrolMode
+      ? 'Расход бензина не фиксируется в журнале.<br>График строится только по записям с пробегом.'
+      : 'Попробуйте выбрать более длинный период.';
+
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'chart-empty-msg';
+    emptyDiv.style.cssText = 'text-align:center;padding:28px 16px;color:var(--text2)';
+    emptyDiv.innerHTML = `${icon}<div style="font-size:14px;font-weight:600;color:var(--text);margin:8px 0 4px">${title}</div><div style="font-size:12px;line-height:1.5">${sub}</div>`;
+    wrap.appendChild(emptyDiv);
     return;
   }
+
+  // Убираем сообщение если данные появились
+  const oldMsg = wrap.querySelector('.chart-empty-msg');
+  if (oldMsg) oldMsg.remove();
+  svg.style.display = 'block';
 
   const W = wrap.clientWidth || 320;
   const H = 160, pL = 30, pR = 8, pT = 12, pB = 26;
@@ -839,7 +975,7 @@ function buildSVGFuelChart(rawData) {
   // Gradient defs
   const defs = mk('defs', {});
   const grad = mk('linearGradient', { id:'fcg', x1:'0', y1:'0', x2:'0', y2:'1' });
-  grad.appendChild(mk('stop', { offset:'0%', 'stop-color':'var(--accent)', 'stop-opacity':'0.18' }));
+  grad.appendChild(mk('stop', { offset:'0%', 'stop-color':lineColor, 'stop-opacity':'0.18' }));
   grad.appendChild(mk('stop', { offset:'100%', 'stop-color':'var(--accent)', 'stop-opacity':'0.01' }));
   defs.appendChild(grad); svg.appendChild(defs);
 
@@ -867,12 +1003,12 @@ function buildSVGFuelChart(rawData) {
 
   // Main polyline
   const pts = monthlyData.map((d,i) => `${xS(i)},${yS(d.average)}`).join(' ');
-  svg.appendChild(mk('polyline', { points:pts, fill:'none', stroke:'var(--accent)', 'stroke-width':'2', 'stroke-linecap':'round', 'stroke-linejoin':'round' }));
+  svg.appendChild(mk('polyline', { points:pts, fill:'none', stroke:lineColor, 'stroke-width':'2', 'stroke-linecap':'round', 'stroke-linejoin':'round' }));
 
   // Dots + x-labels + tooltips
   monthlyData.forEach((d, i) => {
     const cx = xS(i), cy = yS(d.average);
-    const dot = mk('circle', { cx, cy, r:'4', fill:'var(--accent)', stroke:'var(--grouped)', 'stroke-width':'2.5' });
+    const dot = mk('circle', { cx, cy, r:'4', fill:lineColor, stroke:'var(--grouped)', 'stroke-width':'2.5' });
     dot.style.cursor = 'pointer';
     dot.addEventListener('click', () => {
       tip.style.display = 'block';
@@ -898,6 +1034,31 @@ function buildFillRows(data) {
   if (!data || data.length === 0) {
     return '<div class="empty-state">Нет заправок за выбранный период</div>';
   }
+  // Группировка по месяцам если больше одного
+  const monthGroups = {}, monthOrder = [];
+  data.forEach(r => {
+    const d = parseCustomDate(r.date);
+    const mk = isNaN(d.getTime()) ? '—' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const label = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}).replace(/^./,c=>c.toUpperCase());
+    if (!monthGroups[mk]) { monthGroups[mk]={label,rows:[]}; monthOrder.push(mk); }
+    monthGroups[mk].rows.push(r);
+  });
+  if (monthOrder.length > 1) {
+    let html = '';
+    monthOrder.forEach(mk => {
+      const g = monthGroups[mk];
+      const cnt = g.rows.length;
+      const tot = g.rows.reduce((s,r)=>s+(parseFloat(r.totalCost)||0),0);
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px 4px;border-bottom:.5px solid var(--sep)"><span style="font-size:14px;font-weight:600;color:var(--text)">${g.label}</span><span style="font-size:12px;color:var(--text2)">${cnt} шт · ${Math.round(tot)} ${(()=>{try{return JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){return 'zł';}})()} </span></div>`;
+      html += buildFillRowsFlat(g.rows);
+    });
+    return html;
+  }
+  return buildFillRowsFlat(data);
+}
+
+function buildFillRowsFlat(data) {
+  if (!data || data.length === 0) return '';
   const GAS_ICO = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>`;
   const PETROL_ICO = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>`;
 
@@ -1026,7 +1187,7 @@ function renderAddFuel(data) {
   `;
 }
 
-const GAS_POST_URL = 'https://script.google.com/macros/s/AKfycbwbmbhFKSKTcZx1zQZcYYs8xeNKxCZKRqFNpRSrcS4VvEaSyKNfIQtymnFw0YkL-V6L/exec';
+const GAS_POST_URL = 'https://script.google.com/macros/s/AKfycbwrKqSXxg0nNnTF0tvqWFRYyPiJ9yQyORsnsPz35iYpwMmNI8BSkHnF20iHePZbQIDf/exec';
 
 async function submitFuel(e) {
   e.preventDefault();
@@ -1093,7 +1254,6 @@ async function submitFuel(e) {
       // Инвалидируем кэш — при следующем открытии fuel/home данные обновятся
       localStorage.removeItem('cache_v2_fuel');
       localStorage.removeItem('cache_v2_home'); // инвалидируем кэш после новой заправки
-      localStorage.removeItem('cache_v2_addfuel'); // чтобы подтянуть новый последний пробег
     }
   } catch(err) {
     msg.style.display = 'block';
@@ -1120,6 +1280,165 @@ function getServiceIconSVG(type) {
     return {svg:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',cls:'i'};
   return {svg:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>',cls:'b'};
 }
+
+// ── ADD SERVICE ───────────────────────────────────────
+function renderAddService(data) {
+  const lastKm = data && data.endKm ? data.endKm : '';
+  const cur = (function(){ try { return JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'PLN'; } catch(e){ return 'PLN'; } })();
+  const today = new Date().toISOString().slice(0,10);
+
+  DOM.pageContent.innerHTML = `
+    <div class="anim">
+
+      <div class="form-section-label">Данные записи</div>
+      <div class="form-group-box">
+        <div class="form-row">
+          <label class="form-lbl" for="svcType">Тип работ <span style="color:var(--red)">*</span></label>
+          <select class="form-select" id="svcType">
+            <option value="">Выбрать</option>
+            <option value="Плановое ТО">Плановое ТО</option>
+            <option value="Ремонт">Ремонт</option>
+            <option value="Покупка запчастей">Покупка запчастей</option>
+            <option value="Переобувка">Переобувка</option>
+            <option value="Расходники">Расходники</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-lbl" for="svcDate">Дата <span style="color:var(--red)">*</span></label>
+          <input class="form-inp" type="date" id="svcDate" value="${today}">
+        </div>
+        <div class="form-row">
+          <label class="form-lbl" for="svcMileage">Пробег</label>
+          <input class="form-inp" type="text" id="svcMileage" placeholder="км (необязательно)" value="${lastKm}">
+        </div>
+      </div>
+
+      <div class="form-section-label" style="margin-top:16px">Описание <span style="color:var(--red)">*</span></div>
+      <div class="form-group-box">
+        <div class="form-row">
+          <textarea class="form-inp" id="svcDesc" rows="3" placeholder="Перечень проведённых работ / установленных деталей…" style="text-align:left;resize:none;min-height:72px"></textarea>
+        </div>
+      </div>
+
+      <div class="form-section-label" style="margin-top:16px">Стоимость</div>
+      <div class="form-group-box">
+        <div class="form-row">
+          <label class="form-lbl" for="svcPartsCost">Детали <span style="color:var(--text2);font-size:12px">(${cur})</span></label>
+          <input class="form-inp" type="number" step="0.01" id="svcPartsCost" placeholder="0" min="0" value="0">
+        </div>
+        <div class="form-row">
+          <label class="form-lbl" for="svcDelivery">Доставка <span style="color:var(--text2);font-size:12px">(${cur})</span></label>
+          <input class="form-inp" type="number" step="0.01" id="svcDelivery" placeholder="0" min="0" value="0">
+        </div>
+        <div class="form-row">
+          <label class="form-lbl" for="svcWorkCost">Работы <span style="color:var(--text2);font-size:12px">(${cur})</span></label>
+          <input class="form-inp" type="number" step="0.01" id="svcWorkCost" placeholder="0" min="0" value="0">
+        </div>
+        <div class="form-row" style="border-top:1px solid var(--sep);padding-top:10px;margin-top:2px">
+          <label class="form-lbl" style="font-weight:600">Итого</label>
+          <span class="form-inp" id="svcTotal" style="background:var(--accent-bg);color:var(--accent);font-weight:700;display:flex;align-items:center">0 ${cur}</span>
+        </div>
+      </div>
+      <p class="form-hint">* обязательно · Итого = детали + доставка + работы</p>
+
+      <button class="ios-btn-primary" id="submitSvcBtn" onclick="submitService(event)">Добавить запись</button>
+      <div id="svcFormMessage" style="display:none"></div>
+
+    </div>
+  `;
+
+  ['svcPartsCost','svcDelivery','svcWorkCost'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', function() {
+      const p = parseFloat(document.getElementById('svcPartsCost').value)||0;
+      const d = parseFloat(document.getElementById('svcDelivery').value)||0;
+      const w = parseFloat(document.getElementById('svcWorkCost').value)||0;
+      document.getElementById('svcTotal').textContent = (p+d+w).toFixed(2).replace(/\.00$/,'') + ' ' + cur;
+    });
+  });
+}
+
+async function submitService(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submitSvcBtn');
+  const msg = document.getElementById('svcFormMessage');
+
+  const typeVal  = document.getElementById('svcType').value.trim();
+  const dateVal  = document.getElementById('svcDate').value;
+  const descVal  = document.getElementById('svcDesc').value.trim();
+  const kmRaw    = document.getElementById('svcMileage').value.trim();
+  const mileage  = kmRaw ? kmRaw.replace(/\s/g,'').replace('км','').trim() : '';
+  const parts    = parseFloat(document.getElementById('svcPartsCost').value)||0;
+  const delivery = parseFloat(document.getElementById('svcDelivery').value)||0;
+  const work     = parseFloat(document.getElementById('svcWorkCost').value)||0;
+  const total    = parts + delivery + work;
+
+  let dateFormatted = '';
+  if (dateVal) {
+    const [y,m,d] = dateVal.split('-');
+    dateFormatted = d+'.'+m+'.'+y;
+  }
+
+  const errors = [];
+  if (!typeVal)       errors.push('выберите тип работ');
+  if (!descVal)       errors.push('введите описание');
+  if (!dateFormatted) errors.push('укажите дату');
+
+  if (errors.length) {
+    msg.style.display = 'block';
+    msg.className = 'form-message error';
+    msg.textContent = '\u2715 ' + errors.join(', ');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Отправка...';
+  msg.style.display = 'none';
+
+  const params = new URLSearchParams({
+    action:      'addService',
+    type:        typeVal,
+    description: descVal,
+    mileage:     mileage,
+    date:        dateFormatted,
+    delivery:    delivery,
+    partsCost:   parts,
+    workCost:    work,
+    total:       total,
+  });
+
+  try {
+    const res = await fetch(GAS_POST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: params.toString()
+    });
+    if (!res.ok) throw new Error('\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438: ' + res.status);
+    const result = await res.json();
+
+    msg.style.display = 'block';
+    msg.className = 'form-message ' + (result.success ? 'success' : 'error');
+    msg.textContent = (result.success ? '\u2713 ' : '\u2715 ') + result.message;
+
+    if (result.success) {
+      document.getElementById('svcType').value      = '';
+      document.getElementById('svcDesc').value      = '';
+      document.getElementById('svcPartsCost').value = '0';
+      document.getElementById('svcDelivery').value  = '0';
+      document.getElementById('svcWorkCost').value  = '0';
+      document.getElementById('svcTotal').textContent = '0';
+      localStorage.removeItem('cache_v2_service');
+      localStorage.removeItem('cache_v2_tco');
+    }
+  } catch(err) {
+    msg.style.display = 'block';
+    msg.className = 'form-message error';
+    msg.textContent = '\u2715 ' + err.message;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c';
+}
+
 
 function renderService(data) {
   if(!Array.isArray(data)) return;
@@ -1662,7 +1981,7 @@ function renderSettings(data) {
       inpCopy('cs_vin',         'VIN-код',               'JTDKW923900…',  c.vin) +
       inpCopy('cs_regNum',      'Рег. номера',             'WN 12345',      c.regNum) +
       inpCopy('cs_insuranceNum','Номер полиса',            '№',             c.insuranceNum) +
-      inpCopy('cs_insuranceEnd','Страховка до',            '16.05.2026',    c.insuranceEnd)) +
+      inp('cs_insuranceEnd', 'Страховка до',           'text',   '16.05.2026',    c.insuranceEnd)) +
 
     acc('oil',  ICONS.oil,  'Масло двигателя',      subOil(),
       inp('cs_oilLast',     'Последняя замена, км', 'number', '281664', c.oilLast) +
@@ -1700,9 +2019,9 @@ function renderSettings(data) {
 
     '<div class="slbl" style="margin-top:24px">О приложении</div>' +
     '<div class="group">' +
-      '<div class="row"><div class="row-body"><div class="row-title">Версия</div></div><div class="row-right"><div class="row-val">1.0.0</div></div></div>' +
-      '<div class="row"><div class="row-body"><div class="row-title">Записей обслуживания</div></div><div class="row-right"><div class="row-val">' + count + '</div></div></div>' +
-      '<div class="row" style="cursor:pointer" onclick="_clearCache(event)"><div class="row-body"><div class="row-title" style="color:var(--red)">Очистить кэш</div></div></div>' +
+      '<div class="row"><div class="row-body"><div class="row-title">Версия</div></div><div class="row-right"><div class="row-val">2.5.0</div></div></div>' +
+      (function(){ var svc=readCache('service'); var n=svc&&Array.isArray(svc.data)?svc.data.length:'—'; return '<div class="row"><div class="row-body"><div class="row-title">Записей обслуживания</div></div><div class="row-right"><div class="row-val">'+n+'</div></div></div>'; })() +
+      '<div class="row" style="cursor:pointer" onclick="_clearCacheConfirm(event)"><div class="row-body"><div class="row-title" style="color:var(--red)">Очистить кэш</div><div class="row-sub">Данные перезагрузятся при следующем открытии</div></div></div>' +
     '</div></div>';
 
   // Layout toggles
@@ -2385,6 +2704,21 @@ function _updateAccSubs() {
 }
 
 
+function _clearCacheConfirm(e) {
+  var t = e.currentTarget.querySelector('.row-title');
+  if (t && t.textContent === 'Уверены? Нажмите ещё раз') {
+    _clearCache(e);
+    return;
+  }
+  if (t) {
+    t.style.color = 'var(--red)';
+    t.textContent = 'Уверены? Нажмите ещё раз';
+    setTimeout(function() {
+      if (t) t.textContent = 'Очистить кэш';
+    }, 3000);
+  }
+}
+
 function _clearCache(e) {
   ['cache_v2_home','cache_v2_fuel','cache_v2_service','cache_v2_settings','cache_v2_tco','cache_v2_addfuel'].forEach(function(k){localStorage.removeItem(k);});
   var t = e.currentTarget.querySelector('.row-title');
@@ -2486,32 +2820,6 @@ function renderPlaceholder() {
   DOM.pageContent.innerHTML = `<div class="empty-state" style="padding:60px 20px">Раздел в разработке</div>`;
 }
 
-function navigateToPage(page) {
-  const current = getQueryParam('page') || 'home';
-  const target = page || 'home';
-  if (target === current) return;
-
-  const url = new URL(window.location.href);
-  url.searchParams.set('page', target);
-  history.pushState({}, '', url);
-  loadData();
-}
-
-function setupClientSideNavigation() {
-  document.querySelectorAll('.tab[data-page]').forEach(function(tab) {
-    tab.addEventListener('click', function(e) {
-      if (e.defaultPrevented) return;
-      if (e.button !== 0) return;
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      e.preventDefault();
-      navigateToPage(tab.dataset.page);
-    });
-  });
-}
-
 // ── INIT ───────────────────────────────────────────────
-window.addEventListener('load', function() {
-  setupClientSideNavigation();
-  loadData();
-});
+window.addEventListener('load', loadData);
 window.addEventListener('popstate', loadData);
