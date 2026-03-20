@@ -293,6 +293,29 @@ function getHomeLayout() {
 }
 function saveHomeLayout(l) { localStorage.setItem('home_layout', JSON.stringify(l)); }
 
+// ── TCO LAYOUT ─────────────────────────────────────────────────────────────────
+var TCO_LAYOUT_DEFAULTS = [
+  {id:'cards',     label:'Карточки статистики', enabled:true},
+  {id:'chart',     label:'График расходов',      enabled:true},
+  {id:'dist',      label:'Распределение',        enabled:true},
+  {id:'insurance', label:'Страховка по годам',   enabled:true},
+  {id:'yearcomp',  label:'Год к году',           enabled:true},
+  {id:'insight',   label:'Инсайт',               enabled:true},
+  {id:'cushion',   label:'Финансовая подушка',   enabled:true},
+];
+function getTcoLayout() {
+  try {
+    var s = localStorage.getItem('tco_layout');
+    if (!s) return JSON.parse(JSON.stringify(TCO_LAYOUT_DEFAULTS));
+    var saved = JSON.parse(s);
+    TCO_LAYOUT_DEFAULTS.forEach(function(def) {
+      if (!saved.find(function(x){ return x.id === def.id; })) saved.push(JSON.parse(JSON.stringify(def)));
+    });
+    return saved;
+  } catch(e) { return JSON.parse(JSON.stringify(TCO_LAYOUT_DEFAULTS)); }
+}
+function saveTcoLayout(l) { localStorage.setItem('tco_layout', JSON.stringify(l)); }
+
 function renderHome(data) {
   if (!data || typeof data !== 'object') return;
 
@@ -605,12 +628,25 @@ function renderFuel(data) {
     ? (last5gas.reduce((s,e) => s + parseFloat(e.fuelConsumption), 0) / last5gas.length)
     : null;
 
-  // Avg petrol consumption (last entries with valid consumption)
+  // Порог: расход бензина < 2.5 л/100 = доп. бензин в режиме газа (прогрев)
+  const PETROL_EXTRA_THRESHOLD = 2.5;
+
   const petrolWithCons = petrolData.filter(e => parseFloat(e.fuelConsumption) > 0);
-  const last5petrol    = petrolWithCons.slice(-5);
-  const avgPetrolCons  = last5petrol.length
+  // Чистый бензин — машина едет только на бензине
+  const petrolPureMode  = petrolWithCons.filter(e => parseFloat(e.fuelConsumption) >= PETROL_EXTRA_THRESHOLD);
+  // Доп. бензин — небольшой расход пока работает газ (прогрев, переключение)
+  const petrolExtraMode = petrolWithCons.filter(e => parseFloat(e.fuelConsumption) < PETROL_EXTRA_THRESHOLD);
+
+  // Средний расход чистого бензина (для сравнения)
+  const last5petrol   = petrolPureMode.slice(-5);
+  const avgPetrolCons = last5petrol.length
     ? (last5petrol.reduce((s,e) => s + parseFloat(e.fuelConsumption), 0) / last5petrol.length)
-    : 9.5; // reasonable default if no petrol consumption data
+    : null;
+
+  // Средний доп. расход бензина в режиме газа
+  const avgPetrolExtra = petrolExtraMode.length
+    ? (petrolExtraMode.reduce((s,e) => s + parseFloat(e.fuelConsumption), 0) / petrolExtraMode.length)
+    : null;
 
   // Price per litre: gas (avg last 5 fills)
   const last5gasFills = gasData.slice(-5);
@@ -618,26 +654,40 @@ function renderFuel(data) {
     ? (last5gasFills.reduce((s,e) => s + (parseFloat(e.pricePerLiter)||0), 0) / last5gasFills.filter(e => parseFloat(e.pricePerLiter) > 0).length)
     : null;
 
-  // Price per litre: petrol (avg last 5 fills)
-  const last5petrolFills = petrolData.slice(-5);
+  // Price per litre: petrol pure (avg last 5 pure fills)
+  const last5petrolFills = petrolPureMode.slice(-5);
   const petrolPrices = last5petrolFills.filter(e => parseFloat(e.pricePerLiter) > 0);
   const avgPetrolPrice = petrolPrices.length
     ? (petrolPrices.reduce((s,e) => s + parseFloat(e.pricePerLiter), 0) / petrolPrices.length)
     : null;
 
-  // Cost per 100 km
-  const costGasPer100    = (avgGasCons && avgGasPrice)
+  // Price per litre: extra petrol (avg all extra fills)
+  const extraPrices = petrolExtraMode.filter(e => parseFloat(e.pricePerLiter) > 0);
+  const avgPetrolExtraPrice = extraPrices.length
+    ? (extraPrices.reduce((s,e) => s + parseFloat(e.pricePerLiter), 0) / extraPrices.length)
+    : null;
+
+  // Cost per 100 km — газ
+  const costGasPer100 = (avgGasCons && avgGasPrice)
     ? (avgGasCons * avgGasPrice).toFixed(2) : null;
-  const costPetrolPer100 = avgPetrolCons
-    ? (avgPetrolCons * (avgPetrolPrice || 6.0)).toFixed(2) : null;
+
+  // Cost per 100 km — реальный режим ГБО = газ + доп. бензин
+  const costExtraPetrolPer100 = (avgPetrolExtra && avgPetrolExtraPrice)
+    ? avgPetrolExtra * avgPetrolExtraPrice : 0;
+  const costGboModePer100 = costGasPer100
+    ? (parseFloat(costGasPer100) + costExtraPetrolPer100).toFixed(2) : null;
+
+  // Cost per 100 km — чистый бензин (для сравнения)
+  const costPetrolPer100 = (avgPetrolCons && avgPetrolPrice)
+    ? (avgPetrolCons * avgPetrolPrice).toFixed(2) : null;
 
   // Cost per km
-  const costPerKmGas    = costGasPer100    ? (parseFloat(costGasPer100) / 100).toFixed(2)    : '0.17';
-  const costPerKmPetrol = costPetrolPer100 ? (parseFloat(costPetrolPer100) / 100).toFixed(2) : '0.35';
+  const costPerKmGas    = costGboModePer100 ? (parseFloat(costGboModePer100) / 100).toFixed(2) : '0.17';
+  const costPerKmPetrol = costPetrolPer100  ? (parseFloat(costPetrolPer100)  / 100).toFixed(2) : '0.35';
 
-  // Savings per 100 km
-  const savings = (costGasPer100 && costPetrolPer100)
-    ? (parseFloat(costPetrolPer100) - parseFloat(costGasPer100)).toFixed(2)
+  // Экономия: реальный режим ГБО (газ + доп. бензин) vs чистый бензин
+  const savings = (costGboModePer100 && costPetrolPer100)
+    ? (parseFloat(costPetrolPer100) - parseFloat(costGboModePer100)).toFixed(2)
     : null;
 
   // Валюта
@@ -696,12 +746,12 @@ function renderFuel(data) {
         <div class="mini">
           <div class="mini-lbl">Средний расход (газ)</div>
           <div class="mini-val">${avgGas}<span class="u"> л/100</span></div>
-          <div class="mini-sub">последние заправки</div>
+          <div class="mini-sub">последние 5 заправок газа</div>
         </div>
-        <div class="mini">
-          <div class="mini-lbl">1 км на газе</div>
-          <div class="mini-val">${costPerKmGas}<span class="u"> zł</span></div>
-          <div class="mini-sub">vs ${costPerKmPetrol} zł на бензине</div>
+        <div class="mini" style="background:var(--green-bg);border:1px solid rgba(52,199,89,0.2)">
+          <div class="mini-lbl" style="color:var(--green)">1 км · режим ГБО</div>
+          <div class="mini-val" style="color:var(--green)">${costPerKmGas}<span class="u" style="color:var(--green)"> zł</span></div>
+          <div class="mini-sub">vs ${costPerKmPetrol} zł бензин</div>
         </div>
       </div>
 
@@ -715,7 +765,7 @@ function renderFuel(data) {
         <div class="mini">
           <div class="mini-lbl">Всего заправок</div>
           <div class="mini-val">${totalFills}<span class="u"> шт</span></div>
-          <div class="mini-sub">газ: ${gasData.length} · бензин: ${petrolData.length}</div>
+          <div class="mini-sub">газ: ${gasData.length} · бензин: ${petrolPureMode.length} · доп: ${petrolExtraMode.length}</div>
         </div>
       </div>
 
@@ -725,12 +775,13 @@ function renderFuel(data) {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap">
           <div class="ios-seg" id="fuelChartSeg">
             <div class="ios-seg-btn active" data-fuel="gas">Газ</div>
-            <div class="ios-seg-btn" data-fuel="petrol">Бензин</div>
-            <div class="ios-seg-btn" data-fuel="all">Все</div>
+            <div class="ios-seg-btn" data-fuel="petrol">Бензин ≥2.5</div>
+            <div class="ios-seg-btn" data-fuel="gbo">ГБО режим</div>
           </div>
           <div class="chips" id="chartPeriodChips" style="margin-bottom:0">
+            <div class="chip active" data-cperiod="fills5">5 запр.</div>
             <div class="chip" data-cperiod="3">3 мес</div>
-            <div class="chip active" data-cperiod="6">6 мес</div>
+            <div class="chip" data-cperiod="6">6 мес</div>
             <div class="chip" data-cperiod="12">Год</div>
             <div class="chip" data-cperiod="all">Всё</div>
           </div>
@@ -739,41 +790,70 @@ function renderFuel(data) {
           <svg class="chart-svg" id="svgConsChart" height="160"></svg>
           <div class="chart-tooltip" id="svgChartTip"></div>
         </div>
-        <div class="chart-legend" style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--sep);display:flex;gap:18px">
-          <div class="cl"><div class="cl-sw" id="chartLegendSw" style="background:var(--accent)"></div>Расход л/100 км</div>
+        <div class="chart-legend" style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--sep);display:flex;gap:18px;flex-wrap:wrap">
+          <div class="cl"><div class="cl-sw" id="chartLegendSw" style="background:var(--accent)"></div><span id="chartLegendMain">Расход л/100 км</span></div>
+          <div class="cl" id="chartLegendExtra" style="display:none"><div class="cl-sw" style="background:var(--text3);height:2px;border-top:2px dashed var(--text3)"></div>Доп. бензин л/100 км</div>
           <div class="cl"><div class="cl-sw" style="background:var(--orange);opacity:.7"></div><span id="avgLegendLabel">Среднее</span></div>
         </div>
       </div>
 
       <!-- ⑥ ГБО ЭКОНОМИЯ — карточка сравнения -->
-      <div class="slbl">Газ vs Бензин</div>
-      <div class="group" style="padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="slbl" style="margin:0">Газ vs Бензин</div>
+        <div class="chips" id="gvsbPeriodChips" style="margin:0">
+          <div class="chip active" data-gvsb="5">5 запр.</div>
+          <div class="chip" data-gvsb="3">3 мес</div>
+          <div class="chip" data-gvsb="6">6 мес</div>
+          <div class="chip" data-gvsb="12">Год</div>
+          <div class="chip" data-gvsb="all">Всё</div>
+        </div>
+      </div>
+      <div class="group" id="gvsbCard" style="padding:16px">
+
+        <!-- Две колонки: режим ГБО | чистый бензин -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+
+          <!-- Колонка: Режим ГБО -->
+          <div style="background:var(--orange-bg);border-radius:12px;padding:12px">
+            <div style="font-size:11px;font-weight:600;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+              Режим ГБО
+            </div>
+            <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px;font-family:var(--font-r);line-height:1">
+              ${costGboModePer100||'—'}
+              <span style="font-size:12px;font-weight:400;color:var(--text2)">${ccy}/100км</span>
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-top:5px">газ ${avgGas} л/100</div>
+            ${avgPetrolExtra ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">+ доп. бензин ${avgPetrolExtra.toFixed(2)} л/100</div>` : ''}
+          </div>
+
+          <!-- Колонка: Чистый бензин -->
+          <div style="background:var(--red-bg);border-radius:12px;padding:12px">
+            <div style="font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+              Бензин
+            </div>
+            <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px;font-family:var(--font-r);line-height:1">
+              ${costPetrolPer100||'—'}
+              <span style="font-size:12px;font-weight:400;color:var(--text2)">${ccy}/100км</span>
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-top:5px">${avgPetrolCons?avgPetrolCons.toFixed(1):'—'} л/100</div>
+          </div>
+        </div>
+
+        <!-- Экономия -->
+        ${savings ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--green-bg);border-radius:10px;padding:10px 14px">
           <div>
-            <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;font-weight:600;margin-bottom:4px">Экономия на 100 км</div>
-            <div style="font-size:28px;font-weight:700;color:var(--green);letter-spacing:-1px;font-family:var(--font-r)">${savings ? '+'+savings : '—'} <span style="font-size:15px;font-weight:400;color:var(--text2)">${ccy}</span></div>
+            <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:1px">Экономия на 100 км</div>
+            <div style="font-size:11px;color:var(--text2)">режим ГБО дешевле чистого бензина</div>
           </div>
-          ${savings && costPetrolPer100 ? `<div style="background:var(--green-bg);color:var(--green);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">${Math.round(parseFloat(savings)/parseFloat(costPetrolPer100)*100)}% дешевле</div>` : ''}
-        </div>
-        <div style="margin-bottom:10px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:13px;color:var(--text);display:flex;align-items:center;gap:5px">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>Газ</span>
-            <span style="font-size:13px;font-weight:600;color:var(--orange)">${avgGas} л/100 · ${costGasPer100||'—'} ${ccy}/100км</span>
-          </div>
-          <div style="height:7px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-bottom:10px">
-            <div style="height:100%;border-radius:4px;background:var(--orange);width:${costGasPer100&&costPetrolPer100?Math.round(parseFloat(costGasPer100)/parseFloat(costPetrolPer100)*100):50}%"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:13px;color:var(--text);display:flex;align-items:center;gap:5px">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/></svg>Бензин</span>
-            <span style="font-size:13px;font-weight:600;color:var(--red)">${avgPetrolCons?avgPetrolCons.toFixed(1):'—'} л/100 · ${costPetrolPer100||'—'} ${ccy}/100км</span>
-          </div>
-          <div style="height:7px;background:var(--bg2);border-radius:4px;overflow:hidden">
-            <div style="height:100%;border-radius:4px;background:var(--red);width:100%"></div>
+          <div style="font-size:20px;font-weight:700;color:var(--green);font-family:var(--font-r);letter-spacing:-0.5px">
+            +${savings} <span style="font-size:12px;font-weight:500">${ccy}</span>
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text2);padding-top:10px;border-top:.5px solid var(--sep)">На основе последних 5 заправок каждого типа</div>
+        <div style="text-align:right;margin-top:6px;font-size:12px;color:var(--green);font-weight:600">
+          ${Math.round(parseFloat(savings)/parseFloat(costPetrolPer100)*100)}% дешевле
+        </div>` : ''}
+
       </div>
 
       <!-- ⑦ ИСТОРИЯ -->
@@ -786,37 +866,27 @@ function renderFuel(data) {
         <svg id="historySearchClear" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2.5" stroke-linecap="round" style="cursor:pointer;display:none" onclick="document.getElementById('historySearch').value='';_applyHistoryFilters()"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </div>
 
-      <!-- Фильтр по периоду -->
+      <!-- Фильтры: период + тип/расход в одном ряду -->
       <div class="chips" id="periodChips">
-        <div class="chip active" data-period="week">Неделя</div>
-        <div class="chip" data-period="month">Месяц</div>
+        <div class="chip" data-period="week">Неделя</div>
+        <div class="chip active" data-period="month">Месяц</div>
         <div class="chip" data-period="year">Год</div>
-        <div class="chip" data-period="all">Вся история</div>
+        <div class="chip" data-period="all">Всё</div>
       </div>
-
-      <!-- Фильтр по типу + расходу -->
-      <div class="chips" id="sortChips">
-        <div class="chip active" data-sort="all">Все</div>
+      <div class="chips" id="sortChips" style="margin-top:2px">
+        <div class="chip active" data-sort="all">Все типы</div>
         <div class="chip" data-sort="gas">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
-          Газ
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>Газ
         </div>
         <div class="chip" data-sort="petrol">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/></svg>
-          Бензин
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/></svg>Бензин
         </div>
-        <div class="chip" data-sort="high">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
-          Высокий
-        </div>
-        <div class="chip" data-sort="low">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-          Низкий
-        </div>
+        <div class="chip" data-sort="high">↑ Высокий</div>
+        <div class="chip" data-sort="low">↓ Низкий</div>
       </div>
 
       <div class="group" id="historyList">
-        ${buildFillRows(filterDataByPeriod(sorted, 'week'))}
+        ${buildFillRows(filterDataByPeriod(sorted, 'month'))}
       </div>
 
     </div>
@@ -825,7 +895,7 @@ function renderFuel(data) {
   // ── Состояние фильтров ─────────────────────────────────
   // Сохраняем данные глобально для доступа из oninput
   window._fuelSorted   = sorted;
-  window._activePeriod = 'week';
+  window._activePeriod = 'month';
   window._activeSort   = 'all';
 
   // Период chips
@@ -850,10 +920,10 @@ function renderFuel(data) {
 
   // SVG chart
   window._fuelRawData     = data;
-  window._fuelChartMonths = 6;
+  window._fuelChartMonths = 'fills5';
   window._fuelChartMode   = 'gas';
   setTimeout(() => {
-    buildSVGFuelChart(data, 6, 'gas');
+    buildSVGFuelChart(data, 'fills5', 'gas');
 
     // Период
     document.querySelectorAll('#chartPeriodChips .chip').forEach(chip => {
@@ -861,8 +931,17 @@ function renderFuel(data) {
         document.querySelectorAll('#chartPeriodChips .chip').forEach(c => c.classList.remove('active'));
         this.classList.add('active');
         const val = this.dataset.cperiod;
-        window._fuelChartMonths = val === 'all' ? 9999 : parseInt(val);
-        buildSVGFuelChart(window._fuelRawData, window._fuelChartMonths, window._fuelChartMode);
+        window._fuelChartMonths = val;
+        buildSVGFuelChart(window._fuelRawData, val, window._fuelChartMode);
+      });
+    });
+
+    // Период Газ vs Бензин
+    document.querySelectorAll('#gvsbPeriodChips .chip').forEach(chip => {
+      chip.addEventListener('click', function() {
+        document.querySelectorAll('#gvsbPeriodChips .chip').forEach(c => c.classList.remove('active'));
+        this.classList.add('active');
+        _updateGvsB(window._fuelRawData, this.dataset.gvsb);
       });
     });
 
@@ -883,13 +962,28 @@ function renderFuel(data) {
 
 // ── SVG FUEL CHART (like Auris iOS v4) ─────────────────
 function buildSVGFuelChart(rawData, months, mode) {
-  months = (months === undefined) ? (window._fuelChartMonths || 6) : months;
+  months = (months === undefined) ? (window._fuelChartMonths || 'fills5') : months;
   mode   = mode || window._fuelChartMode || 'gas';
-  // Фильтр по дате
+
+  // Фильтр по периоду
   let periodData = rawData;
-  if (months && months < 9999) {
+  if (months === 'fills5') {
+    // Последние 5 заправок каждого типа — берём последние 5 газовых + 5 бензиновых
+    const THRESHOLD = 2.5;
+    const all = Array.isArray(rawData) ? rawData : [];
+    const gasF    = all.filter(e => (e.fuelType||'').toLowerCase().includes('газ') && parseFloat(e.fuelConsumption) > 0);
+    const petrolF = all.filter(e => { const t=(e.fuelType||'').toLowerCase(); return (t.includes('бензин')||t.includes('petrol')) && parseFloat(e.fuelConsumption) >= THRESHOLD; });
+    const extraF  = all.filter(e => { const t=(e.fuelType||'').toLowerCase(); const c=parseFloat(e.fuelConsumption); return (t.includes('бензин')||t.includes('petrol')) && c > 0 && c < THRESHOLD; });
+    // Берём ключи дат последних 5 из каждой группы, собираем в periodData
+    const lastDates = new Set([
+      ...gasF.slice(-5).map(e=>e.date),
+      ...petrolF.slice(-5).map(e=>e.date),
+      ...extraF.slice(-5).map(e=>e.date),
+    ]);
+    periodData = all.filter(e => lastDates.has(e.date));
+  } else if (months !== 'all' && !isNaN(parseInt(months))) {
     const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - months);
+    cutoff.setMonth(cutoff.getMonth() - parseInt(months));
     cutoff.setDate(1); cutoff.setHours(0,0,0,0);
     periodData = Array.isArray(rawData) ? rawData.filter(e => {
       if (!e.date) return false;
@@ -899,22 +993,47 @@ function buildSVGFuelChart(rawData, months, mode) {
   }
 
   // Цвет зависит от режима
-  const lineColor = mode === 'petrol' ? 'var(--red)' : mode === 'all' ? 'var(--indigo)' : 'var(--accent)';
+  const lineColor = mode === 'petrol' ? 'var(--red)' : mode === 'gbo' ? 'var(--orange)' : mode === 'all' ? 'var(--indigo)' : 'var(--accent)';
   const sw = document.getElementById('chartLegendSw');
   if (sw) sw.style.background = lineColor;
 
+  // Легенда доп. бензина — только для ГБО режима
+  const legendExtra = document.getElementById('chartLegendExtra');
+  if (legendExtra) legendExtra.style.display = mode === 'gbo' ? 'flex' : 'none';
+  const legendMain = document.getElementById('chartLegendMain');
+  if (legendMain) legendMain.textContent = mode === 'gbo' ? 'Газ л/100 км' : 'Расход л/100 км';
+
+  const CHART_PETROL_THRESHOLD = 2.5;
+
+  // Для ГБО-режима нужно два набора данных
   let monthlyData = [];
+  let monthlyDataExtra = []; // доп. бензин (только для gbo)
+
   if (typeof calculateMonthlyAverages === 'function' && typeof sortMonthlyData === 'function') {
-    const filtered = Array.isArray(periodData) ? periodData.filter(e => {
-      const t = (e.fuelType||'').toLowerCase();
-      const isGas    = t.includes('газ');
-      const isPetrol = t.includes('бензин') || t.includes('petrol');
-      const matchMode = mode === 'gas' ? isGas : mode === 'petrol' ? isPetrol : (isGas || isPetrol);
-      const hasCons = e.fuelConsumption && !isNaN(parseFloat(e.fuelConsumption)) && parseFloat(e.fuelConsumption) > 0;
-      return matchMode && hasCons;
-    }) : [];
-    const monthly = calculateMonthlyAverages(filtered);
-    monthlyData   = sortMonthlyData(monthly);
+    const makeFiltered = (predicate) => Array.isArray(periodData)
+      ? periodData.filter(e => {
+          const hasCons = e.fuelConsumption && !isNaN(parseFloat(e.fuelConsumption)) && parseFloat(e.fuelConsumption) > 0;
+          return hasCons && predicate(e);
+        })
+      : [];
+
+    const isGas    = e => (e.fuelType||'').toLowerCase().includes('газ');
+    const isPetrol = e => { const t=(e.fuelType||'').toLowerCase(); return t.includes('бензин')||t.includes('petrol'); };
+    const cons     = e => parseFloat(e.fuelConsumption);
+
+    let primary;
+    if (mode === 'gas')    primary = makeFiltered(isGas);
+    else if (mode === 'petrol') primary = makeFiltered(e => isPetrol(e) && cons(e) >= CHART_PETROL_THRESHOLD);
+    else if (mode === 'gbo')   { primary = makeFiltered(isGas); }
+    else primary = makeFiltered(e => isGas(e) || (isPetrol(e) && cons(e) >= CHART_PETROL_THRESHOLD));
+
+    monthlyData = sortMonthlyData(calculateMonthlyAverages(primary));
+
+    // Доп. бензин для ГБО-режима
+    if (mode === 'gbo') {
+      const extra = makeFiltered(e => isPetrol(e) && cons(e) < CHART_PETROL_THRESHOLD);
+      monthlyDataExtra = sortMonthlyData(calculateMonthlyAverages(extra));
+    }
   }
 
   const svg = document.getElementById('svgConsChart');
@@ -929,12 +1048,16 @@ function buildSVGFuelChart(rawData, months, mode) {
     svg.style.display = 'none';
 
     const isPetrolMode = mode === 'petrol';
-    const icon = isPetrolMode
+    const isGboMode    = mode === 'gbo';
+    const icon = isPetrolMode || isGboMode
       ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>'
       : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
-    const title = isPetrolMode ? 'Недостаточно данных о расходе' : 'Нет данных за выбранный период';
+    const title = isPetrolMode ? 'Нет данных о чистом бензине'
+      : isGboMode ? 'Нет данных о газе за период'
+      : 'Нет данных за выбранный период';
     const sub = isPetrolMode
-      ? 'Расход бензина не фиксируется в журнале.<br>График строится только по записям с пробегом.'
+      ? 'Учитываются только заправки с расходом ≥ 2.5 л/100.<br>Доп. расход в режиме ГБО исключён.'
+      : isGboMode ? 'Попробуйте выбрать более длинный период.'
       : 'Попробуйте выбрать более длинный период.';
 
     const emptyDiv = document.createElement('div');
@@ -953,9 +1076,15 @@ function buildSVGFuelChart(rawData, months, mode) {
   const W = wrap.clientWidth || 320;
   const H = 160, pL = 30, pR = 8, pT = 12, pB = 26;
   const cW = W - pL - pR, cH = H - pT - pB;
+
+  // Объединяем оба набора для единого масштаба Y
+  const allVals = [
+    ...monthlyData.map(d => d.average),
+    ...monthlyDataExtra.map(d => d.average)
+  ];
   const vals = monthlyData.map(d => d.average);
-  const minV = Math.min(...vals) - 0.4;
-  const maxV = Math.max(...vals) + 0.4;
+  const minV = Math.min(...allVals) - 0.4;
+  const maxV = Math.max(...allVals) + 0.4;
   const avg  = vals.reduce((a,b) => a+b, 0) / vals.length;
 
   const ns  = 'http://www.w3.org/2000/svg';
@@ -1004,6 +1133,43 @@ function buildSVGFuelChart(rawData, months, mode) {
   // Main polyline
   const pts = monthlyData.map((d,i) => `${xS(i)},${yS(d.average)}`).join(' ');
   svg.appendChild(mk('polyline', { points:pts, fill:'none', stroke:lineColor, 'stroke-width':'2', 'stroke-linecap':'round', 'stroke-linejoin':'round' }));
+
+  // Вторая линия — доп. бензин (только для ГБО-режима)
+  if (mode === 'gbo' && monthlyDataExtra.length >= 2) {
+    // Строим маппинг месяц→x по основным данным
+    const monthToX = {};
+    monthlyData.forEach((d, i) => { monthToX[d.monthKey] = xS(i); });
+    // Для доп. бензина используем те же x-позиции где есть совпадение, иначе линейную интерполяцию
+    const extraPts = monthlyDataExtra
+      .filter(d => d.average > 0)
+      .map((d, i) => {
+        // xS по индексу в extra-массиве, mapped на ту же ширину
+        const x = pL + (i / (monthlyDataExtra.length - 1)) * cW;
+        return `${x},${yS(d.average)}`;
+      }).join(' ');
+    if (extraPts) {
+      svg.appendChild(mk('polyline', {
+        points: extraPts, fill:'none', stroke:'var(--text3)',
+        'stroke-width':'1.5', 'stroke-dasharray':'5 3',
+        'stroke-linecap':'round', 'stroke-linejoin':'round'
+      }));
+      // Точки доп. бензина
+      monthlyDataExtra.forEach((d, i) => {
+        const cx = pL + (i / (monthlyDataExtra.length - 1)) * cW;
+        const cy = yS(d.average);
+        const dot = mk('circle', { cx, cy, r:'3', fill:'var(--text3)', stroke:'var(--grouped)', 'stroke-width':'2' });
+        dot.style.cursor = 'pointer';
+        dot.addEventListener('click', () => {
+          tip.style.display = 'block';
+          tip.innerHTML = `<b>${d.average.toFixed(2)} л/100</b><span style="color:var(--text2)"> доп. бензин · ${d.monthName}</span>`;
+          let left = cx - 60; left = Math.max(0, Math.min(W - 130, left));
+          tip.style.left = left + 'px'; tip.style.top = (cy - 70) + 'px';
+          setTimeout(() => tip.style.display = 'none', 2200);
+        });
+        svg.appendChild(dot);
+      });
+    }
+  }
 
   // Dots + x-labels + tooltips
   monthlyData.forEach((d, i) => {
@@ -1437,6 +1603,105 @@ async function submitService(e) {
 
   btn.disabled = false;
   btn.textContent = '\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c';
+}
+
+
+// ── GAS vs BENZIN CARD UPDATE ─────────────────────────────────────────────────
+function _updateGvsB(data, period) {
+  if (!data || !Array.isArray(data)) return;
+  const card = document.getElementById('gvsbCard');
+  if (!card) return;
+
+  const THRESHOLD = 2.5;
+  var ccy = 'zł'; try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
+
+  // Фильтруем по периоду
+  let filtered = [...data];
+  if (period !== 'all' && !isNaN(parseInt(period))) {
+    const months = parseInt(period);
+    // Если период <= 10 — это количество заправок, иначе месяцы
+    if (months <= 10) {
+      // последние N заправок газа
+      // не фильтруем по дате, просто ограничим ниже через slice
+    } else {
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - months);
+      cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+      filtered = filtered.filter(e => {
+        const d = parseCustomDate(e.date);
+        return !isNaN(d.getTime()) && d >= cutoff;
+      });
+    }
+  }
+
+  const gasData    = filtered.filter(e => (e.fuelType||'').toLowerCase().includes('газ'));
+  const petrolData = filtered.filter(e => (e.fuelType||'').toLowerCase().includes('бензин') || (e.fuelType||'').toLowerCase().includes('petrol'));
+
+  const gasWithCons    = gasData.filter(e => parseFloat(e.fuelConsumption) > 0);
+  const petrolWithCons = petrolData.filter(e => parseFloat(e.fuelConsumption) > 0);
+  const petrolPureMode  = petrolWithCons.filter(e => parseFloat(e.fuelConsumption) >= THRESHOLD);
+  const petrolExtraMode = petrolWithCons.filter(e => parseFloat(e.fuelConsumption) < THRESHOLD);
+
+  // N заправок или все за период
+  const nFills = (period !== 'all' && parseInt(period) <= 10) ? parseInt(period) : 9999;
+  const gasSlice    = gasWithCons.slice(-nFills);
+  const petrolSlice = petrolPureMode.slice(-nFills);
+  const extraSlice  = petrolExtraMode; // доп. бензин — все за период
+
+  const avgGasCons = gasSlice.length
+    ? gasSlice.reduce((s,e)=>s+parseFloat(e.fuelConsumption),0)/gasSlice.length : null;
+  const avgPetrolCons = petrolSlice.length
+    ? petrolSlice.reduce((s,e)=>s+parseFloat(e.fuelConsumption),0)/petrolSlice.length : null;
+  const avgPetrolExtra = extraSlice.length
+    ? extraSlice.reduce((s,e)=>s+parseFloat(e.fuelConsumption),0)/extraSlice.length : null;
+
+  const gasPrices    = gasSlice.filter(e=>parseFloat(e.pricePerLiter)>0);
+  const avgGasPrice  = gasPrices.length ? gasPrices.reduce((s,e)=>s+(parseFloat(e.pricePerLiter)||0),0)/gasPrices.length : null;
+  const petrolPricesArr = petrolSlice.filter(e=>parseFloat(e.pricePerLiter)>0);
+  const avgPetrolPrice  = petrolPricesArr.length ? petrolPricesArr.reduce((s,e)=>s+(parseFloat(e.pricePerLiter)||0),0)/petrolPricesArr.length : null;
+  const extraPricesArr  = extraSlice.filter(e=>parseFloat(e.pricePerLiter)>0);
+  const avgExtraPrice   = extraPricesArr.length ? extraPricesArr.reduce((s,e)=>s+(parseFloat(e.pricePerLiter)||0),0)/extraPricesArr.length : null;
+
+  const avgGas = avgGasCons ? avgGasCons.toFixed(1) : '—';
+  const costGasPer100 = (avgGasCons && avgGasPrice) ? (avgGasCons * avgGasPrice).toFixed(2) : null;
+  const costExtraPer100 = (avgPetrolExtra && avgExtraPrice) ? avgPetrolExtra * avgExtraPrice : 0;
+  const costGboModePer100 = costGasPer100 ? (parseFloat(costGasPer100) + costExtraPer100).toFixed(2) : null;
+  const costPetrolPer100  = (avgPetrolCons && avgPetrolPrice) ? (avgPetrolCons * avgPetrolPrice).toFixed(2) : null;
+  const savings = (costGboModePer100 && costPetrolPer100)
+    ? (parseFloat(costPetrolPer100) - parseFloat(costGboModePer100)).toFixed(2) : null;
+
+  card.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--orange-bg);border-radius:12px;padding:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Режим ГБО</div>
+        <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px;font-family:var(--font-r);line-height:1">
+          ${costGboModePer100||'—'}<span style="font-size:12px;font-weight:400;color:var(--text2)"> ${ccy}/100км</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:5px">газ ${avgGas} л/100</div>
+        ${avgPetrolExtra ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">+ доп. бензин ${avgPetrolExtra.toFixed(2)} л/100</div>` : ''}
+      </div>
+      <div style="background:var(--red-bg);border-radius:12px;padding:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Бензин</div>
+        <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px;font-family:var(--font-r);line-height:1">
+          ${costPetrolPer100||'—'}<span style="font-size:12px;font-weight:400;color:var(--text2)"> ${ccy}/100км</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:5px">${avgPetrolCons?avgPetrolCons.toFixed(1):'—'} л/100</div>
+      </div>
+    </div>
+    ${savings ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--green-bg);border-radius:10px;padding:10px 14px">
+      <div>
+        <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:1px">Экономия на 100 км</div>
+        <div style="font-size:11px;color:var(--text2)">режим ГБО дешевле чистого бензина</div>
+      </div>
+      <div style="font-size:20px;font-weight:700;color:var(--green);font-family:var(--font-r);letter-spacing:-0.5px">
+        +${savings} <span style="font-size:12px;font-weight:500">${ccy}</span>
+      </div>
+    </div>
+    <div style="text-align:right;margin-top:6px;font-size:12px;color:var(--green);font-weight:600">
+      ${Math.round(parseFloat(savings)/parseFloat(costPetrolPer100)*100)}% дешевле
+    </div>` : '<div style="text-align:center;padding:10px;color:var(--text2);font-size:13px">Недостаточно данных за выбранный период</div>'}
+  `;
 }
 
 
@@ -2017,6 +2282,23 @@ function renderSettings(data) {
     buildGroup('Мини-карточки',   layout.minicards,  'lg-minicards',  false) +
     buildGroup('Секции',          layout.sections,   'lg-sections',   true)  +
 
+    '<div class="slbl" style="margin-top:28px">Настройка раздела Расходы</div>' +
+    '<p class="settings-hint">Тоггл — скрыть/показать блок</p>' +
+    (function() {
+      var tcoLay = getTcoLayout();
+      var h = '<div class="layout-group-wrap"><div class="layout-group-header"><span></span><button class="layout-reset-btn" onclick="_tcoLayoutReset()">Сбросить всё</button></div><div class="group" style="padding:0">';
+      tcoLay.forEach(function(item, i) {
+        h += '<div class="row">' +
+          '<div class="row-body"><div class="row-title">' + item.label + '</div></div>' +
+          '<div class="row-right">' +
+            '<label style="position:relative;display:inline-block;width:51px;height:31px">' +
+              '<input type="checkbox" class="ios-toggle tco-layout-toggle" data-id="' + item.id + '"' + (item.enabled ? ' checked' : '') + '>' +
+            '</label>' +
+          '</div></div>';
+      });
+      return h + '</div></div>';
+    })() +
+
     '<div class="slbl" style="margin-top:24px">О приложении</div>' +
     '<div class="group">' +
       '<div class="row"><div class="row-body"><div class="row-title">Версия</div></div><div class="row-right"><div class="row-val">2.5.0</div></div></div>' +
@@ -2037,6 +2319,25 @@ function renderSettings(data) {
   });
   ['lg-reminders','lg-minicards','lg-sections'].forEach(function(gid){
     _initDragGroup(document.getElementById(gid));
+  });
+
+  // TCO layout toggles
+  document.querySelectorAll('.tco-layout-toggle').forEach(function(chk) {
+    chk.addEventListener('change', function() {
+      var id = this.dataset.id;
+      var lay = getTcoLayout();
+      var item = lay.find(function(x){ return x.id === id; });
+      if (item) item.enabled = this.checked;
+      saveTcoLayout(lay);
+      // Перерисовываем без перезагрузки — как на Главной
+      _updateTcoStats();
+      // Подушка рендерится отдельно — обновляем её тоже
+      var cushionArea = document.getElementById('tcoSavingsArea');
+      if (cushionArea && window._tcoData) {
+        cushionArea.innerHTML = _buildSavingsCard(window._tcoData, window._tcoCcy || 'zł');
+        setTimeout(function(){ _initCushionSeg(); _refreshCushionChips(window._tcoData, window._tcoCcy||'zł','week'); }, 100);
+      }
+    });
   });
 
   _loadCarSettingsFromSheet();
@@ -2078,7 +2379,7 @@ function renderTCO(data) {
     _buildTcoHero(data, ccy)+
     '<div class="chips" id="tcoYearChips" style="margin-bottom:4px">'+yearChips+'</div>'+
     '<div id="tcoStatsArea"></div>'+
-    _buildSavingsCard(data, ccy)+
+    '<div id="tcoSavingsArea">'+_buildSavingsCard(data, ccy)+'</div>'+
     '</div>';
 
   document.querySelectorAll('#tcoYearChips .chip').forEach(function(chip){
@@ -2091,6 +2392,71 @@ function renderTCO(data) {
   });
 
   _updateTcoStats();
+
+  // Инициализируем сегмент Минимум/По пробегу
+  setTimeout(function(){ _initCushionSeg(); }, 100);
+
+  // Обработчик чипов динамической подушки
+  setTimeout(function() {
+    document.querySelectorAll('#cushionPeriodChips .chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        document.querySelectorAll('#cushionPeriodChips .chip').forEach(function(c){ c.classList.remove('active'); });
+        this.classList.add('active');
+        var period = this.dataset.cushion;
+        var tcoData = window._tcoData || {};
+        var ccy = window._tcoCcy || 'zł';
+        // Пересчитываем стоимости 1 км
+        var svcPerYear = tcoData.avgServicePerYear || 0;
+        var insPerYear = tcoData.lastInsuranceCost || 0;
+        var fuelPerKm = 0;
+        try {
+          var fc = readCache('fuel');
+          if (fc && fc.data) {
+            var THRESHOLD = 2.5;
+            var gasD = fc.data.filter(function(e){ return (e.fuelType||'').toLowerCase().includes('газ'); });
+            var extraD = fc.data.filter(function(e){
+              var t=(e.fuelType||'').toLowerCase(); var c=parseFloat(e.fuelConsumption);
+              return (t.includes('бензин')||t.includes('petrol')) && c>0 && c<THRESHOLD;
+            });
+            var l5g = gasD.filter(function(e){return parseFloat(e.fuelConsumption)>0;}).slice(-5);
+            var l5e = extraD.slice(-5);
+            var agc = l5g.length ? l5g.reduce(function(s,e){return s+parseFloat(e.fuelConsumption);},0)/l5g.length : null;
+            var agp = (function(){ var p=l5g.filter(function(e){return parseFloat(e.pricePerLiter)>0;}); return p.length?p.reduce(function(s,e){return s+(parseFloat(e.pricePerLiter)||0);},0)/p.length:null; })();
+            var aec = l5e.length ? l5e.reduce(function(s,e){return s+parseFloat(e.fuelConsumption);},0)/l5e.length : 0;
+            var aep = (function(){ var p=l5e.filter(function(e){return parseFloat(e.pricePerLiter)>0;}); return p.length?p.reduce(function(s,e){return s+(parseFloat(e.pricePerLiter)||0);},0)/p.length:0; })();
+            if (agc && agp) fuelPerKm = (agc*agp + aec*aep) / 100;
+          }
+        } catch(e) {}
+        var allDist=0, firstDate=null;
+        try {
+          var fc2=readCache('fuel');
+          if (fc2&&fc2.data) {
+            allDist=fc2.data.reduce(function(s,e){return s+(parseFloat(e.distance)||0);},0);
+            firstDate=fc2.data.reduce(function(mn,e){var d=parseCustomDate(e.date);return(!mn||d<mn)?d:mn;},null);
+          }
+        } catch(e) {}
+        var avgYearKm = firstDate ? Math.round(allDist/((new Date()-firstDate)/(1000*60*60*24*30.4))*12) : 50000;
+        var svcPerKm = avgYearKm>0 ? svcPerYear/avgYearKm : 0;
+        var insPerKm = avgYearKm>0 ? insPerYear/avgYearKm : 0;
+        var noFuelPerKm = svcPerKm + insPerKm;
+        var withFuelPerKm = fuelPerKm + svcPerKm + insPerKm;
+        var fmt = function(v){ return Math.round(v).toLocaleString('ru'); };
+        var fmt2 = function(v){ return v.toFixed(2); };
+        var body = document.getElementById('dynCushionBody');
+        // Пересчитываем параметры и обновляем body
+        var tcoD = window._tcoData || {};
+        var byY = tcoD.byYear || {};
+        var curY = new Date().getFullYear();
+        var fullY = Object.keys(byY).map(Number).filter(function(y){return y<curY;}).sort().slice(-2);
+        var avgSvc=0,avgTun=0,avgTax=0;
+        if(fullY.length>0){fullY.forEach(function(y){var yd=byY[y]||{};avgSvc+=(yd.service||0);avgTun+=(yd.tuning||0);avgTax+=((yd.taxes||0)+(yd.penalties||0)+(yd.other||0));});avgSvc/=fullY.length;avgTun/=fullY.length;avgTax/=fullY.length;}
+        var svcPKm2=avgYearKm>0?avgSvc/avgYearKm:0, tunPKm2=avgYearKm>0?avgTun/avgYearKm:0, taxPKm2=avgYearKm>0?avgTax/avgYearKm:0;
+        var nonFuelPKm2=svcPKm2+tunPKm2+taxPKm2;
+        var ins2=tcoD.lastInsuranceCost||0;
+        if (body) body.innerHTML = _dynCushionBody(period, fuelPerKm, nonFuelPKm2, svcPKm2, tunPKm2, taxPKm2, ins2/52, ins2/12, ccy, fmt, fmt2);
+      });
+    });
+  }, 200);
 }
 
 function _buildTcoHero(data, ccy) {
@@ -2103,7 +2469,266 @@ function _buildTcoHero(data, ccy) {
   '</div>';
 }
 
+// ── ДИНАМИЧЕСКАЯ ФИНАНСОВАЯ ПОДУШКА ───────────────────────────────────────────
+function _buildDynamicCushionInner(tcoData, ccy) {
+  // Если кэша топлива нет — грузим фоново и пересчитываем подушку после загрузки
+  if (!readCache('fuel')) {
+    fetch(GAS_BASE_URL + '?page=fuel')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!Array.isArray(data) || !data.length) return;
+        writeCache('fuel', data);
+        // Пересчитываем тело подушки если блок ещё в DOM
+        var body = document.getElementById('dynCushionBody');
+        if (!body) return;
+        var tcoD = window._tcoData || {};
+        var ccyD = window._tcoCcy  || 'zł';
+        var inner = _buildDynamicCushionInner ? _buildDynamicCushionInner(tcoD, ccyD) : '';
+        var pane = document.getElementById('cushionMileagePane');
+        if (pane && inner) pane.innerHTML = inner;
+        // Перевешиваем обработчики сегмента и чипов
+        _initCushionSeg();
+        _refreshCushionChips(tcoD, ccyD, 'week');
+        // Перевешиваем обработчики чипов
+        var activeChip = document.querySelector('#cushionPeriodChips .chip.active');
+        var period = activeChip ? activeChip.dataset.cushion : 'week';
+        _refreshCushionChips(tcoD, ccyD, period);
+      })
+      .catch(function(){});
+  }
+
+  // ── Стоимость 1 км топлива (газ + доп. бензин, последние 5 заправок) ────────
+  var fuelCostPerKm = 0;
+  try {
+    var fc = readCache('fuel');
+    if (fc && fc.data && Array.isArray(fc.data)) {
+      var THRESHOLD = 2.5;
+      var gasD  = fc.data.filter(function(e){ return (e.fuelType||'').toLowerCase().includes('газ') && parseFloat(e.fuelConsumption)>0; });
+      var extraD = fc.data.filter(function(e){
+        var t=(e.fuelType||'').toLowerCase(); var c=parseFloat(e.fuelConsumption);
+        return (t.includes('бензин')||t.includes('petrol')) && c>0 && c<THRESHOLD;
+      });
+      var l5g = gasD.slice(-5), l5e = extraD.slice(-5);
+      var avgGC = l5g.length ? l5g.reduce(function(s,e){return s+parseFloat(e.fuelConsumption);},0)/l5g.length : null;
+      var avgGP = (function(){ var p=l5g.filter(function(e){return parseFloat(e.pricePerLiter)>0;}); return p.length?p.reduce(function(s,e){return s+(parseFloat(e.pricePerLiter)||0);},0)/p.length:null; })();
+      var avgEC = l5e.length ? l5e.reduce(function(s,e){return s+parseFloat(e.fuelConsumption);},0)/l5e.length : 0;
+      var avgEP = (function(){ var p=l5e.filter(function(e){return parseFloat(e.pricePerLiter)>0;}); return p.length?p.reduce(function(s,e){return s+(parseFloat(e.pricePerLiter)||0);},0)/p.length:0; })();
+      if (avgGC && avgGP) fuelCostPerKm = (avgGC*avgGP + avgEC*avgEP) / 100;
+    }
+  } catch(e) {}
+
+  // ── Среднегодовой пробег из журнала заправок ─────────────────────────────────
+  var avgYearKm = 50000;
+  try {
+    var fc2 = readCache('fuel');
+    if (fc2 && fc2.data && Array.isArray(fc2.data)) {
+      var allDist = fc2.data.reduce(function(s,e){ return s+(parseFloat(e.distance)||0); }, 0);
+      var firstDate = fc2.data.reduce(function(mn,e){ var d=parseCustomDate(e.date); return (!mn||d<mn)?d:mn; }, null);
+      if (firstDate && allDist > 0) {
+        var months = (new Date()-firstDate)/(1000*60*60*24*30.4);
+        if (months > 0) avgYearKm = Math.round(allDist/months*12);
+      }
+    }
+  } catch(e) {}
+
+  // ── Среднее за год по статьям (кроме топлива и страховки) ───────────────────
+  // Берём из byYear: сервис + тюнинг + налоги — среднее за последние 2 полных года
+  var byYear = tcoData.byYear || {};
+  var curYear = new Date().getFullYear();
+  var fullYears = Object.keys(byYear).map(Number).filter(function(y){ return y < curYear; }).sort().slice(-2);
+
+  var avgSvcYear    = 0; // сервис
+  var avgTuningYear = 0; // тюнинг
+  var avgTaxesYear  = 0; // налоги+штрафы+прочее
+  if (fullYears.length > 0) {
+    fullYears.forEach(function(y) {
+      var yd = byYear[y] || {};
+      avgSvcYear    += (yd.service   || 0);
+      avgTuningYear += (yd.tuning    || 0);
+      avgTaxesYear  += ((yd.taxes||0) + (yd.penalties||0) + (yd.other||0));
+    });
+    avgSvcYear    /= fullYears.length;
+    avgTuningYear /= fullYears.length;
+    avgTaxesYear  /= fullYears.length;
+  }
+
+  // Стоимость 1 км по статьям (зависят от пробега)
+  var svcPerKm    = avgYearKm > 0 ? avgSvcYear    / avgYearKm : 0;
+  var tuningPerKm = avgYearKm > 0 ? avgTuningYear / avgYearKm : 0;
+  var taxesPerKm  = avgYearKm > 0 ? avgTaxesYear  / avgYearKm : 0;
+  var nonFuelPerKm = svcPerKm + tuningPerKm + taxesPerKm; // всё кроме топлива и страховки
+
+  // ── Страховка — фиксированная, не зависит от пробега ─────────────────────────
+  var insPerYear = tcoData.lastInsuranceCost || 0;
+  var insPerWeek = insPerYear / 52;
+  var insPerMonth = insPerYear / 12;
+
+  var fmt  = function(v){ return Math.round(v).toLocaleString('ru'); };
+  var fmt2 = function(v){ return v.toFixed(2); };
+
+  return '<div style="display:flex;justify-content:flex-end;margin-bottom:14px">'+
+        '<div class="chips" id="cushionPeriodChips" style="margin:0">'+
+          '<div class="chip active" data-cushion="week">Эта нед.</div>'+
+          '<div class="chip" data-cushion="prevweek">Прош. нед.</div>'+
+          '<div class="chip" data-cushion="month">Месяц</div>'+
+        '</div>'+
+      '</div>'+
+      '<div id="dynCushionBody">'+
+        _dynCushionBody('week', fuelCostPerKm, nonFuelPerKm, svcPerKm, tuningPerKm, taxesPerKm, insPerWeek, insPerMonth, ccy, fmt, fmt2)+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--text3);padding-top:8px;border-top:0.5px solid var(--sep);margin-top:8px">'+
+        '* Пробег из журнала · страховка '+fmt(insPerYear)+' '+ccy+'/год (фикс.)'+
+      '</div>';
+}
+
+// Инициализирует сегмент Минимум / По пробегу
+function _initCushionSeg() {
+  document.querySelectorAll('#cushionSeg .ios-seg-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#cushionSeg .ios-seg-btn').forEach(function(b){ b.classList.remove('active'); });
+      this.classList.add('active');
+      var seg = this.dataset.cseg;
+      var minPane     = document.getElementById('cushionMinPane');
+      var mileagePane = document.getElementById('cushionMileagePane');
+      if (minPane)     minPane.style.display     = seg === 'min'     ? 'block' : 'none';
+      if (mileagePane) mileagePane.style.display = seg === 'mileage' ? 'block' : 'none';
+    });
+  });
+}
+
+// Перевешивает обработчики чипов подушки после пересчёта
+function _refreshCushionChips(tcoData, ccy, activePeriod) {
+  setTimeout(function() {
+    document.querySelectorAll('#cushionPeriodChips .chip').forEach(function(chip) {
+      // Клонируем чтобы снять старые обработчики
+      var newChip = chip.cloneNode(true);
+      chip.parentNode.replaceChild(newChip, chip);
+    });
+    document.querySelectorAll('#cushionPeriodChips .chip').forEach(function(chip) {
+      if (chip.dataset.cushion === activePeriod) chip.classList.add('active');
+      chip.addEventListener('click', function() {
+        document.querySelectorAll('#cushionPeriodChips .chip').forEach(function(c){ c.classList.remove('active'); });
+        this.classList.add('active');
+        var period = this.dataset.cushion;
+        var fc = readCache('fuel');
+        if (!fc) return;
+        // Пересчитываем параметры
+        var THRESHOLD = 2.5;
+        var fd = fc.data;
+        var gasD  = fd.filter(function(e){ return (e.fuelType||'').toLowerCase().includes('газ') && parseFloat(e.fuelConsumption)>0; });
+        var extraD = fd.filter(function(e){ var t=(e.fuelType||'').toLowerCase();var c=parseFloat(e.fuelConsumption);return(t.includes('бензин')||t.includes('petrol'))&&c>0&&c<THRESHOLD; });
+        var l5g=gasD.slice(-5),l5e=extraD.slice(-5);
+        var agc=l5g.length?l5g.reduce(function(s,e){return s+parseFloat(e.fuelConsumption);},0)/l5g.length:null;
+        var agp=(function(){var p=l5g.filter(function(e){return parseFloat(e.pricePerLiter)>0;});return p.length?p.reduce(function(s,e){return s+(parseFloat(e.pricePerLiter)||0);},0)/p.length:null;})();
+        var aec=l5e.length?l5e.reduce(function(s,e){return s+parseFloat(e.fuelConsumption);},0)/l5e.length:0;
+        var aep=(function(){var p=l5e.filter(function(e){return parseFloat(e.pricePerLiter)>0;});return p.length?p.reduce(function(s,e){return s+(parseFloat(e.pricePerLiter)||0);},0)/p.length:0;})();
+        var fuelPerKm=(agc&&agp)?(agc*agp+aec*aep)/100:0;
+        var allDist=fd.reduce(function(s,e){return s+(parseFloat(e.distance)||0);},0);
+        var firstDate=fd.reduce(function(mn,e){var d=parseCustomDate(e.date);return(!mn||d<mn)?d:mn;},null);
+        var avgYearKm=50000;
+        if(firstDate&&allDist>0){var months=(new Date()-firstDate)/(1000*60*60*24*30.4);if(months>0)avgYearKm=Math.round(allDist/months*12);}
+        var byY=tcoData.byYear||{},curY=new Date().getFullYear();
+        var fullY=Object.keys(byY).map(Number).filter(function(y){return y<curY;}).sort().slice(-2);
+        var avgSvc=0,avgTun=0,avgTax=0;
+        if(fullY.length){fullY.forEach(function(y){var yd=byY[y]||{};avgSvc+=(yd.service||0);avgTun+=(yd.tuning||0);avgTax+=((yd.taxes||0)+(yd.penalties||0)+(yd.other||0));});avgSvc/=fullY.length;avgTun/=fullY.length;avgTax/=fullY.length;}
+        var svcPKm=avgYearKm>0?avgSvc/avgYearKm:0,tunPKm=avgYearKm>0?avgTun/avgYearKm:0,taxPKm=avgYearKm>0?avgTax/avgYearKm:0;
+        var nonFuelPKm=svcPKm+tunPKm+taxPKm;
+        var ins=tcoData.lastInsuranceCost||0;
+        var fmt=function(v){return Math.round(v).toLocaleString('ru');};
+        var fmt2=function(v){return v.toFixed(2);};
+        var body=document.getElementById('dynCushionBody');
+        if(body) body.innerHTML=_dynCushionBody(period,fuelPerKm,nonFuelPKm,svcPKm,tunPKm,taxPKm,ins/52,ins/12,ccy,fmt,fmt2);
+      });
+    });
+  }, 50);
+}
+
+function _dynCushionBody(period, fuelPerKm, nonFuelPerKm, svcPerKm, tuningPerKm, taxesPerKm, insPerWeek, insPerMonth, ccy, fmt, fmt2) {
+  // Пробег за период
+  var km = 0;
+  try {
+    var fc = readCache('fuel');
+    if (fc && fc.data && Array.isArray(fc.data)) {
+      var now = new Date();
+      var dateFrom, dateTo;
+      if (period === 'prevweek') {
+        dateFrom = getWeekStart(now, 1);
+        dateTo   = new Date(dateFrom); dateTo.setDate(dateTo.getDate()+6); dateTo.setHours(23,59,59,999);
+      } else if (period === 'month') {
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+        dateTo   = new Date(); dateTo.setHours(23,59,59,999);
+      } else { // week
+        dateFrom = getWeekStart(now, 0);
+        dateTo   = new Date(); dateTo.setHours(23,59,59,999);
+      }
+      km = fc.data
+        .filter(function(e){ return isDateInRange(e.date, dateFrom, dateTo); })
+        .reduce(function(s,e){ return s+(parseFloat(e.distance)||0); }, 0);
+    }
+  } catch(e) {}
+  km = Math.round(km);
+
+  // Страховка — фиксированная за период
+  var insFixed = Math.round(period === 'month' ? insPerMonth : insPerWeek);
+
+  // Остальные статьи — от пробега
+  var fuelAmt   = Math.round(km * fuelPerKm);
+  var svcAmt    = Math.round(km * svcPerKm);
+  var tuningAmt = Math.round(km * tuningPerKm);
+  var taxesAmt  = Math.round(km * taxesPerKm);
+  var nonFuelAmt = svcAmt + tuningAmt + taxesAmt;
+
+  var withFuel = fuelAmt + nonFuelAmt + insFixed;
+  var noFuel   = nonFuelAmt + insFixed;
+
+  if (km === 0 && insFixed === 0) {
+    return '<div style="text-align:center;padding:16px 0;color:var(--text2);font-size:13px">'+
+      'Нет данных о пробеге за выбранный период.<br>'+
+      '<span style="font-size:11px">Заполняйте поле «Расстояние» при добавлении заправок.</span>'+
+    '</div>';
+  }
+
+  return '<div style="font-size:13px;color:var(--text2);margin-bottom:12px">'+
+      'Пробег: <b style="color:var(--text)">'+fmt(km)+' км</b>'+
+      (insFixed>0?' · страховка (фикс.): <b style="color:var(--text)">'+fmt(insFixed)+' '+ccy+'</b>':'')+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'+
+      '<div style="background:var(--accent-bg);border-radius:12px;padding:12px;text-align:center">'+
+        '<div style="font-size:10px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">С топливом</div>'+
+        '<div style="font-size:24px;font-weight:700;color:var(--text);letter-spacing:-0.5px;font-family:var(--font-r);line-height:1">'+fmt(withFuel)+'</div>'+
+        '<div style="font-size:12px;color:var(--accent);margin-top:2px">'+ccy+'</div>'+
+      '</div>'+
+      '<div style="background:var(--green-bg);border-radius:12px;padding:12px;text-align:center">'+
+        '<div style="font-size:10px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Без топлива</div>'+
+        '<div style="font-size:24px;font-weight:700;color:var(--text);letter-spacing:-0.5px;font-family:var(--font-r);line-height:1">'+fmt(noFuel)+'</div>'+
+        '<div style="font-size:12px;color:var(--green);margin-top:2px">'+ccy+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="border-top:0.5px solid var(--sep);padding-top:10px">'+
+      (fuelAmt>0?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">'+
+        '<span style="color:var(--text2);display:flex;align-items:center"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#FF9500;margin-right:6px"></span>Топливо <span style="font-size:11px;color:var(--text3);margin-left:2px">('+fmt(km)+' км)</span></span>'+
+        '<span style="font-weight:600;color:var(--text)">'+fmt(fuelAmt)+' '+ccy+'</span></div>':'')+
+      (svcAmt>0?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">'+
+        '<span style="color:var(--text2);display:flex;align-items:center"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#007AFF;margin-right:6px"></span>Сервис</span>'+
+        '<span style="font-weight:600;color:var(--text)">'+fmt(svcAmt)+' '+ccy+'</span></div>':'')+
+      (tuningAmt>0?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">'+
+        '<span style="color:var(--text2);display:flex;align-items:center"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#5856D6;margin-right:6px"></span>Тюнинг</span>'+
+        '<span style="font-weight:600;color:var(--text)">'+fmt(tuningAmt)+' '+ccy+'</span></div>':'')+
+      (taxesAmt>0?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">'+
+        '<span style="color:var(--text2);display:flex;align-items:center"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#30B0C7;margin-right:6px"></span>Налоги и штрафы</span>'+
+        '<span style="font-weight:600;color:var(--text)">'+fmt(taxesAmt)+' '+ccy+'</span></div>':'')+
+      (insFixed>0?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">'+
+        '<span style="color:var(--text2);display:flex;align-items:center"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#34C759;margin-right:6px"></span>Страховка <span style="font-size:11px;color:var(--text3);margin-left:2px">(фикс.)</span></span>'+
+        '<span style="font-weight:600;color:var(--text)">'+fmt(insFixed)+' '+ccy+'</span></div>':'')+
+    '</div>';
+}
+
+
 function _buildSavingsCard(data, ccy) {
+  var _tcoLay = getTcoLayout();
+  var _cushionItem = _tcoLay.find(function(x){ return x.id === 'cushion'; });
+  if (_cushionItem && !_cushionItem.enabled) return '';
+
   var ins  = data.lastInsuranceCost || 0;
   var svc  = data.avgServicePerYear || 0;
   var insY = data.lastInsuranceYear || '';
@@ -2113,57 +2738,48 @@ function _buildSavingsCard(data, ccy) {
   var perMonth  = Math.round(yearTotal / 12);
   var perWeek   = Math.round(yearTotal / 52);
   var fmt = function(v){ return Math.round(v).toLocaleString('ru'); };
-
-  // Определяем год-основу для сноски
   var noteYear = insY || (new Date().getFullYear() - 1);
+
+  // Вкладка «Минимум»
+  var minContent =
+    '<div style="display:flex;gap:8px;margin-bottom:14px">'+
+      '<div style="flex:1;background:var(--green-bg);border-radius:12px;padding:12px;text-align:center">'+
+        '<div style="font-size:11px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">В неделю</div>'+
+        '<div style="font-size:26px;font-weight:700;color:var(--green);letter-spacing:-1px">'+fmt(perWeek)+'</div>'+
+        '<div style="font-size:12px;color:var(--green)">'+ccy+'</div>'+
+      '</div>'+
+      '<div style="flex:1;background:var(--accent-bg);border-radius:12px;padding:12px;text-align:center">'+
+        '<div style="font-size:11px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">В месяц</div>'+
+        '<div style="font-size:26px;font-weight:700;color:var(--accent);letter-spacing:-1px">'+fmt(perMonth)+'</div>'+
+        '<div style="font-size:12px;color:var(--accent)">'+ccy+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="border-top:0.5px solid var(--sep);padding-top:12px">'+
+      (ins?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:14px">'+
+        '<span style="color:var(--text2);display:flex;align-items:center"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#34C759;margin-right:6px"></span>Страховка</span>'+
+        '<span style="font-weight:600;color:var(--text)">'+fmt(ins)+' '+ccy+'/год</span></div>':'')+
+      (svc?'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:14px">'+
+        '<span style="color:var(--text2);display:flex;align-items:center"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#007AFF;margin-right:6px"></span>Обслуживание</span>'+
+        '<span style="font-weight:600;color:var(--text)">'+fmt(svc)+' '+ccy+'/год</span></div>':'')+
+      '<div style="font-size:11px;color:var(--text3);padding-top:6px">'+
+        'Данные за '+noteYear+' г. · минимум без топлива'+
+      '</div>'+
+    '</div>';
+
+  // Вкладка «По пробегу» — контент из _buildDynamicCushion без внешней обёртки
+  var mileageContent = _buildDynamicCushionInner(data, ccy);
 
   return '<div class="slbl" style="margin-top:10px">Финансовая подушка</div>'+
     '<div class="group" style="padding:16px">'+
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+
-        '<div style="width:40px;height:40px;border-radius:12px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+
-          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>'+
-        '</div>'+
-        '<div>'+
-          '<div style="font-size:16px;font-weight:600;color:var(--text)">Нужно откладывать</div>'+
-          '<div style="font-size:13px;color:var(--text2)">страховка + обслуживание</div>'+
+      // Сегмент
+      '<div style="display:flex;justify-content:center;margin-bottom:16px">'+
+        '<div class="ios-seg" id="cushionSeg">'+
+          '<div class="ios-seg-btn active" data-cseg="min">Минимум</div>'+
+          '<div class="ios-seg-btn" data-cseg="mileage">По пробегу</div>'+
         '</div>'+
       '</div>'+
-      // Главные цифры
-      '<div style="display:flex;gap:8px;margin-bottom:14px">'+
-        '<div style="flex:1;background:var(--green-bg);border-radius:12px;padding:12px;text-align:center">'+
-          '<div style="font-size:11px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">В неделю</div>'+
-          '<div style="font-size:26px;font-weight:700;color:var(--green);letter-spacing:-1px">'+fmt(perWeek)+'</div>'+
-          '<div style="font-size:12px;color:var(--green)">'+ccy+'</div>'+
-        '</div>'+
-        '<div style="flex:1;background:var(--accent-bg);border-radius:12px;padding:12px;text-align:center">'+
-          '<div style="font-size:11px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">В месяц</div>'+
-          '<div style="font-size:26px;font-weight:700;color:var(--accent);letter-spacing:-1px">'+fmt(perMonth)+'</div>'+
-          '<div style="font-size:12px;color:var(--accent)">'+ccy+'</div>'+
-        '</div>'+
-      '</div>'+
-      // Расшифровка
-      '<div style="border-top:0.5px solid var(--sep);padding-top:12px">'+
-        (ins?
-          '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px">'+
-            '<span style="color:var(--text2)">🛡 Страховка</span>'+
-            '<span style="font-weight:600;color:var(--text)">'+fmt(ins)+' '+ccy+'/год</span>'+
-          '</div>':'')+
-        (svc?
-          '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px">'+
-            '<span style="color:var(--text2)">🔧 Обслуживание</span>'+
-            '<span style="font-weight:600;color:var(--text)">'+fmt(svc)+' '+ccy+'/год</span>'+
-          '</div>':'')+
-        '<div style="display:flex;justify-content:space-between;padding:7px 0 8px;font-size:14px;border-top:0.5px solid var(--sep);margin-top:4px">'+
-          '<span style="color:var(--text);font-weight:500">Итого в год</span>'+
-          '<span style="font-weight:700;color:var(--text)">'+fmt(yearTotal)+' '+ccy+'</span>'+
-        '</div>'+
-        // Сноска
-        '<div style="font-size:11px;color:var(--text3);line-height:1.4;padding-top:4px">'+
-          '* Прогноз основан на фактических данных за '+noteYear+' год. '+
-          'Страховка — сумма всех платежей за год. '+
-          'Обслуживание — среднее за последние 2 полных года.'+
-        '</div>'+
-      '</div>'+
+      '<div id="cushionMinPane">'+minContent+'</div>'+
+      '<div id="cushionMileagePane" style="display:none">'+mileageContent+'</div>'+
     '</div>';
 }
 
@@ -2255,54 +2871,59 @@ function _updateTcoStats() {
     ? 'Главная статья — <b>'+topCat.name+'</b> ('+(topCat.value/total*100).toFixed(0)+'%). '+(fuelPct>50?'ГБО помогает снизить долю топлива.':'')
     : '';
 
-  // ── Сборка HTML ──────────────────────────────────────────
-  var html =
-    // 4 карточки
-    '<div class="stat-cards-row">'+
-      '<div class="stat-card-ios"><div class="sc-label">'+periodLabel+'</div><div class="sc-value">'+fmt(total)+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">'+(yearSel==='all'?countYears+' лет учёта':(topCat?topCat.name.toLowerCase():''))+'</div></div>'+
-      '<div class="stat-card-ios"><div class="sc-label">В месяц</div><div class="sc-value">'+fmt(Math.round(perYearAvg/12))+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">среднее</div></div>'+
-    '</div>'+
-    '<div class="stat-cards-row">'+
-      '<div class="stat-card-ios"><div class="sc-label">В неделю</div><div class="sc-value">'+fmt(Math.round(perYearAvg/52))+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">среднее</div></div>'+
-      '<div class="stat-card-ios"><div class="sc-label">Тренд</div><div class="sc-value" style="font-size:18px">'+trendHTML+'</div><div class="sc-sub">год к году</div></div>'+
-    '</div>'+
-
-    // ── Блок 1: График (сегмент По месяцам / По годам) ────
-    '<div class="slbl">График расходов</div>'+
-    '<div class="group" style="padding:0">'+
-      '<div style="display:flex;border-bottom:0.5px solid var(--sep);padding:10px 16px 0;gap:0">'+
-        '<button id="tcoSegMon" onclick="_tcoSegSwitch(\'mon\')" style="flex:1;padding:7px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">По месяцам</button>'+
-        '<button id="tcoSegYr"  onclick="_tcoSegSwitch(\'yr\')"  style="flex:1;padding:7px 0;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)">По годам</button>'+
-      '</div>'+
-      '<div id="tcoChartArea" style="padding:14px 12px 10px">'+_buildTcoMonthlyChart(data,yearSel,ccy)+'</div>'+
-    '</div>'+
-
-    // ── Блок 2: Распределение (сегмент Донат / Прогресс-бары) ──
-    '<div class="slbl">Распределение</div>'+
-    '<div class="group" style="padding:0">'+
-      '<div style="display:flex;border-bottom:0.5px solid var(--sep);padding:10px 16px 0;gap:0">'+
-        '<button id="tcoSegDonut" onclick="_tcoDistSwitch(\'donut\')" style="flex:1;padding:7px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">Диаграмма</button>'+
-        '<button id="tcoSegBars"  onclick="_tcoDistSwitch(\'bars\')"  style="flex:1;padding:7px 0;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)">Детализация</button>'+
-      '</div>'+
-      '<div id="tcoDistArea" style="padding:16px">'+buildDonutChart(chartCats,total)+'</div>'+
-    '</div>'+
-
-    // ── Блок 3: Страховка по годам ───────────────────────────
-    (Object.keys(data.insuranceByYear||{}).length>0?
-      '<div class="slbl">Страховка по годам</div>'+
-      '<div class="group" style="padding:0">'+_buildInsuranceRows(data.insuranceByYear,ccy)+'</div>':'')+
-
-    // ── Блок 4: Год к году (полная разбивка) ─────────────────
-    (allYearsArr.length>1?
-      '<div class="slbl">Год к году</div>'+
-      '<div class="group" style="padding:0">'+_buildTcoYearCompare(allYearsArr,ccy,byYear)+'</div>':'')+
-
-    // ── Инсайт ───────────────────────────────────────────────
-    (insight?'<div class="tco-insight"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>'+insight+'</span></div>':'');
-
   var el=document.getElementById('tcoStatsArea');
   if(el){
-    el.innerHTML=html;
+    var tcoLayout = getTcoLayout();
+    var isOn = function(id){ var item=tcoLayout.find(function(x){return x.id===id;}); return !item||item.enabled; };
+
+    var filteredHtml = '';
+
+    if (isOn('cards'))
+      filteredHtml +=
+        '<div class="stat-cards-row">'+
+          '<div class="stat-card-ios"><div class="sc-label">'+periodLabel+'</div><div class="sc-value">'+fmt(total)+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">'+(yearSel==='all'?countYears+' лет учёта':(topCat?topCat.name.toLowerCase():''))+'</div></div>'+
+          '<div class="stat-card-ios"><div class="sc-label">В месяц</div><div class="sc-value">'+fmt(Math.round(perYearAvg/12))+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">среднее</div></div>'+
+        '</div>'+
+        '<div class="stat-cards-row">'+
+          '<div class="stat-card-ios"><div class="sc-label">В неделю</div><div class="sc-value">'+fmt(Math.round(perYearAvg/52))+'<span class="u"> '+ccy+'</span></div><div class="sc-sub">среднее</div></div>'+
+          '<div class="stat-card-ios"><div class="sc-label">Тренд</div><div class="sc-value" style="font-size:18px">'+trendHTML+'</div><div class="sc-sub">год к году</div></div>'+
+        '</div>';
+
+    if (isOn('chart'))
+      filteredHtml +=
+        '<div class="slbl">График расходов</div>'+
+        '<div class="group" style="padding:0">'+
+          '<div style="display:flex;border-bottom:0.5px solid var(--sep);padding:10px 16px 0;gap:0">'+
+            '<button id="tcoSegMon" onclick="_tcoSegSwitch(\'mon\')" style="flex:1;padding:7px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">По месяцам</button>'+
+            '<button id="tcoSegYr"  onclick="_tcoSegSwitch(\'yr\')"  style="flex:1;padding:7px 0;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)">По годам</button>'+
+          '</div>'+
+          '<div id="tcoChartArea" style="padding:14px 12px 10px">'+_buildTcoMonthlyChart(data,yearSel,ccy)+'</div>'+
+        '</div>';
+
+    if (isOn('dist'))
+      filteredHtml +=
+        '<div class="slbl">Распределение</div>'+
+        '<div class="group" style="padding:0">'+
+          '<div style="display:flex;border-bottom:0.5px solid var(--sep);padding:10px 16px 0;gap:0">'+
+            '<button id="tcoSegDonut" onclick="_tcoDistSwitch(\'donut\')" style="flex:1;padding:7px 0;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">Диаграмма</button>'+
+            '<button id="tcoSegBars"  onclick="_tcoDistSwitch(\'bars\')"  style="flex:1;padding:7px 0;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2)">Детализация</button>'+
+          '</div>'+
+          '<div id="tcoDistArea" style="padding:16px">'+buildDonutChart(chartCats,total)+'</div>'+
+        '</div>';
+
+    if (isOn('insurance'))
+      filteredHtml += Object.keys(data.insuranceByYear||{}).length>0
+        ? '<div class="slbl">Страховка по годам</div><div class="group" style="padding:0">'+_buildInsuranceRows(data.insuranceByYear,ccy)+'</div>' : '';
+
+    if (isOn('yearcomp'))
+      filteredHtml += allYearsArr.length>1
+        ? '<div class="slbl">Год к году</div><div class="group" style="padding:0">'+_buildTcoYearCompare(allYearsArr,ccy,byYear)+'</div>' : '';
+
+    if (isOn('insight'))
+      filteredHtml += insight
+        ? '<div class="tco-insight"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>'+insight+'</span></div>' : '';
+
+    el.innerHTML=filteredHtml;
     // Сохраняем данные для переключателей
     window._tcoChartCats = chartCats;
     window._tcoChartTotal = total;
@@ -2727,6 +3348,12 @@ function _clearCache(e) {
 
 function _layoutReset() {
   saveHomeLayout(JSON.parse(JSON.stringify(HOME_LAYOUT_DEFAULTS)));
+  loadData();
+}
+
+function _tcoLayoutReset() {
+  saveTcoLayout(JSON.parse(JSON.stringify(TCO_LAYOUT_DEFAULTS)));
+  localStorage.removeItem('cache_v2_tco');
   loadData();
 }
 
