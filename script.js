@@ -605,17 +605,28 @@ function renderFuel(data) {
   const weekFills = data.filter(e => isDateInRange(e.date, ws, we));
   const weekCost  = weekFills.reduce((s,e) => s + (parseFloat(e.totalCost)||0), 0);
 
+  // Weekly km driven
+  const weekKm = weekFills.reduce((s,e) => s + (parseFloat(e.distance)||0), 0);
+
   // Prev week fallback
   let weekCostDisplay = weekCost > 0 ? weekCost.toFixed(0) : null;
   let weekLabel = 'текущая неделя';
+  let weekKmDisplay = weekKm > 0 ? Math.round(weekKm) : null;
+  let weekKmLabel = 'текущая неделя';
   if (!weekCostDisplay) {
     const ps = getWeekStart(now, 1);
     const pe = new Date(ps); pe.setDate(ps.getDate()+6); pe.setHours(23,59,59,999);
     const prevFills = data.filter(e => isDateInRange(e.date, ps, pe));
     const prevCost  = prevFills.reduce((s,e) => s + (parseFloat(e.totalCost)||0), 0);
+    const prevKm    = prevFills.reduce((s,e) => s + (parseFloat(e.distance)||0), 0);
     weekCostDisplay = prevCost > 0 ? prevCost.toFixed(0) : '—';
     weekLabel = 'прошлая неделя';
+    if (!weekKmDisplay) {
+      weekKmDisplay = prevKm > 0 ? Math.round(prevKm) : null;
+      weekKmLabel = 'прошлая неделя';
+    }
   }
+  weekKmDisplay = weekKmDisplay || '—';
 
   // Cost per km: gas vs petrol
   const gasData    = data.filter(e => (e.fuelType||'').toLowerCase().includes('газ'));
@@ -727,50 +738,67 @@ function renderFuel(data) {
         </div>
       </div>
 
-      <!-- ② ROW 1: Последняя заправка + Топливо за неделю -->
+      <!-- ② ROW 1: Пробег за неделю + Топливо за неделю -->
       <div class="mini-grid">
         <div class="mini">
-          <div class="mini-lbl">Последняя заправка</div>
-          <div class="mini-val">${latest.fuelAmount || '—'}<span class="u"> л</span></div>
-          <div class="mini-sub">${formatDate(latest.date)} · ${latest.totalCost || '—'} zł</div>
+          <div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> Пробег / нед.</div>
+          <div class="mini-val">${weekKmDisplay}<span class="u"> км</span></div>
+          <div class="mini-sub">${weekKmLabel}</div>
         </div>
         <div class="mini">
-          <div class="mini-lbl">Топливо / нед.</div>
+          <div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/></svg> Топливо / нед.</div>
           <div class="mini-val">${weekCostDisplay}<span class="u"> zł</span></div>
           <div class="mini-sub">${weekLabel}</div>
         </div>
       </div>
 
-      <!-- ③ ROW 2: Средний расход газ + 1 км на газе -->
+      <!-- ③ ROW 2: Средний расход + Запас хода -->
       <div class="mini-grid">
         <div class="mini">
-          <div class="mini-lbl">Средний расход (газ)</div>
+          <div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg> Расход газа</div>
           <div class="mini-val">${avgGas}<span class="u"> л/100</span></div>
-          <div class="mini-sub">последние 5 заправок газа</div>
+          <div class="mini-sub">среднее · 5 заправок</div>
         </div>
-        <div class="mini" style="background:var(--green-bg);border:1px solid rgba(52,199,89,0.2)">
-          <div class="mini-lbl" style="color:var(--green)">1 км · режим ГБО</div>
-          <div class="mini-val" style="color:var(--green)">${costPerKmGas}<span class="u" style="color:var(--green)"> zł</span></div>
-          <div class="mini-sub">vs ${costPerKmPetrol} zł бензин</div>
-        </div>
-      </div>
-
-      <!-- ④ ROW 3: Запас хода + Всего заправок -->
-      <div class="mini-grid">
         <div class="mini">
-          <div class="mini-lbl">Запас хода</div>
+          <div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Запас хода</div>
           <div class="mini-val"><span id="fuelRangeKm">—</span><span class="u"> км</span></div>
           <div class="mini-sub" id="fuelRangeDetails">при полном баке (34 л)</div>
         </div>
+      </div>
+
+      <!-- ④ ROW 3: 1 км · ГБО + Последняя заправка -->
+      <div class="mini-grid">
+        <div class="mini" style="background:var(--green-bg);border:1px solid rgba(52,199,89,0.2)">
+          <div class="mini-lbl" style="color:var(--green)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg> 1 км · ГБО</div>
+          <div class="mini-val" style="color:var(--green)">${costPerKmGas}<span class="u" style="color:var(--green)"> zł</span></div>
+          <div class="mini-sub">vs ${costPerKmPetrol} zł бензин</div>
+        </div>
         <div class="mini">
-          <div class="mini-lbl">Всего заправок</div>
-          <div class="mini-val">${totalFills}<span class="u"> шт</span></div>
-          <div class="mini-sub">газ: ${gasData.length} · бензин: ${petrolPureMode.length} · доп: ${petrolExtraMode.length}</div>
+          <div class="mini-lbl"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M17 12h1a2 2 0 0 1 2 2v1a2 2 0 0 0 4 0V9l-3-3"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg> Последняя</div>
+          <div class="mini-val">${latest.fuelAmount || '—'}<span class="u"> л</span></div>
+          <div class="mini-sub">${formatDate(latest.date)} · ${latest.totalCost || '—'} zł${latest.distance ? ' · ' + latest.distance + ' км' : ''}</div>
+        </div>
+      </div>
+
+      <!-- ④b ROW 4: Газ vs Бензин сводка -->
+      <div class="mini" style="margin:0 0 8px">
+        <div class="mini-lbl" style="font-size:13px;font-weight:600;color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-1px;margin-right:4px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Сводка · ${totalFills} заправок</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <div style="background:var(--orange-bg);border-radius:10px;padding:10px 12px">
+            <div style="font-size:11px;font-weight:600;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Газ · ${gasData.length} зап.</div>
+            <div style="font-size:18px;font-weight:700;color:var(--text);line-height:1">${Math.round(gasData.reduce((s,e)=>s+(parseFloat(e.fuelAmount)||0),0))}<span style="font-size:12px;font-weight:400;color:var(--text2)"> л</span></div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">${Math.round(gasData.reduce((s,e)=>s+(parseFloat(e.totalCost)||0),0))} zł</div>
+          </div>
+          <div style="background:var(--red-bg);border-radius:10px;padding:10px 12px">
+            <div style="font-size:11px;font-weight:600;color:var(--red);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Бензин · ${petrolData.length} зап.</div>
+            <div style="font-size:18px;font-weight:700;color:var(--text);line-height:1">${Math.round(petrolData.reduce((s,e)=>s+(parseFloat(e.fuelAmount)||0),0))}<span style="font-size:12px;font-weight:400;color:var(--text2)"> л</span></div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">${Math.round(petrolData.reduce((s,e)=>s+(parseFloat(e.totalCost)||0),0))} zł</div>
+          </div>
         </div>
       </div>
 
       <!-- ⑤ ТРЕНД: SVG chart как в Auris iOS -->
-      <div class="slbl">Средний расход л/100 км по месяцам</div>
+      <div class="slbl">Расход л/100 км · динамика</div>
       <div class="group" style="padding:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap">
           <div class="ios-seg" id="fuelChartSeg">
@@ -797,9 +825,27 @@ function renderFuel(data) {
         </div>
       </div>
 
+      <!-- ⑥-pre: ПРОБЕГ ПО МЕСЯЦАМ -->
+      ${(function(){
+        var yearsSet = {};
+        data.forEach(function(e){ try{ var y=parseCustomDate(e.date).getFullYear(); if(!isNaN(y)&&y>2000) yearsSet[y]=1; }catch(ex){} });
+        var years = Object.keys(yearsSet).map(Number).sort(function(a,b){return b-a;});
+        var curY = new Date().getFullYear();
+        var yearChips = years.map(function(y){
+          return '<div class="chip'+(y===curY?' active':'')+'" data-mileage-year="'+y+'">'+y+'</div>';
+        }).join('');
+        return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
+          '<div class="slbl" style="margin:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px;margin-right:5px;color:var(--text2)"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Пробег по месяцам</div>'+
+          '<div class="chips" id="mileageYearChips" style="margin:0">'+yearChips+'</div>'+
+        '</div>'+
+        '<div class="group" style="padding:14px 12px 10px" id="mileageChartWrap">'+
+          _buildFuelMileageChart(data, curY)+
+        '</div>';
+      })()}
+
       <!-- ⑥ ГБО ЭКОНОМИЯ — карточка сравнения -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div class="slbl" style="margin:0">Газ vs Бензин</div>
+        <div class="slbl" style="margin:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px;margin-right:5px;color:var(--text2)"><line x1="18" y1="6" x2="6" y2="18"/><line x1="8" y1="6" x2="18" y2="16"/></svg>Газ vs Бензин</div>
         <div class="chips" id="gvsbPeriodChips" style="margin:0">
           <div class="chip active" data-gvsb="5">5 запр.</div>
           <div class="chip" data-gvsb="3">3 мес</div>
@@ -857,7 +903,7 @@ function renderFuel(data) {
       </div>
 
       <!-- ⑦ ИСТОРИЯ -->
-      <div class="slbl">История заправок</div>
+      <div class="slbl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px;margin-right:5px;color:var(--text2)"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>История заправок</div>
 
       <!-- Строка поиска по дате -->
       <div class="search-wrap">
@@ -955,6 +1001,19 @@ function renderFuel(data) {
       });
     });
   }, 80);
+
+  // Mileage year chips
+  document.querySelectorAll('#mileageYearChips .chip').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      document.querySelectorAll('#mileageYearChips .chip').forEach(function(c){ c.classList.remove('active'); });
+      this.classList.add('active');
+      var yr = parseInt(this.dataset.mileageYear);
+      var wrap = document.getElementById('mileageChartWrap');
+      if (wrap) wrap.innerHTML = _buildFuelMileageChart(window._fuelRawData, yr);
+      _initFuelMileageClicks();
+    });
+  });
+  setTimeout(function(){ _initFuelMileageClicks(); }, 120);
 
   // Range card
   if (typeof updateFuelRangeDisplay === 'function') updateFuelRangeDisplay(data);
@@ -1195,6 +1254,224 @@ function buildSVGFuelChart(rawData, months, mode) {
 }
 
 
+
+function _buildFuelMileageChart(rawData, yearSel) {
+  if (!Array.isArray(rawData) || !rawData.length) return '<div class="empty-state" style="padding:20px 0">Нет данных</div>';
+
+  var monthly = {};
+  var RU_MON  = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  rawData.forEach(function(e) {
+    try {
+      var d = parseCustomDate(e.date);
+      if (isNaN(d.getTime()) || d.getFullYear() !== yearSel) return;
+      var m   = d.getMonth()+1;
+      var key = yearSel + '-' + String(m).padStart(2,'0');
+      if (!monthly[key]) monthly[key] = {
+        lbl:     RU_MON[m-1],
+        fullLbl: d.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}).replace(' г.',''),
+        km:0, cost:0, fills:0, month:m, year:yearSel
+      };
+      monthly[key].km   += parseFloat(e.distance)  || 0;
+      monthly[key].cost += parseFloat(e.totalCost) || 0;
+      monthly[key].fills++;
+    } catch(ex) {}
+  });
+
+  var curYear = new Date().getFullYear(), curMonth = new Date().getMonth()+1;
+  var maxMonth = (yearSel === curYear) ? curMonth : 12;
+  for (var m = 1; m <= maxMonth; m++) {
+    var k = yearSel + '-' + String(m).padStart(2,'0');
+    if (!monthly[k]) monthly[k] = {lbl:RU_MON[m-1], fullLbl:RU_MON[m-1]+' '+yearSel, km:0, cost:0, fills:0, month:m, year:yearSel};
+  }
+
+  var keys   = Object.keys(monthly).sort();
+  var vals   = keys.map(function(k){ return monthly[k].km; });
+  var maxVal = Math.max.apply(null, vals) || 1;
+  var n      = keys.length;
+
+  var CHART_H = 100;
+  var BAR_W   = Math.max(20, Math.min(40, Math.floor(300/n)-4));
+  var GAP     = Math.max(4,  Math.floor(BAR_W * 0.25));
+
+  var totalKm   = vals.reduce(function(s,v){return s+v;},0);
+  var totalCost = keys.reduce(function(s,k){return s+monthly[k].cost;},0);
+  var activeMon = vals.filter(function(v){return v>0;}).length;
+  var avgKm     = activeMon ? Math.round(totalKm/activeMon) : 0;
+  var ccy = 'zł'; try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
+
+  var barsHTML = '';
+  keys.forEach(function(k, i) {
+    var v      = monthly[k].km;
+    var bh     = Math.max(4, Math.round((v/maxVal)*CHART_H));
+    var isCur  = (monthly[k].month === curMonth && monthly[k].year === curYear);
+    var isMax  = (v === maxVal && v > 0);
+    var isEmpty = v === 0;
+
+    var bg  = isEmpty ? 'var(--bg2)' : isCur ? 'var(--green)' : isMax ? 'var(--accent)' : 'var(--accent-bg)';
+    var hov = isEmpty ? 'var(--bg2)' : isCur ? '#25a244'      : isMax ? '#0060d0'       : 'var(--indigo)';
+
+    // Метка внутри столбца у верхней кромки — только если столбец достаточно высокий
+    var MIN_BH_FOR_LABEL = 20;
+    var insideLabel = '';
+    if (v > 0 && bh >= MIN_BH_FOR_LABEL) {
+      // белый для ярких, тёмный для приглушённых
+      var txtClr = (isCur || isMax) ? '#fff' : 'var(--text2)';
+      // bottom = 20 (отступ контейнера) + bh - 16 (16px от верха столбца вниз)
+      var lblBottom = 20 + bh - 16;
+      insideLabel = '<div style="position:absolute;bottom:'+lblBottom+'px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:'+txtClr+';pointer-events:none;line-height:1">'+Math.round(v).toLocaleString('ru')+'</div>';
+    }
+
+    var showMonLbl = (n <= 12) || (i % 2 === 0);
+
+    barsHTML +=
+      '<div class="fuel-mile-col"'+
+        ' data-month="'+monthly[k].fullLbl+'"'+
+        ' data-monthkey="'+k+'"'+
+        ' data-km="'+Math.round(v)+'"'+
+        ' data-cost="'+Math.round(monthly[k].cost)+'"'+
+        ' data-fills="'+monthly[k].fills+'"'+
+        ' style="position:relative;display:inline-flex;flex-direction:column;align-items:center;width:'+BAR_W+'px;margin:0 '+(GAP/2)+'px;height:'+(CHART_H+20)+'px;vertical-align:bottom;cursor:pointer">'+
+        '<div class="fuel-mile-inner" data-bg="'+bg+'" data-hover="'+hov+'"'+
+          ' style="position:absolute;bottom:20px;width:100%;height:'+bh+'px;background:'+bg+';border-radius:4px 4px 2px 2px;transition:background .15s,transform .1s"></div>'+
+        insideLabel+
+        (showMonLbl ? '<div style="position:absolute;bottom:3px;font-size:9px;color:'+(isCur?'var(--green)':'var(--text2)')+';font-weight:'+(isCur?700:400)+'">'+monthly[k].lbl+'</div>' : '')+
+      '</div>';
+  });
+
+  return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">'+
+      '<div style="display:flex;gap:16px">'+
+        '<div><div style="font-size:11px;color:var(--text2)">Итого</div><div style="font-size:16px;font-weight:700;color:var(--text)">'+Math.round(totalKm).toLocaleString('ru')+'<span style="font-size:11px;font-weight:400;color:var(--text2)"> км</span></div></div>'+
+        '<div><div style="font-size:11px;color:var(--text2)">Ср./мес.</div><div style="font-size:16px;font-weight:700;color:var(--text)">'+avgKm.toLocaleString('ru')+'<span style="font-size:11px;font-weight:400;color:var(--text2)"> км</span></div></div>'+
+        '<div><div style="font-size:11px;color:var(--text2)">Топливо</div><div style="font-size:16px;font-weight:700;color:var(--orange)">'+Math.round(totalCost).toLocaleString('ru')+'<span style="font-size:11px;font-weight:400;color:var(--text2)"> '+ccy+'</span></div></div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">'+
+      '<div id="fuelMileWrap" style="display:flex;align-items:flex-end;padding:8px 4px 0;min-width:'+((BAR_W+GAP)*n+GAP)+'px">'+barsHTML+'</div>'+
+      '<div id="fuelMileTip" style="display:none;position:fixed;background:var(--grouped);border:0.5px solid var(--sep);border-radius:10px;padding:9px 13px;font-size:13px;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:500;min-width:155px;"></div>'+
+    '</div>'+
+    '<div id="fuelWeekDrill" style="margin-top:12px"></div>';
+}
+
+function _buildFuelWeekChart(rawData, monthKey) {
+  var parts = monthKey.split('-');
+  var yr = parseInt(parts[0]), mo = parseInt(parts[1]);
+  var ccy = 'zł'; try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
+  var RU_MON = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+
+  var weeks = {};
+  rawData.forEach(function(e) {
+    try {
+      var d = parseCustomDate(e.date);
+      if (isNaN(d.getTime()) || d.getFullYear()!==yr || d.getMonth()+1!==mo) return;
+      var day = d.getDate();
+      var wn  = Math.ceil(day/7);
+      if (!weeks[wn]) weeks[wn] = {km:0, cost:0, fills:0, minDay:day, maxDay:day};
+      weeks[wn].km   += parseFloat(e.distance)||0;
+      weeks[wn].cost += parseFloat(e.totalCost)||0;
+      weeks[wn].fills++;
+      weeks[wn].minDay = Math.min(weeks[wn].minDay, day);
+      weeks[wn].maxDay = Math.max(weeks[wn].maxDay, day);
+    } catch(ex) {}
+  });
+
+  var wkeys = Object.keys(weeks).map(Number).sort();
+  if (!wkeys.length) return '<div style="padding:10px 0;font-size:13px;color:var(--text2);text-align:center">Нет данных о пробеге</div>';
+
+  var vals   = wkeys.map(function(w){ return weeks[w].km; });
+  var maxVal = Math.max.apply(null, vals) || 1;
+  var CHART_H = 100;
+  var BAR_W   = Math.max(40, Math.min(60, Math.floor(280/wkeys.length)-8));
+  var GAP     = 10;
+  var curDay  = new Date().getDate(), curMo = new Date().getMonth()+1, curYr = new Date().getFullYear();
+
+  var barsHTML = '';
+  wkeys.forEach(function(w) {
+    var v   = weeks[w].km;
+    var bh  = Math.max(4, Math.round((v/maxVal)*CHART_H));
+    var isCurWeek = (yr===curYr && mo===curMo && Math.ceil(curDay/7)===w);
+    var isMax = (v === maxVal && v > 0);
+    var bg  = isCurWeek ? 'var(--green)' : isMax ? 'var(--accent)' : 'var(--accent-bg)';
+    var hov = isCurWeek ? '#25a244'      : isMax ? '#0060d0'       : 'var(--indigo)';
+
+    var MIN_BH_FOR_LABEL = 20;
+    var insideLabel = '';
+    if (v > 0 && bh >= MIN_BH_FOR_LABEL) {
+      var txtClr = (isCurWeek || isMax) ? '#fff' : 'var(--text2)';
+      var lblBottom = 30 + bh - 16;
+      insideLabel = '<div style="position:absolute;bottom:'+lblBottom+'px;left:0;right:0;text-align:center;font-size:10px;font-weight:700;color:'+txtClr+';pointer-events:none;line-height:1">'+Math.round(v)+' км</div>';
+    }
+
+    barsHTML +=
+      '<div class="fuel-week-col"'+
+        ' data-label="'+w+' нед. · '+weeks[w].minDay+'–'+weeks[w].maxDay+'"'+
+        ' data-km="'+Math.round(v)+'"'+
+        ' data-cost="'+Math.round(weeks[w].cost)+'"'+
+        ' data-fills="'+weeks[w].fills+'"'+
+        ' style="position:relative;display:inline-flex;flex-direction:column;align-items:center;width:'+BAR_W+'px;margin:0 '+(GAP/2)+'px;height:'+(CHART_H+32)+'px;vertical-align:bottom">'+
+        '<div class="fuel-week-inner" data-bg="'+bg+'" data-hover="'+hov+'"'+
+          ' style="position:absolute;bottom:30px;width:100%;height:'+bh+'px;background:'+bg+';border-radius:5px 5px 2px 2px;transition:background .15s"></div>'+
+        insideLabel+
+        '<div style="position:absolute;bottom:14px;font-size:10px;color:'+(isCurWeek?'var(--green)':'var(--text2)')+';font-weight:'+(isCurWeek?700:500)+'">'+w+' нед.</div>'+
+        '<div style="position:absolute;bottom:2px;font-size:9px;color:var(--text3)">'+weeks[w].minDay+'–'+weeks[w].maxDay+'</div>'+
+      '</div>';
+  });
+
+  var monTitle = (RU_MON[mo-1].charAt(0).toUpperCase()+RU_MON[mo-1].slice(1))+' '+yr;
+  return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-top:12px;border-top:0.5px solid var(--sep)">'+
+      '<div style="font-size:13px;font-weight:600;color:var(--text)">'+
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-1px;margin-right:5px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'+
+        monTitle+' — по неделям'+
+      '</div>'+
+      '<button onclick="document.getElementById(\'fuelWeekDrill\').innerHTML=\'\'" style="font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;padding:2px 4px">✕</button>'+
+    '</div>'+
+    '<div style="overflow-x:auto">'+
+      '<div style="display:flex;align-items:flex-end;padding:8px 4px 0;min-width:'+((BAR_W+GAP)*wkeys.length)+'px">'+barsHTML+'</div>'+
+    '</div>';
+}
+
+function _initFuelMileageClicks() {
+  var cols = document.querySelectorAll('.fuel-mile-col');
+  var tip  = document.getElementById('fuelMileTip');
+  if (!tip || !cols.length) return;
+  var ccy = 'zł'; try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
+
+  function showTip(col, x, y) {
+    var km = col.dataset.km, cost = col.dataset.cost, fills = col.dataset.fills;
+    var cPerKm = (km>0&&cost>0) ? (parseFloat(cost)/parseFloat(km)).toFixed(2) : null;
+    tip.innerHTML =
+      '<div style="font-weight:600;color:var(--text);margin-bottom:5px">'+col.dataset.month+'</div>'+
+      (km>0 ? '<div style="color:var(--text2)">Пробег: <b style="color:var(--text)">'+parseInt(km).toLocaleString('ru')+' км</b></div>' : '<div style="color:var(--text3)">Нет данных о пробеге</div>')+
+      (cost>0 ? '<div style="color:var(--text2)">Топливо: <b style="color:var(--orange)">'+parseInt(cost).toLocaleString('ru')+' '+ccy+'</b></div>' : '')+
+      (fills>0 ? '<div style="color:var(--text2)">Заправок: <b style="color:var(--text)">'+fills+'</b></div>' : '')+
+      (cPerKm ? '<div style="color:var(--text2);margin-top:4px;padding-top:4px;border-top:0.5px solid var(--sep)">'+cPerKm+' '+ccy+'/км</div>' : '')+
+      (km>0 ? '<div style="margin-top:5px;font-size:11px;color:var(--accent)">тап → по неделям</div>' : '');
+    tip.style.display = 'block';
+    var tw=tip.offsetWidth||160, vw=window.innerWidth;
+    tip.style.left = Math.min(x+12,vw-tw-12)+'px';
+    tip.style.top  = (y-120)+'px';
+    var bar = col.querySelector('.fuel-mile-inner');
+    if (bar) { bar.style.background=bar.dataset.hover; bar.style.transform='scaleY(1.05)'; }
+  }
+  function hideTip(col) {
+    tip.style.display = 'none';
+    if (col) { var bar=col.querySelector('.fuel-mile-inner'); if(bar){bar.style.background=bar.dataset.bg;bar.style.transform='';} }
+  }
+  function drillDown(col) {
+    if (parseInt(col.dataset.km) <= 0) return;
+    var drill = document.getElementById('fuelWeekDrill');
+    if (drill) { drill.innerHTML = _buildFuelWeekChart(window._fuelRawData, col.dataset.monthkey); drill.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  }
+
+  cols.forEach(function(col) {
+    col.addEventListener('touchstart', function(e){ e.preventDefault(); var t=e.touches[0]; showTip(col,t.clientX,t.clientY); }, {passive:false});
+    col.addEventListener('touchend',   function(){ setTimeout(function(){ hideTip(col); drillDown(col); }, 200); });
+    col.addEventListener('mouseenter', function(e){ showTip(col,e.clientX,e.clientY); });
+    col.addEventListener('mousemove',  function(e){ if(tip.style.display!=='none'){var tw=tip.offsetWidth||160;tip.style.left=Math.min(e.clientX+12,window.innerWidth-tw-12)+'px';tip.style.top=(e.clientY-120)+'px';} });
+    col.addEventListener('mouseleave', function(){ hideTip(col); });
+    col.addEventListener('click',      function(){ hideTip(col); drillDown(col); });
+  });
+  document.addEventListener('click', function(e){ if(!e.target.closest('.fuel-mile-col')) hideTip(null); });
+}
 
 function buildFillRows(data) {
   if (!data || data.length === 0) {

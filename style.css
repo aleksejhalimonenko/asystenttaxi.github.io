@@ -792,3 +792,87 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
   font-weight: 600;
   box-shadow: 0 1px 4px rgba(0,0,0,.10);
 }
+
+/* ── ДОКУМЕНТЫ ────────────────────────────────────────── */
+.doc-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+}
+.doc-card--sep {
+  border-bottom: 0.5px solid var(--sep);
+}
+.doc-thumb-wrap {
+  position: relative;
+  width: 72px;
+  height: 54px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: var(--bg2);
+}
+.doc-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.doc-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.doc-thumb-wrap:active .doc-thumb-overlay { opacity: 1; }
+.doc-thumb-err {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: var(--bg2);
+}
+.doc-info {
+  flex: 1;
+  min-width: 0;
+}
+.doc-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.doc-actions {
+  display: flex;
+  gap: 8px;
+}
+.doc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity .15s;
+}
+.doc-btn:active { opacity: .7; }
+.doc-btn--view {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.doc-btn--dl {
+  background: var(--green-bg);
+  color: var(--green);
+}
