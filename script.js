@@ -1561,11 +1561,9 @@ function _initFuelMileageClicks() {
       showTip(col, t.clientX, t.clientY);
     }, {passive:false});
     col.addEventListener('touchend', function(){
-      // ── задержка 4 секунды, потом drill-down ──
-      hideTimer = setTimeout(function(){
-        hideTip(col);
-        drillDown(col);
-      }, 4000);
+      // drill-down сразу, тултип держим 4 сек
+      drillDown(col);
+      hideTimer = setTimeout(function(){ hideTip(col); }, 4000);
     });
     col.addEventListener('mouseenter', function(e){ showTip(col, e.clientX, e.clientY); });
     col.addEventListener('mousemove',  function(e){
