@@ -1310,19 +1310,14 @@ function _buildFuelMileageChart(rawData, yearSel) {
     var bg  = isEmpty ? 'var(--bg2)' : isCur ? 'var(--green)' : isMax ? 'var(--accent)' : 'var(--accent-bg)';
     var hov = isEmpty ? 'var(--bg2)' : isCur ? '#25a244'      : isMax ? '#0060d0'       : 'var(--indigo)';
 
-    // Метка внутри столбца у верхней кромки — только если столбец достаточно высокий
-    var MIN_BH_FOR_LABEL = 20;
     var insideLabel = '';
-    if (v > 0 && bh >= MIN_BH_FOR_LABEL) {
-      // белый для ярких, тёмный для приглушённых
+    if (v > 0 && bh >= 20) {
       var txtClr = (isCur || isMax) ? '#fff' : 'var(--text2)';
-      // bottom = 20 (отступ контейнера) + bh - 16 (16px от верха столбца вниз)
       var lblBottom = 20 + bh - 16;
       insideLabel = '<div style="position:absolute;bottom:'+lblBottom+'px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:'+txtClr+';pointer-events:none;line-height:1">'+Math.round(v).toLocaleString('ru')+'</div>';
     }
 
     var showMonLbl = (n <= 12) || (i % 2 === 0);
-
     barsHTML +=
       '<div class="fuel-mile-col"'+
         ' data-month="'+monthly[k].fullLbl+'"'+
@@ -1352,67 +1347,91 @@ function _buildFuelMileageChart(rawData, yearSel) {
     '<div id="fuelWeekDrill" style="margin-top:12px"></div>';
 }
 
+function _getWeekKeyMonday(date) {
+  // Возвращает дату понедельника недели (пн–вс) для заданной даты
+  var d = new Date(date);
+  var day = d.getDay(); // 0=вс, 1=пн...
+  var diff = (day === 0) ? -6 : 1 - day; // сдвиг до понедельника
+  d.setDate(d.getDate() + diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
 function _buildFuelWeekChart(rawData, monthKey) {
   var parts = monthKey.split('-');
   var yr = parseInt(parts[0]), mo = parseInt(parts[1]);
   var ccy = 'zł'; try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
   var RU_MON = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 
-  var weeks = {};
+  // Группируем по реальным календарным неделям (пн–вс)
+  var weeks = {}; // ключ = "YYYY-MM-DD" понедельника
+  var weekMeta = {}; // minDay, maxDay в пределах месяца
+
   rawData.forEach(function(e) {
     try {
       var d = parseCustomDate(e.date);
-      if (isNaN(d.getTime()) || d.getFullYear()!==yr || d.getMonth()+1!==mo) return;
-      var day = d.getDate();
-      var wn  = Math.ceil(day/7);
-      if (!weeks[wn]) weeks[wn] = {km:0, cost:0, fills:0, minDay:day, maxDay:day};
-      weeks[wn].km   += parseFloat(e.distance)||0;
-      weeks[wn].cost += parseFloat(e.totalCost)||0;
-      weeks[wn].fills++;
-      weeks[wn].minDay = Math.min(weeks[wn].minDay, day);
-      weeks[wn].maxDay = Math.max(weeks[wn].maxDay, day);
+      if (isNaN(d.getTime()) || d.getFullYear() !== yr || d.getMonth()+1 !== mo) return;
+      var mon = _getWeekKeyMonday(d);
+      var wkey = mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
+      if (!weeks[wkey])   weeks[wkey]    = {km:0, cost:0, fills:0, monday:mon};
+      if (!weekMeta[wkey]) weekMeta[wkey] = {minDay:d.getDate(), maxDay:d.getDate()};
+      weeks[wkey].km    += parseFloat(e.distance)  || 0;
+      weeks[wkey].cost  += parseFloat(e.totalCost) || 0;
+      weeks[wkey].fills++;
+      weekMeta[wkey].minDay = Math.min(weekMeta[wkey].minDay, d.getDate());
+      weekMeta[wkey].maxDay = Math.max(weekMeta[wkey].maxDay, d.getDate());
     } catch(ex) {}
   });
 
-  var wkeys = Object.keys(weeks).map(Number).sort();
+  var wkeys = Object.keys(weeks).sort();
   if (!wkeys.length) return '<div style="padding:10px 0;font-size:13px;color:var(--text2);text-align:center">Нет данных о пробеге</div>';
 
-  var vals   = wkeys.map(function(w){ return weeks[w].km; });
+  var vals   = wkeys.map(function(wk){ return weeks[wk].km; });
   var maxVal = Math.max.apply(null, vals) || 1;
   var CHART_H = 100;
-  var BAR_W   = Math.max(40, Math.min(60, Math.floor(280/wkeys.length)-8));
+  var BAR_W   = Math.max(44, Math.min(64, Math.floor(280/wkeys.length)-8));
   var GAP     = 10;
-  var curDay  = new Date().getDate(), curMo = new Date().getMonth()+1, curYr = new Date().getFullYear();
+
+  var today    = new Date(); today.setHours(0,0,0,0);
+  var curMonday = _getWeekKeyMonday(today);
+  var curWkey   = curMonday.getFullYear()+'-'+String(curMonday.getMonth()+1).padStart(2,'0')+'-'+String(curMonday.getDate()).padStart(2,'0');
 
   var barsHTML = '';
-  wkeys.forEach(function(w) {
-    var v   = weeks[w].km;
+  wkeys.forEach(function(wk, i) {
+    var v   = weeks[wk].km;
     var bh  = Math.max(4, Math.round((v/maxVal)*CHART_H));
-    var isCurWeek = (yr===curYr && mo===curMo && Math.ceil(curDay/7)===w);
-    var isMax = (v === maxVal && v > 0);
+    var isCurWeek = (wk === curWkey);
+    var isMax     = (v === maxVal && v > 0);
     var bg  = isCurWeek ? 'var(--green)' : isMax ? 'var(--accent)' : 'var(--accent-bg)';
     var hov = isCurWeek ? '#25a244'      : isMax ? '#0060d0'       : 'var(--indigo)';
 
-    var MIN_BH_FOR_LABEL = 20;
+    // Диапазон дней месяца для подписи
+    var meta    = weekMeta[wk];
+    var dayRange = meta.minDay === meta.maxDay ? meta.minDay : meta.minDay+'–'+meta.maxDay;
+
+    // Метка внутри столбца
     var insideLabel = '';
-    if (v > 0 && bh >= MIN_BH_FOR_LABEL) {
+    if (v > 0 && bh >= 20) {
       var txtClr = (isCurWeek || isMax) ? '#fff' : 'var(--text2)';
       var lblBottom = 30 + bh - 16;
       insideLabel = '<div style="position:absolute;bottom:'+lblBottom+'px;left:0;right:0;text-align:center;font-size:10px;font-weight:700;color:'+txtClr+';pointer-events:none;line-height:1">'+Math.round(v)+' км</div>';
     }
 
+    // Порядковый номер недели внутри месяца (1, 2, 3…)
+    var wNum = i + 1;
+
     barsHTML +=
       '<div class="fuel-week-col"'+
-        ' data-label="'+w+' нед. · '+weeks[w].minDay+'–'+weeks[w].maxDay+'"'+
+        ' data-label="'+wNum+' нед. · '+dayRange+'"'+
         ' data-km="'+Math.round(v)+'"'+
-        ' data-cost="'+Math.round(weeks[w].cost)+'"'+
-        ' data-fills="'+weeks[w].fills+'"'+
+        ' data-cost="'+Math.round(weeks[wk].cost)+'"'+
+        ' data-fills="'+weeks[wk].fills+'"'+
         ' style="position:relative;display:inline-flex;flex-direction:column;align-items:center;width:'+BAR_W+'px;margin:0 '+(GAP/2)+'px;height:'+(CHART_H+32)+'px;vertical-align:bottom">'+
         '<div class="fuel-week-inner" data-bg="'+bg+'" data-hover="'+hov+'"'+
           ' style="position:absolute;bottom:30px;width:100%;height:'+bh+'px;background:'+bg+';border-radius:5px 5px 2px 2px;transition:background .15s"></div>'+
         insideLabel+
-        '<div style="position:absolute;bottom:14px;font-size:10px;color:'+(isCurWeek?'var(--green)':'var(--text2)')+';font-weight:'+(isCurWeek?700:500)+'">'+w+' нед.</div>'+
-        '<div style="position:absolute;bottom:2px;font-size:9px;color:var(--text3)">'+weeks[w].minDay+'–'+weeks[w].maxDay+'</div>'+
+        '<div style="position:absolute;bottom:14px;font-size:10px;color:'+(isCurWeek?'var(--green)':'var(--text2)')+';font-weight:'+(isCurWeek?700:500)+'">'+wNum+' нед.</div>'+
+        '<div style="position:absolute;bottom:2px;font-size:9px;color:var(--text3)">'+dayRange+'</div>'+
       '</div>';
   });
 
@@ -1434,7 +1453,6 @@ function _initFuelWeekClicks() {
   if (!cols.length) return;
   var ccy = 'zł'; try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
 
-  // Создаём тултип если нет
   var tip = document.getElementById('fuelWeekTip');
   if (!tip) {
     tip = document.createElement('div');
@@ -1444,28 +1462,22 @@ function _initFuelWeekClicks() {
   }
 
   function showTip(col, x, y) {
-    var km    = parseInt(col.dataset.km)   || 0;
-    var cost  = parseInt(col.dataset.cost) || 0;
-    var fills = parseInt(col.dataset.fills)|| 0;
+    var km    = parseInt(col.dataset.km)    || 0;
+    var cost  = parseInt(col.dataset.cost)  || 0;
+    var fills = parseInt(col.dataset.fills) || 0;
     var cPerKm = (km > 0 && cost > 0) ? (cost/km).toFixed(2) : null;
     tip.innerHTML =
       '<div style="font-weight:600;color:var(--text);margin-bottom:5px">'+col.dataset.label+'</div>'+
       (km > 0
         ? '<div style="color:var(--text2)">Пробег: <b style="color:var(--text)">'+km.toLocaleString('ru')+' км</b></div>'
         : '<div style="color:var(--text3)">Нет данных о пробеге</div>')+
-      (cost > 0
-        ? '<div style="color:var(--text2)">Топливо: <b style="color:var(--orange)">'+cost.toLocaleString('ru')+' '+ccy+'</b></div>'
-        : '')+
-      (fills > 0
-        ? '<div style="color:var(--text2)">Заправок: <b style="color:var(--text)">'+fills+'</b></div>'
-        : '')+
-      (cPerKm
-        ? '<div style="color:var(--text2);margin-top:4px;padding-top:4px;border-top:0.5px solid var(--sep)">'+cPerKm+' '+ccy+'/км</div>'
-        : '');
+      (cost > 0 ? '<div style="color:var(--text2)">Топливо: <b style="color:var(--orange)">'+cost.toLocaleString('ru')+' '+ccy+'</b></div>' : '')+
+      (fills > 0 ? '<div style="color:var(--text2)">Заправок: <b style="color:var(--text)">'+fills+'</b></div>' : '')+
+      (cPerKm ? '<div style="color:var(--text2);margin-top:4px;padding-top:4px;border-top:0.5px solid var(--sep)">'+cPerKm+' '+ccy+'/км</div>' : '');
     tip.style.display = 'block';
-    var tw = tip.offsetWidth || 170, vw = window.innerWidth;
-    tip.style.left = Math.min(x+12, vw-tw-12) + 'px';
-    tip.style.top  = (y - 130) + 'px';
+    var tw = tip.offsetWidth||170, vw = window.innerWidth;
+    tip.style.left = Math.min(x+12, vw-tw-12)+'px';
+    tip.style.top  = (y-140)+'px';
     var bar = col.querySelector('.fuel-week-inner');
     if (bar) { bar.style.background = bar.dataset.hover; bar.style.transform = 'scaleY(1.05)'; }
   }
@@ -1475,19 +1487,28 @@ function _initFuelWeekClicks() {
   }
 
   cols.forEach(function(col) {
-    col.addEventListener('touchstart', function(e){ e.preventDefault(); var t=e.touches[0]; showTip(col,t.clientX,t.clientY); }, {passive:false});
-    col.addEventListener('touchend',   function(){ setTimeout(function(){ hideTip(col); }, 2000); });
-    col.addEventListener('mouseenter', function(e){ showTip(col,e.clientX,e.clientY); });
+    var hideTimer = null;
+    col.addEventListener('touchstart', function(e){
+      e.preventDefault();
+      clearTimeout(hideTimer);
+      var t = e.touches[0];
+      showTip(col, t.clientX, t.clientY);
+    }, {passive:false});
+    col.addEventListener('touchend', function(){
+      // ── задержка 4 секунды ──
+      hideTimer = setTimeout(function(){ hideTip(col); }, 4000);
+    });
+    col.addEventListener('mouseenter', function(e){ showTip(col, e.clientX, e.clientY); });
     col.addEventListener('mousemove',  function(e){
       if (tip.style.display !== 'none') {
         var tw = tip.offsetWidth||170;
         tip.style.left = Math.min(e.clientX+12, window.innerWidth-tw-12)+'px';
-        tip.style.top  = (e.clientY-130)+'px';
+        tip.style.top  = (e.clientY-140)+'px';
       }
     });
     col.addEventListener('mouseleave', function(){ hideTip(col); });
   });
-  document.addEventListener('click', function(e){ if(!e.target.closest('.fuel-week-col')) hideTip(null); });
+  document.addEventListener('click', function(e){ if (!e.target.closest('.fuel-week-col')) hideTip(null); });
 }
 
 function _initFuelMileageClicks() {
@@ -1497,41 +1518,67 @@ function _initFuelMileageClicks() {
   var ccy = 'zł'; try{ccy=JSON.parse(localStorage.getItem('car_settings')||'{}').currency||'zł';}catch(e){}
 
   function showTip(col, x, y) {
-    var km = col.dataset.km, cost = col.dataset.cost, fills = col.dataset.fills;
-    var cPerKm = (km>0&&cost>0) ? (parseFloat(cost)/parseFloat(km)).toFixed(2) : null;
+    var km    = parseInt(col.dataset.km)    || 0;
+    var cost  = parseInt(col.dataset.cost)  || 0;
+    var fills = parseInt(col.dataset.fills) || 0;
+    var cPerKm = (km > 0 && cost > 0) ? (cost/km).toFixed(2) : null;
     tip.innerHTML =
       '<div style="font-weight:600;color:var(--text);margin-bottom:5px">'+col.dataset.month+'</div>'+
-      (km>0 ? '<div style="color:var(--text2)">Пробег: <b style="color:var(--text)">'+parseInt(km).toLocaleString('ru')+' км</b></div>' : '<div style="color:var(--text3)">Нет данных о пробеге</div>')+
-      (cost>0 ? '<div style="color:var(--text2)">Топливо: <b style="color:var(--orange)">'+parseInt(cost).toLocaleString('ru')+' '+ccy+'</b></div>' : '')+
-      (fills>0 ? '<div style="color:var(--text2)">Заправок: <b style="color:var(--text)">'+fills+'</b></div>' : '')+
+      (km > 0
+        ? '<div style="color:var(--text2)">Пробег: <b style="color:var(--text)">'+km.toLocaleString('ru')+' км</b></div>'
+        : '<div style="color:var(--text3)">Нет данных о пробеге</div>')+
+      (cost > 0 ? '<div style="color:var(--text2)">Топливо: <b style="color:var(--orange)">'+cost.toLocaleString('ru')+' '+ccy+'</b></div>' : '')+
+      (fills > 0 ? '<div style="color:var(--text2)">Заправок: <b style="color:var(--text)">'+fills+'</b></div>' : '')+
       (cPerKm ? '<div style="color:var(--text2);margin-top:4px;padding-top:4px;border-top:0.5px solid var(--sep)">'+cPerKm+' '+ccy+'/км</div>' : '')+
-      (km>0 ? '<div style="margin-top:5px;font-size:11px;color:var(--accent)">тап → по неделям</div>' : '');
+      (km > 0 ? '<div style="margin-top:5px;font-size:11px;color:var(--accent)">тап → по неделям</div>' : '');
     tip.style.display = 'block';
-    var tw=tip.offsetWidth||160, vw=window.innerWidth;
-    tip.style.left = Math.min(x+12,vw-tw-12)+'px';
-    tip.style.top  = (y-120)+'px';
+    var tw = tip.offsetWidth||160, vw = window.innerWidth;
+    tip.style.left = Math.min(x+12, vw-tw-12)+'px';
+    tip.style.top  = (y-130)+'px';
     var bar = col.querySelector('.fuel-mile-inner');
-    if (bar) { bar.style.background=bar.dataset.hover; bar.style.transform='scaleY(1.05)'; }
+    if (bar) { bar.style.background = bar.dataset.hover; bar.style.transform = 'scaleY(1.05)'; }
   }
   function hideTip(col) {
     tip.style.display = 'none';
-    if (col) { var bar=col.querySelector('.fuel-mile-inner'); if(bar){bar.style.background=bar.dataset.bg;bar.style.transform='';} }
+    if (col) { var bar = col.querySelector('.fuel-mile-inner'); if (bar) { bar.style.background = bar.dataset.bg; bar.style.transform = ''; } }
   }
   function drillDown(col) {
     if (parseInt(col.dataset.km) <= 0) return;
     var drill = document.getElementById('fuelWeekDrill');
-    if (drill) { drill.innerHTML = _buildFuelWeekChart(window._fuelRawData, col.dataset.monthkey); drill.scrollIntoView({behavior:'smooth',block:'nearest'}); setTimeout(_initFuelWeekClicks, 50); }
+    if (drill) {
+      drill.innerHTML = _buildFuelWeekChart(window._fuelRawData, col.dataset.monthkey);
+      drill.scrollIntoView({behavior:'smooth', block:'nearest'});
+      setTimeout(_initFuelWeekClicks, 50);
+    }
   }
 
   cols.forEach(function(col) {
-    col.addEventListener('touchstart', function(e){ e.preventDefault(); var t=e.touches[0]; showTip(col,t.clientX,t.clientY); }, {passive:false});
-    col.addEventListener('touchend',   function(){ setTimeout(function(){ hideTip(col); drillDown(col); }, 200); });
-    col.addEventListener('mouseenter', function(e){ showTip(col,e.clientX,e.clientY); });
-    col.addEventListener('mousemove',  function(e){ if(tip.style.display!=='none'){var tw=tip.offsetWidth||160;tip.style.left=Math.min(e.clientX+12,window.innerWidth-tw-12)+'px';tip.style.top=(e.clientY-120)+'px';} });
+    var hideTimer = null;
+    col.addEventListener('touchstart', function(e){
+      e.preventDefault();
+      clearTimeout(hideTimer);
+      var t = e.touches[0];
+      showTip(col, t.clientX, t.clientY);
+    }, {passive:false});
+    col.addEventListener('touchend', function(){
+      // ── задержка 4 секунды, потом drill-down ──
+      hideTimer = setTimeout(function(){
+        hideTip(col);
+        drillDown(col);
+      }, 4000);
+    });
+    col.addEventListener('mouseenter', function(e){ showTip(col, e.clientX, e.clientY); });
+    col.addEventListener('mousemove',  function(e){
+      if (tip.style.display !== 'none') {
+        var tw = tip.offsetWidth||160;
+        tip.style.left = Math.min(e.clientX+12, window.innerWidth-tw-12)+'px';
+        tip.style.top  = (e.clientY-130)+'px';
+      }
+    });
     col.addEventListener('mouseleave', function(){ hideTip(col); });
     col.addEventListener('click',      function(){ hideTip(col); drillDown(col); });
   });
-  document.addEventListener('click', function(e){ if(!e.target.closest('.fuel-mile-col')) hideTip(null); });
+  document.addEventListener('click', function(e){ if (!e.target.closest('.fuel-mile-col')) hideTip(null); });
 }
 
 function buildFillRows(data) {
