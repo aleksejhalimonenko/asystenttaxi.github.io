@@ -589,14 +589,27 @@ function _drawHomeSparkline(fuelData) {
 // ── FUEL ───────────────────────────────────────────────
 function renderFuel(data) {
   if (!Array.isArray(data)) return;
-  const sorted = [...data].reverse();
+
+  // ── Глобальный фильтр года ────────────────────────────
+  const allYearsSet = {};
+  data.forEach(e => { try { const y = parseCustomDate(e.date).getFullYear(); if (!isNaN(y) && y > 2000) allYearsSet[y] = 1; } catch(ex){} });
+  const allYears = Object.keys(allYearsSet).map(Number).sort((a,b)=>b-a);
+  const curY = new Date().getFullYear();
+  // Восстанавливаем выбранный год или берём текущий
+  if (!window._activeFuelYear || !allYearsSet[window._activeFuelYear]) window._activeFuelYear = curY;
+  const activeYear = window._activeFuelYear;
+
+  // Фильтруем данные по выбранному году
+  const yearData = data.filter(e => { try { return parseCustomDate(e.date).getFullYear() === activeYear; } catch(ex){ return false; } });
+
+  const sorted = [...yearData].reverse();
   const latest = sorted[0] || {};
   const avgGas = calculateAverageConsumption(sorted);
 
   // ── Compute stats from raw data ──────────────────────
-  // Total fuel cost (all records)
-  const totalFuelCost = data.reduce((s, e) => s + (parseFloat(e.totalCost) || 0), 0);
-  const totalFills    = data.length;
+  // Total fuel cost (filtered by year)
+  const totalFuelCost = yearData.reduce((s, e) => s + (parseFloat(e.totalCost) || 0), 0);
+  const totalFills    = yearData.length;
 
   // Weekly fuel cost
   const now    = new Date();
@@ -629,8 +642,8 @@ function renderFuel(data) {
   weekKmDisplay = weekKmDisplay || '—';
 
   // Cost per km: gas vs petrol
-  const gasData    = data.filter(e => (e.fuelType||'').toLowerCase().includes('газ'));
-  const petrolData = data.filter(e => (e.fuelType||'').toLowerCase().includes('бензин') || (e.fuelType||'').toLowerCase().includes('petrol'));
+  const gasData    = yearData.filter(e => (e.fuelType||'').toLowerCase().includes('газ'));
+  const petrolData = yearData.filter(e => (e.fuelType||'').toLowerCase().includes('бензин') || (e.fuelType||'').toLowerCase().includes('petrol'));
 
   // Avg gas consumption (last 5 with valid consumption)
   const gasWithCons = gasData.filter(e => parseFloat(e.fuelConsumption) > 0);
@@ -709,6 +722,7 @@ function renderFuel(data) {
   const curMonthKey  = `${nowM.getFullYear()}-${String(nowM.getMonth()+1).padStart(2,'0')}`;
   const prevMonthKey = (function(){ const d=new Date(nowM); d.setMonth(d.getMonth()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
   const gasConsData  = gasData.filter(e=>parseFloat(e.fuelConsumption)>0);
+  // (gasConsData уже из yearData через gasData)
   function avgConsForMonth(mk){ const rows=gasConsData.filter(e=>{const d=parseCustomDate(e.date);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===mk;}); return rows.length?(rows.reduce((s,e)=>s+parseFloat(e.fuelConsumption),0)/rows.length):null; }
   const curMonthCons  = avgConsForMonth(curMonthKey);
   const prevMonthCons = avgConsForMonth(prevMonthKey);
@@ -728,11 +742,19 @@ function renderFuel(data) {
   DOM.pageContent.innerHTML = `
     <div class="anim">
 
+      <!-- ── ГОД фильтр ── -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text2);font-weight:500">Данные за год</div>
+        <div class="chips" id="fuelYearChips" style="margin:0">
+          ${allYears.map(y=>`<div class="chip${y===activeYear?' active':''}" data-fuel-year="${y}">${y}</div>`).join('')}
+        </div>
+      </div>
+
       <!-- ① HERO: Всего на топливо -->
       <div class="hero orange">
-        <div class="hero-lbl">Всего на топливо</div>
+        <div class="hero-lbl">Всего на топливо · ${activeYear}</div>
         <div class="hero-val">${Math.round(totalFuelCost).toLocaleString('ru')} <span class="hero-unit">zł</span></div>
-        <div class="hero-sub">${totalFills} заправок · ${consTrendHTML || 'за весь период'}</div>
+        <div class="hero-sub">${totalFills} заправок · ${consTrendHTML || 'за ' + activeYear + ' год'}</div>
         <div class="hero-icon">
           <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14"/><path d="M17 12h1a2 2 0 0 1 2 2v1a2 2 0 0 0 4 0V9l-3-3"/><path d="M3 22h18"/><path d="M7 14h4"/><path d="M7 10h4"/></svg>
         </div>
@@ -826,22 +848,10 @@ function renderFuel(data) {
       </div>
 
       <!-- ⑥-pre: ПРОБЕГ ПО МЕСЯЦАМ -->
-      ${(function(){
-        var yearsSet = {};
-        data.forEach(function(e){ try{ var y=parseCustomDate(e.date).getFullYear(); if(!isNaN(y)&&y>2000) yearsSet[y]=1; }catch(ex){} });
-        var years = Object.keys(yearsSet).map(Number).sort(function(a,b){return b-a;});
-        var curY = new Date().getFullYear();
-        var yearChips = years.map(function(y){
-          return '<div class="chip'+(y===curY?' active':'')+'" data-mileage-year="'+y+'">'+y+'</div>';
-        }).join('');
-        return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
-          '<div class="slbl" style="margin:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px;margin-right:5px;color:var(--text2)"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Пробег по месяцам</div>'+
-          '<div class="chips" id="mileageYearChips" style="margin:0">'+yearChips+'</div>'+
-        '</div>'+
-        '<div class="group" style="padding:14px 12px 10px" id="mileageChartWrap">'+
-          _buildFuelMileageChart(data, curY)+
-        '</div>';
-      })()}
+      <div class="slbl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px;margin-right:5px;color:var(--text2)"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Пробег по месяцам</div>
+      <div class="group" style="padding:14px 12px 10px" id="mileageChartWrap">
+        ${_buildFuelMileageChart(data, activeYear)}
+      </div>
 
       <!-- ⑥ ГБО ЭКОНОМИЯ — карточка сравнения -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -915,9 +925,9 @@ function renderFuel(data) {
       <!-- Фильтры: период + тип/расход в одном ряду -->
       <div class="chips" id="periodChips">
         <div class="chip" data-period="week">Неделя</div>
-        <div class="chip active" data-period="month">Месяц</div>
-        <div class="chip" data-period="year">Год</div>
-        <div class="chip" data-period="all">Всё</div>
+        <div class="chip" data-period="month">Месяц</div>
+        <div class="chip" data-period="quarter">Квартал</div>
+        <div class="chip active" data-period="all">Весь год</div>
       </div>
       <div class="chips" id="sortChips" style="margin-top:2px">
         <div class="chip active" data-sort="all">Все типы</div>
@@ -941,7 +951,7 @@ function renderFuel(data) {
   // ── Состояние фильтров ─────────────────────────────────
   // Сохраняем данные глобально для доступа из oninput
   window._fuelSorted   = sorted;
-  window._activePeriod = 'month';
+  window._activePeriod = 'all';  // год уже выбран глобально
   window._activeSort   = 'all';
 
   // Период chips
@@ -1002,15 +1012,15 @@ function renderFuel(data) {
     });
   }, 80);
 
-  // Mileage year chips
-  document.querySelectorAll('#mileageYearChips .chip').forEach(function(chip) {
+  // Глобальный фильтр года
+  document.querySelectorAll('#fuelYearChips .chip').forEach(function(chip) {
     chip.addEventListener('click', function() {
-      document.querySelectorAll('#mileageYearChips .chip').forEach(function(c){ c.classList.remove('active'); });
+      document.querySelectorAll('#fuelYearChips .chip').forEach(function(c){ c.classList.remove('active'); });
       this.classList.add('active');
-      var yr = parseInt(this.dataset.mileageYear);
-      var wrap = document.getElementById('mileageChartWrap');
-      if (wrap) wrap.innerHTML = _buildFuelMileageChart(window._fuelRawData, yr);
-      _initFuelMileageClicks();
+      window._activeFuelYear = parseInt(this.dataset.fuelYear);
+      // Перерисовываем весь раздел с новым годом
+      var cached = readCache('fuel');
+      if (cached && cached.data) renderFuel(cached.data);
     });
   });
   setTimeout(function(){ _initFuelMileageClicks(); }, 120);
@@ -1680,6 +1690,12 @@ function filterDataByPeriod(data, period) {
       const ys = new Date(now.getFullYear(), 0, 1);
       const ye = new Date(now.getFullYear(), 11, 31); ye.setHours(23,59,59,999);
       return data.filter(e => isDateInRange(e.date, ys, ye));
+    }
+    case 'quarter': {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      const qs = new Date(now.getFullYear(), qMonth, 1);
+      const qe = new Date(now.getFullYear(), qMonth + 3, 0); qe.setHours(23,59,59,999);
+      return data.filter(e => isDateInRange(e.date, qs, qe));
     }
     default: return data;
   }
@@ -2717,7 +2733,7 @@ function renderSettings(data) {
       // Подушка рендерится отдельно — обновляем её тоже
       var cushionArea = document.getElementById('tcoSavingsArea');
       if (cushionArea && window._tcoData) {
-        cushionArea.innerHTML = _buildSavingsCard(window._tcoData, window._tcoCcy || 'zł');
+        cushionArea.innerHTML = _buildSavingsCard(window._tcoData, window._tcoCcy || 'zł', window._activeTcoYear);
         setTimeout(function(){ _initCushionSeg(); _refreshCushionChips(window._tcoData, window._tcoCcy||'zł','week'); }, 100);
       }
     });
@@ -2762,7 +2778,7 @@ function renderTCO(data) {
     _buildTcoHero(data, ccy)+
     '<div class="chips" id="tcoYearChips" style="margin-bottom:4px">'+yearChips+'</div>'+
     '<div id="tcoStatsArea"></div>'+
-    '<div id="tcoSavingsArea">'+_buildSavingsCard(data, ccy)+'</div>'+
+    '<div id="tcoSavingsArea">'+_buildSavingsCard(data, ccy, window._activeTcoYear || 'all')+'</div>'+
     '</div>';
 
   document.querySelectorAll('#tcoYearChips .chip').forEach(function(chip){
@@ -3107,14 +3123,29 @@ function _dynCushionBody(period, fuelPerKm, nonFuelPerKm, svcPerKm, tuningPerKm,
 }
 
 
-function _buildSavingsCard(data, ccy) {
+function _buildSavingsCard(data, ccy, yearSel) {
   var _tcoLay = getTcoLayout();
   var _cushionItem = _tcoLay.find(function(x){ return x.id === 'cushion'; });
   if (_cushionItem && !_cushionItem.enabled) return '';
 
-  var ins  = data.lastInsuranceCost || 0;
-  var svc  = data.avgServicePerYear || 0;
-  var insY = data.lastInsuranceYear || '';
+  yearSel = yearSel || window._activeTcoYear || 'all';
+  var byYear = data.byYear || {};
+  var curYear = new Date().getFullYear();
+
+  // Если выбран конкретный год — берём данные именно за него
+  var ins, svc, insY;
+  if (yearSel !== 'all' && byYear[yearSel]) {
+    var yd = byYear[yearSel];
+    ins  = yd.insurance || 0;
+    svc  = yd.service   || 0;
+    insY = yearSel;
+    // Если страховки за этот год нет — берём последнюю известную
+    if (!ins) { ins = data.lastInsuranceCost || 0; insY = data.lastInsuranceYear || yearSel; }
+  } else {
+    ins  = data.lastInsuranceCost || 0;
+    svc  = data.avgServicePerYear || 0;
+    insY = data.lastInsuranceYear || '';
+  }
   if (!ins && !svc) return '';
 
   var yearTotal = ins + svc;
@@ -3145,7 +3176,7 @@ function _buildSavingsCard(data, ccy) {
         '<span style="color:var(--text2);display:flex;align-items:center"><span style="display:inline-block;width:8px;height:8px;border-radius:3px;background:#007AFF;margin-right:6px"></span>Обслуживание</span>'+
         '<span style="font-weight:600;color:var(--text)">'+fmt(svc)+' '+ccy+'/год</span></div>':'')+
       '<div style="font-size:11px;color:var(--text3);padding-top:6px">'+
-        'Данные за '+noteYear+' г. · минимум без топлива'+
+        (yearSel!=='all'?'Данные за '+yearSel+' г.':'Ср. за последние годы')+' · минимум без топлива'+
       '</div>'+
     '</div>';
 
