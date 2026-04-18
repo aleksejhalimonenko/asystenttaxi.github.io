@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HV Battery Analyzer — Prius / Auris</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #111419;
+    --bg3: #181c23;
+    --border: #1e2530;
+    --border2: #252d3a;
+    --text: #e2e8f0;
+    --text2: #7a8899;
+    --text3: #4a5568;
+    --green: #00ff87;
+    --green-dim: #00c96a;
+    --yellow: #ffd166;
+    --red: #ff4757;
+    --red-dim: #c0392b;
+    --blue: #4ecdc4;
+    --accent: #00ff87;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID NOISE BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,135,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,135,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* HEADER */
+  .header {
+    position: relative;
+    z-index: 10;
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,12,15,0.9);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--green);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 0.15em;
+  }
+
+  .header-right {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    text-align: right;
+  }
+
+  /* MAIN */
+  .main {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 16px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--bg2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,255,135,0.03) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .upload-zone:hover::before,
+  .upload-zone.drag { opacity: 1; border-color: var(--green); }
+  .upload-zone.drag { border-color: var(--green); background: rgba(0,255,135,0.03); }
+
+  .upload-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    filter: grayscale(0.5);
+  }
+
+  .upload-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .upload-sub {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 24px;
+  }
+
+  .upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--green);
+    color: #000;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 12px 28px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .upload-btn:hover { background: #00e87a; transform: translateY(-1px); }
+
+  #fileInput { display: none; }
+
+  /* FILE LIST */
+  .file-list {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .file-chip {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .file-chip .remove {
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 14px;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+  .file-chip .remove:hover { color: var(--red); }
+
+  /* ANALYZE BTN */
+  .analyze-btn {
+    display: block;
+    width: 100%;
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--green);
+    color: #000;
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .analyze-btn:hover { background: #00e87a; transform: translateY(-1px); box-shadow: 0 8px 30px rgba(0,255,135,0.2); }
+  .analyze-btn:disabled { background: var(--border2); color: var(--text3); cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* RESULTS */
+  .results { display: none; margin-top: 40px; }
+  .results.visible { display: block; animation: fadeUp 0.5s ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--green);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* SUMMARY CARDS */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .summary-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent-color, var(--green));
+    opacity: 0.6;
+  }
+
+  .summary-card:hover { border-color: var(--border2); }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .card-value {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+  }
+
+  .card-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    letter-spacing: 0.03em;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeUp 0.3s ease; }
+
+  /* MODULE GRID */
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+
+  .module-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+    transition: all 0.2s;
+  }
+
+  .module-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+
+  .module-card.red { border-left: 3px solid var(--red); }
+  .module-card.yellow { border-left: 3px solid var(--yellow); }
+  .module-card.green { border-left: 3px solid var(--green); }
+
+  .module-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+
+  .module-status {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .module-status.red { color: var(--red); }
+  .module-status.yellow { color: var(--yellow); }
+  .module-status.green { color: var(--green); }
+
+  .module-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .mod-stat { }
+  .mod-stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .mod-stat-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  /* DEVIATION BAR */
+  .dev-bar-wrap {
+    margin-top: 10px;
+  }
+  .dev-bar-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .dev-bar-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    position: relative;
+    overflow: visible;
+  }
+  .dev-bar-center {
+    position: absolute;
+    left: 50%;
+    top: -2px;
+    width: 1px;
+    height: 8px;
+    background: var(--border2);
+  }
+  .dev-bar-fill {
+    position: absolute;
+    top: 0;
+    height: 4px;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+
+  /* TEMP SECTION */
+  .temp-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .temp-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .temp-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  .temp-value {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .temp-minmax {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+
+  /* LIMITS */
+  .limit-bar-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+
+  .limit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+
+  .limit-name {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .limit-vals {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .limit-track {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .limit-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+
+  /* CHART */
+  .chart-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .chart-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  canvas {
+    width: 100%;
+    display: block;
+  }
+
+  /* VERDICT */
+  .verdict-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .verdict-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .verdict-box.good::before { background: var(--green); }
+  .verdict-box.warn::before { background: var(--yellow); }
+  .verdict-box.bad::before { background: var(--red); }
+
+  .verdict-icon { font-size: 32px; margin-bottom: 12px; display: block; }
+
+  .verdict-title {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+
+  .verdict-text {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+
+  .verdict-text strong { color: var(--text); }
+
+  /* MODULE TABLE */
+  .mod-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .mod-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mod-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .mod-table tr:last-child td { border-bottom: none; }
+  .mod-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .badge-red { background: rgba(255,71,87,0.15); color: var(--red); }
+  .badge-yellow { background: rgba(255,209,102,0.15); color: var(--yellow); }
+  .badge-green { background: rgba(0,255,135,0.12); color: var(--green); }
+
+  /* PROGRESS */
+  .loading-wrap {
+    display: none;
+    text-align: center;
+    padding: 40px;
+  }
+
+  .loading-wrap.visible { display: block; }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--border);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+  }
+
+  /* MULTI LOG */
+  .log-selector {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .log-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    background: var(--bg2);
+    color: var(--text2);
+    transition: all 0.2s;
+  }
+
+  .log-pill.active {
+    background: var(--green);
+    color: #000;
+    border-color: var(--green);
+    font-weight: 700;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .header { padding: 16px; }
+    .main { padding: 16px; }
+    .temp-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .highlight-row td:first-child { color: var(--text); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <div class="logo-text">HV Battery Analyzer</div>
+      <div class="logo-sub">Prius 30 · Auris · NiMH / Li-ion</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div id="headerDate">—</div>
+    <div>BatteryMonitor CSV</div>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- UPLOAD -->
+  <div class="upload-zone" id="dropZone">
+    <span class="upload-icon">🔋</span>
+    <div class="upload-title">Загрузите лог-файл батареи</div>
+    <div class="upload-sub">Поддерживается формат BatteryMonitor CSV · можно несколько файлов</div>
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+      &#8679; Выбрать файл(ы)
+    </button>
+    <input type="file" id="fileInput" accept=".csv" multiple>
+    <div class="file-list" id="fileList"></div>
+  </div>
+
+  <button class="analyze-btn" id="analyzeBtn" disabled>Анализировать</button>
+
+  <!-- LOADING -->
+  <div class="loading-wrap" id="loadingWrap">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">АНАЛИЗ ДАННЫХ...</div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results" id="results">
+
+    <!-- SUMMARY CARDS -->
+    <div class="section-title">Сводка</div>
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <!-- TABS -->
+    <div class="tabs" id="tabsRow">
+      <div class="tab active" data-tab="modules">Модули</div>
+      <div class="tab" data-tab="temperature">Температура</div>
+      <div class="tab" data-tab="limits">Лимиты мощности</div>
+      <div class="tab" data-tab="resistance">Сопротивление IR</div>
+      <div class="tab" data-tab="chart">Графики</div>
+      <div class="tab" data-tab="verdict">Вердикт</div>
+    </div>
+
+    <!-- TAB: MODULES -->
+    <div class="tab-content active" id="tab-modules">
+      <div class="section-title">Состояние модулей</div>
+      <div id="moduleGrid" class="module-grid"></div>
+      <br>
+      <div class="chart-wrap">
+        <div class="chart-title">Отклонение напряжения по модулям (V)</div>
+        <canvas id="deviationChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- TAB: TEMPERATURE -->
+    <div class="tab-content" id="tab-temperature">
+      <div class="section-title">Температура батареи</div>
+      <div class="temp-grid" id="tempGrid"></div>
+      <div class="chart-wrap">
+        <div class="chart-title">Динамика температуры по времени</div>
+        <canvas id="tempChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- TAB: LIMITS -->
+    <div class="tab-content" id="tab-limits">
+      <div class="section-title">Лимиты мощности</div>
+      <div id="limitsBlock"></div>
+      <div class="chart-wrap">
+        <div class="chart-title">Динамика Charge / Discharge Limit</div>
+        <canvas id="limitsChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- TAB: IR -->
+    <div class="tab-content" id="tab-resistance">
+      <div class="section-title">Внутреннее сопротивление (мОм)</div>
+      <div class="chart-wrap">
+        <div class="chart-title">IR по модулям</div>
+        <canvas id="irChart" height="220"></canvas>
+      </div>
+      <div id="irTable" class="chart-wrap" style="overflow-x:auto;"></div>
+    </div>
+
+    <!-- TAB: CHARTS -->
+    <div class="tab-content" id="tab-chart">
+      <div class="section-title">Напряжение по времени</div>
+      <div id="logPills" class="log-selector"></div>
+      <div class="chart-wrap">
+        <div class="chart-title">Напряжение модулей (V) — выберите лог выше</div>
+        <canvas id="voltChart" height="260"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">SOC (%) / Ток (A) по времени</div>
+        <canvas id="socChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- TAB: VERDICT -->
+    <div class="tab-content" id="tab-verdict">
+      <div class="section-title">Вердикт и рекомендации</div>
+      <div id="verdictBlock"></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ===================== DATA =====================
+let allLogs = []; // [{name, rows, stats}]
+let activeLogIdx = 0;
+
+// Chart instances
+let charts = {};
+
+const VOL_COLS = Array.from({length:14}, (_,i) => `Vol#${i+1}`);
+const IR_COLS  = Array.from({length:14}, (_,i) => `IR#${i+1}`);
+const TEMP_COLS = ['Batt Temp#1(C)', 'Batt Temp#2(C)', 'Batt Temp#3(C)'];
+const HEALTHY = ['Vol#1','Vol#2','Vol#10','Vol#13','Vol#14'];
+
+// ===================== UPLOAD =====================
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileList  = document.getElementById('fileList');
+const analyzeBtn = document.getElementById('analyzeBtn');
+
+let pendingFiles = [];
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  addFiles([...e.dataTransfer.files]);
+});
+
+fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+
+function addFiles(files) {
+  files.filter(f => f.name.endsWith('.csv')).forEach(f => {
+    if (!pendingFiles.find(p => p.name === f.name)) pendingFiles.push(f);
+  });
+  renderFileList();
+  analyzeBtn.disabled = pendingFiles.length === 0;
+}
+
+function renderFileList() {
+  fileList.innerHTML = '';
+  pendingFiles.forEach((f, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    chip.innerHTML = `📄 ${f.name} <span class="remove" data-i="${i}">✕</span>`;
+    fileList.appendChild(chip);
+  });
+  fileList.querySelectorAll('.remove').forEach(el => {
+    el.addEventListener('click', () => {
+      pendingFiles.splice(+el.dataset.i, 1);
+      renderFileList();
+      analyzeBtn.disabled = pendingFiles.length === 0;
+    });
+  });
+}
+
+// ===================== PARSE CSV =====================
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = lines[i].split(',');
+    if (vals.length < headers.length) continue;
+    const row = {};
+    headers.forEach((h, j) => {
+      const v = vals[j]?.trim().replace(/^"|"$/g,'');
+      row[h] = isNaN(v) ? v : parseFloat(v);
+    });
+    rows.push(row);
+  }
+  return { headers, rows };
+}
+
+function computeStats(rows) {
+  const stats = {};
+
+  // Voltage deviations
+  const volMeans = {};
+  VOL_COLS.forEach(c => {
+    const vals = rows.map(r => r[c]).filter(v => !isNaN(v));
+    volMeans[c] = vals.reduce((a,b) => a+b, 0) / vals.length;
+  });
+  const overallMean = Object.values(volMeans).reduce((a,b) => a+b, 0) / 14;
+  stats.overallMean = overallMean;
+  stats.volMeans = volMeans;
+  stats.volDevs = {};
+  VOL_COLS.forEach(c => stats.volDevs[c] = volMeans[c] - overallMean);
+
+  // Vol min/max
+  stats.volMin = {};
+  stats.volMax = {};
+  VOL_COLS.forEach(c => {
+    const vals = rows.map(r => r[c]).filter(v => !isNaN(v));
+    stats.volMin[c] = Math.min(...vals);
+    stats.volMax[c] = Math.max(...vals);
+  });
+
+  // IR
+  stats.irMeans = {};
+  IR_COLS.forEach(c => {
+    const vals = rows.map(r => r[c]).filter(v => !isNaN(v));
+    stats.irMeans[c] = vals.reduce((a,b) => a+b, 0) / vals.length;
+  });
+
+  // Temperature
+  stats.temps = {};
+  TEMP_COLS.forEach(c => {
+    const vals = rows.map(r => r[c]).filter(v => !isNaN(v));
+    stats.temps[c] = {
+      mean: vals.reduce((a,b)=>a+b,0)/vals.length,
+      min: Math.min(...vals),
+      max: Math.max(...vals),
+    };
+  });
+
+  // Limits
+  const chg = rows.map(r => r['Charge Limit(HP)']).filter(v => !isNaN(v));
+  const dis = rows.map(r => r['Discharge Limit(HP)']).filter(v => !isNaN(v));
+  stats.chgMean = chg.reduce((a,b)=>a+b,0)/chg.length;
+  stats.chgMin  = Math.min(...chg);
+  stats.disMean = dis.reduce((a,b)=>a+b,0)/dis.length;
+  stats.disMin  = Math.min(...dis);
+
+  // SOC
+  const soc = rows.map(r => r['SOC(%)']).filter(v => !isNaN(v));
+  stats.socMean = soc.reduce((a,b)=>a+b,0)/soc.length;
+  stats.socMin  = Math.min(...soc);
+  stats.socMax  = Math.max(...soc);
+
+  // Speed
+  const spd = rows.map(r => r['Vehicle Speed(KPH)']).filter(v => !isNaN(v));
+  stats.speedMean = spd.reduce((a,b)=>a+b,0)/spd.length;
+  stats.speedMax  = Math.max(...spd);
+
+  // Current
+  const cur = rows.map(r => r['Current(Amp)']).filter(v => !isNaN(v));
+  stats.curMin = Math.min(...cur);
+  stats.curMax = Math.max(...cur);
+
+  // Delta voltage
+  const deltas = rows.map(r => {
+    const vs = VOL_COLS.map(c => r[c]).filter(v => !isNaN(v));
+    return Math.max(...vs) - Math.min(...vs);
+  });
+  stats.deltaMean = deltas.reduce((a,b)=>a+b,0)/deltas.length;
+  stats.deltaMax  = Math.max(...deltas);
+
+  // Worst under load per module
+  const loadRows = rows.filter(r => r['Current(Amp)'] < -15);
+  stats.worstPct = {};
+  if (loadRows.length > 0) {
+    const worstCounts = {};
+    VOL_COLS.forEach(c => worstCounts[c] = 0);
+    loadRows.forEach(r => {
+      let minV = Infinity, minC = null;
+      VOL_COLS.forEach(c => { if(r[c] < minV) { minV = r[c]; minC = c; } });
+      if (minC) worstCounts[minC]++;
+    });
+    VOL_COLS.forEach(c => stats.worstPct[c] = worstCounts[c] / loadRows.length * 100);
+  } else {
+    VOL_COLS.forEach(c => stats.worstPct[c] = 0);
+  }
+
+  // Under load avg dev from healthy
+  const healthyAvg = row => HEALTHY.map(c => row[c]).filter(v=>!isNaN(v)).reduce((a,b)=>a+b,0)/HEALTHY.length;
+  stats.loadDev = {};
+  if (loadRows.length > 0) {
+    VOL_COLS.forEach(c => {
+      const diffs = loadRows.map(r => r[c] - healthyAvg(r));
+      stats.loadDev[c] = diffs.reduce((a,b)=>a+b,0)/diffs.length;
+    });
+  } else {
+    VOL_COLS.forEach(c => stats.loadDev[c] = 0);
+  }
+
+  // Duration
+  const times = rows.map(r => r['DateTime']).filter(Boolean);
+  stats.timeStart = times[0] || '—';
+  stats.timeEnd   = times[times.length-1] || '—';
+  try {
+    const d1 = new Date(times[0]), d2 = new Date(times[times.length-1]);
+    stats.durationMin = (d2 - d1) / 60000;
+  } catch(e) { stats.durationMin = 0; }
+
+  stats.rowCount = rows.length;
+
+  return stats;
+}
+
+// ===================== ANALYZE =====================
+analyzeBtn.addEventListener('click', async () => {
+  if (pendingFiles.length === 0) return;
+  document.getElementById('loadingWrap').classList.add('visible');
+  document.getElementById('results').classList.remove('visible');
+  analyzeBtn.disabled = true;
+
+  allLogs = [];
+  for (const file of pendingFiles) {
+    const text = await file.text();
+    const {rows} = parseCSV(text);
+    const stats = computeStats(rows);
+    allLogs.push({ name: file.name.replace('.csv','').replace('BatteryMonitorLog_','Лог '), rows, stats });
+  }
+
+  document.getElementById('loadingWrap').classList.remove('visible');
+  renderResults();
+  document.getElementById('results').classList.add('visible');
+  analyzeBtn.disabled = false;
+  document.getElementById('headerDate').textContent = allLogs[0]?.stats.timeStart?.split(' ')[0] || '—';
+});
+
+// ===================== RENDER =====================
+function renderResults() {
+  activeLogIdx = 0;
+  renderSummary();
+  renderModules();
+  renderTemperature();
+  renderLimits();
+  renderIR();
+  renderChartTab();
+  renderVerdict();
+  initLogPills();
+}
+
+// -- SUMMARY CARDS --
+function renderSummary() {
+  const s = allLogs[0].stats;
+  const maxTemp = Math.max(...TEMP_COLS.map(c => s.temps[c].max));
+  const tempColor = maxTemp > 44 ? 'var(--red)' : maxTemp > 40 ? 'var(--yellow)' : 'var(--green)';
+  const chgColor  = s.chgMin < 25 ? 'var(--red)' : s.chgMin < 32 ? 'var(--yellow)' : 'var(--green)';
+  const disColor  = s.disMin < 24 ? 'var(--red)' : s.disMin < 27 ? 'var(--yellow)' : 'var(--green)';
+  const deltaColor = s.deltaMax > 0.5 ? 'var(--red)' : s.deltaMax > 0.3 ? 'var(--yellow)' : 'var(--green)';
+
+  const cards = [
+    { label: 'Файлов загружено', value: allLogs.length, sub: 'логов', color: 'var(--blue)' },
+    { label: 'Длительность', value: allLogs.length === 1 ? `${s.durationMin.toFixed(0)} мин` : '—', sub: `${s.rowCount} точек`, color: 'var(--blue)' },
+    { label: 'Макс. температура', value: `${maxTemp.toFixed(1)}°`, sub: 'Датчик #2 центр', color: tempColor },
+    { label: 'SOC диапазон', value: `${s.socMin.toFixed(0)}–${s.socMax.toFixed(0)}%`, sub: `ср. ${s.socMean.toFixed(0)}%`, color: 'var(--blue)' },
+    { label: 'Charge Limit мин', value: `${s.chgMin.toFixed(1)} HP`, sub: `ср. ${s.chgMean.toFixed(1)} HP`, color: chgColor },
+    { label: 'Discharge Limit мин', value: `${s.disMin.toFixed(1)} HP`, sub: `ср. ${s.disMean.toFixed(1)} HP`, color: disColor },
+    { label: 'Макс. разброс V', value: `${s.deltaMax.toFixed(3)}V`, sub: `ср. ${s.deltaMean.toFixed(3)}V`, color: deltaColor },
+    { label: 'Скорость макс', value: `${s.speedMax.toFixed(0)} км/ч`, sub: `ср. ${s.speedMean.toFixed(0)} км/ч`, color: 'var(--blue)' },
+  ];
+
+  document.getElementById('summaryGrid').innerHTML = cards.map(c => `
+    <div class="summary-card" style="--accent-color:${c.color}">
+      <div class="card-label">${c.label}</div>
+      <div class="card-value" style="color:${c.color}">${c.value}</div>
+      <div class="card-sub">${c.sub}</div>
+    </div>
+  `).join('');
+}
+
+// -- MODULES --
+function getModuleStatus(dev, worstPct) {
+  if (dev < -0.04 || worstPct > 20) return 'red';
+  if (dev < -0.02 || worstPct > 8)  return 'yellow';
+  return 'green';
+}
+
+function getStatusLabel(status) {
+  if (status === 'red')    return { text: '🔴 Слабый', cls: 'red' };
+  if (status === 'yellow') return { text: '🟡 Ниже нормы', cls: 'yellow' };
+  return { text: '🟢 Норма', cls: 'green' };
+}
+
+function renderModules() {
+  // Aggregate across all logs
+  const aggDevs = {}, aggWorst = {}, aggLoadDev = {}, aggIR = {};
+  VOL_COLS.forEach(c => { aggDevs[c] = []; aggWorst[c] = []; aggLoadDev[c] = []; });
+  IR_COLS.forEach(c => { aggIR[c] = []; });
+
+  allLogs.forEach(log => {
+    const s = log.stats;
+    VOL_COLS.forEach(c => {
+      aggDevs[c].push(s.volDevs[c]);
+      aggWorst[c].push(s.worstPct[c]);
+      aggLoadDev[c].push(s.loadDev[c]);
+    });
+    IR_COLS.forEach(c => aggIR[c].push(s.irMeans[c]));
+  });
+
+  const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+
+  const html = VOL_COLS.map((c, i) => {
+    const dev = avg(aggDevs[c]);
+    const worst = avg(aggWorst[c]);
+    const loadDev = avg(aggLoadDev[c]);
+    const ir = avg(aggIR[IR_COLS[i]]);
+    const status = getModuleStatus(dev, worst);
+    const label = getStatusLabel(status);
+
+    // Bar: center=0, left=negative, right=positive
+    const maxDev = 0.1;
+    const pct = Math.min(Math.abs(dev) / maxDev * 50, 50);
+    const barLeft = dev < 0 ? 50 - pct : 50;
+    const barWidth = pct;
+    const barColor = status === 'red' ? 'var(--red)' : status === 'yellow' ? 'var(--yellow)' : 'var(--green)';
+
+    return `
+      <div class="module-card ${status}">
+        <div class="module-num">МОДУЛЬ ${i+1} · ${c}</div>
+        <div class="module-status ${label.cls}">${label.text}</div>
+        <div class="module-stats">
+          <div class="mod-stat">
+            <div class="mod-stat-label">Откл.</div>
+            <div class="mod-stat-value" style="color:${barColor}">${dev >= 0 ? '+' : ''}${dev.toFixed(4)}V</div>
+          </div>
+          <div class="mod-stat">
+            <div class="mod-stat-label">Худший</div>
+            <div class="mod-stat-value">${worst.toFixed(1)}%</div>
+          </div>
+          <div class="mod-stat">
+            <div class="mod-stat-label">Под нагр.</div>
+            <div class="mod-stat-value">${loadDev >= 0 ? '+' : ''}${loadDev.toFixed(3)}V</div>
+          </div>
+          <div class="mod-stat">
+            <div class="mod-stat-label">IR</div>
+            <div class="mod-stat-value">${ir.toFixed(1)} мОм</div>
+          </div>
+        </div>
+        <div class="dev-bar-wrap">
+          <div class="dev-bar-label"><span>−0.1V</span><span>0</span><span>+0.1V</span></div>
+          <div class="dev-bar-track">
+            <div class="dev-bar-center"></div>
+            <div class="dev-bar-fill" style="left:${barLeft}%;width:${barWidth}%;background:${barColor}"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('moduleGrid').innerHTML = html;
+
+  // Deviation bar chart
+  destroyChart('deviationChart');
+  const devData = VOL_COLS.map(c => avg(aggDevs[c]));
+  const bgColors = devData.map(d => d < -0.04 ? 'rgba(255,71,87,0.7)' : d < -0.02 ? 'rgba(255,209,102,0.7)' : 'rgba(0,255,135,0.5)');
+  drawBarChart('deviationChart', VOL_COLS.map((_,i)=>`#${i+1}`), devData, bgColors, 'Отклонение (V)', true);
+}
+
+// -- TEMPERATURE --
+function renderTemperature() {
+  const s = allLogs[0].stats;
+  const labels = ['Датчик №1', 'Датчик №2 (центр)', 'Датчик №3'];
+  const tempColors = TEMP_COLS.map(c => {
+    const mx = s.temps[c].max;
+    return mx > 44 ? 'var(--red)' : mx > 40 ? 'var(--yellow)' : 'var(--green)';
+  });
+
+  document.getElementById('tempGrid').innerHTML = TEMP_COLS.map((c, i) => `
+    <div class="temp-card">
+      <div class="temp-label">${labels[i]}</div>
+      <div class="temp-value" style="color:${tempColors[i]}">${s.temps[c].mean.toFixed(1)}°</div>
+      <div class="temp-minmax">мин ${s.temps[c].min.toFixed(1)}° / макс ${s.temps[c].max.toFixed(1)}°C</div>
+    </div>
+  `).join('');
+
+  // Temp chart over time
+  destroyChart('tempChart');
+  const rows = allLogs[0].rows;
+  const step = Math.max(1, Math.floor(rows.length / 200));
+  const labels2 = rows.filter((_,i) => i%step===0).map(r => r['DateTime']?.split(' ')[1]?.substr(0,5) || '');
+  const datasets = TEMP_COLS.map((c, i) => ({
+    label: labels[i],
+    data: rows.filter((_,j) => j%step===0).map(r => r[c]),
+    borderColor: i===1 ? '#ff4757' : i===0 ? '#ffd166' : '#4ecdc4',
+    backgroundColor: 'transparent',
+    borderWidth: i===1 ? 2 : 1.5,
+    pointRadius: 0,
+    tension: 0.3,
+  }));
+  drawLineChart('tempChart', labels2, datasets, '°C');
+}
+
+// -- LIMITS --
+function renderLimits() {
+  const s = allLogs[0].stats;
+  const maxChg = 33.5, maxDis = 28.14;
+
+  document.getElementById('limitsBlock').innerHTML = `
+    <div class="limit-bar-wrap">
+      <div class="limit-header">
+        <div class="limit-name">⚡ Charge Limit (зарядка)</div>
+        <div class="limit-vals">ср. ${s.chgMean.toFixed(2)} HP &nbsp;|&nbsp; мин. <span style="color:${s.chgMin < 25 ? 'var(--red)' : s.chgMin < 32 ? 'var(--yellow)' : 'var(--green)'}">${s.chgMin.toFixed(2)} HP</span></div>
+      </div>
+      <div class="limit-track">
+        <div class="limit-fill" style="width:${s.chgMean/maxChg*100}%;background:${s.chgMin<25?'var(--red)':s.chgMin<32?'var(--yellow)':'var(--green)'}"></div>
+      </div>
+    </div>
+    <div class="limit-bar-wrap">
+      <div class="limit-header">
+        <div class="limit-name">🔋 Discharge Limit (разряд)</div>
+        <div class="limit-vals">ср. ${s.disMean.toFixed(2)} HP &nbsp;|&nbsp; мин. <span style="color:${s.disMin < 24 ? 'var(--red)' : s.disMin < 27 ? 'var(--yellow)' : 'var(--green)'}">${s.disMin.toFixed(2)} HP</span></div>
+      </div>
+      <div class="limit-track">
+        <div class="limit-fill" style="width:${s.disMean/maxDis*100}%;background:${s.disMin<24?'var(--red)':s.disMin<27?'var(--yellow)':'var(--green)'}"></div>
+      </div>
+    </div>
+  `;
+
+  destroyChart('limitsChart');
+  const rows = allLogs[0].rows;
+  const step = Math.max(1, Math.floor(rows.length / 200));
+  const lbls = rows.filter((_,i) => i%step===0).map(r => r['DateTime']?.split(' ')[1]?.substr(0,5) || '');
+  const datasets = [
+    { label: 'Charge Limit', data: rows.filter((_,j)=>j%step===0).map(r=>r['Charge Limit(HP)']), borderColor:'#00ff87', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.2 },
+    { label: 'Discharge Limit', data: rows.filter((_,j)=>j%step===0).map(r=>r['Discharge Limit(HP)']), borderColor:'#4ecdc4', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.2 },
+  ];
+  drawLineChart('limitsChart', lbls, datasets, 'HP');
+}
+
+// -- IR --
+function renderIR() {
+  const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+  const aggIR = {};
+  IR_COLS.forEach(c => {
+    aggIR[c] = avg(allLogs.map(log => log.stats.irMeans[c]));
+  });
+  const overallIR = avg(Object.values(aggIR));
+  const irVals = IR_COLS.map(c => aggIR[c]);
+  const irColors = irVals.map(v => v - overallIR > 1.5 ? 'rgba(255,71,87,0.7)' : v - overallIR > 0.5 ? 'rgba(255,209,102,0.7)' : 'rgba(78,205,196,0.6)');
+
+  destroyChart('irChart');
+  drawBarChart('irChart', IR_COLS.map((_,i)=>`#${i+1}`), irVals, irColors, 'мОм', false);
+
+  document.getElementById('irTable').innerHTML = `
+    <div class="chart-title">Таблица IR по модулям</div>
+    <table class="mod-table">
+      <thead><tr><th>Модуль</th><th>IR (мОм)</th><th>Откл. от ср.</th><th>Статус</th></tr></thead>
+      <tbody>
+        ${IR_COLS.map((c,i) => {
+          const v = aggIR[c];
+          const diff = v - overallIR;
+          const status = diff > 1.5 ? '<span class="status-badge badge-red">🔴 Высокое</span>' : diff > 0.5 ? '<span class="status-badge badge-yellow">🟡 Чуть выше</span>' : '<span class="status-badge badge-green">🟢 Норма</span>';
+          return `<tr><td>Модуль ${i+1}</td><td>${v.toFixed(2)}</td><td>${diff >= 0 ? '+' : ''}${diff.toFixed(2)}</td><td>${status}</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// -- CHART TAB --
+function initLogPills() {
+  const container = document.getElementById('logPills');
+  container.innerHTML = allLogs.map((log, i) => `
+    <div class="log-pill ${i===0?'active':''}" data-idx="${i}">${log.name}</div>
+  `).join('');
+  container.querySelectorAll('.log-pill').forEach(el => {
+    el.addEventListener('click', () => {
+      container.querySelectorAll('.log-pill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      activeLogIdx = +el.dataset.idx;
+      renderChartTab();
+    });
+  });
+}
+
+function renderChartTab() {
+  const log = allLogs[activeLogIdx];
+  const rows = log.rows;
+  const step = Math.max(1, Math.floor(rows.length / 300));
+  const lbls = rows.filter((_,i)=>i%step===0).map(r => r['DateTime']?.split(' ')[1]?.substr(0,5)||'');
+
+  // Volt chart — highlight weak modules
+  const weakCols = ['Vol#8','Vol#11'];
+  const colors = VOL_COLS.map(c => weakCols.includes(c) ? (c==='Vol#11'?'#ff4757':'#ffd166') : 'rgba(0,255,135,0.25)');
+  const widths = VOL_COLS.map(c => weakCols.includes(c) ? 2 : 1);
+
+  destroyChart('voltChart');
+  const voltDatasets = VOL_COLS.map((c,i) => ({
+    label: c,
+    data: rows.filter((_,j)=>j%step===0).map(r=>r[c]),
+    borderColor: colors[i],
+    backgroundColor: 'transparent',
+    borderWidth: widths[i],
+    pointRadius: 0,
+    tension: 0.2,
+  }));
+  drawLineChart('voltChart', lbls, voltDatasets, 'V');
+
+  // SOC + current
+  destroyChart('socChart');
+  const socDatasets = [
+    { label: 'SOC %', data: rows.filter((_,j)=>j%step===0).map(r=>r['SOC(%)']), borderColor:'#4ecdc4', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.3, yAxisID:'y' },
+    { label: 'Ток А', data: rows.filter((_,j)=>j%step===0).map(r=>r['Current(Amp)']), borderColor:'rgba(255,209,102,0.6)', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.2, yAxisID:'y1' },
+  ];
+  drawDualChart('socChart', lbls, socDatasets);
+}
+
+// -- VERDICT --
+function renderVerdict() {
+  const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+  const aggDevs = {}, aggWorst = {};
+  VOL_COLS.forEach(c => { aggDevs[c] = []; aggWorst[c] = []; });
+  allLogs.forEach(log => {
+    VOL_COLS.forEach(c => {
+      aggDevs[c].push(log.stats.volDevs[c]);
+      aggWorst[c].push(log.stats.worstPct[c]);
+    });
+  });
+
+  const s0 = allLogs[0].stats;
+  const maxTemp = Math.max(...TEMP_COLS.map(c => s0.temps[c].max));
+
+  // Find weak modules
+  const weakRed = [], weakYellow = [];
+  VOL_COLS.forEach(c => {
+    const d = avg(aggDevs[c]);
+    const w = avg(aggWorst[c]);
+    const st = getModuleStatus(d, w);
+    if (st === 'red') weakRed.push(c);
+    else if (st === 'yellow') weakYellow.push(c);
+  });
+
+  const tempStatus = maxTemp > 44 ? 'bad' : maxTemp > 40 ? 'warn' : 'good';
+  const overallStatus = weakRed.length > 2 ? 'bad' : weakRed.length > 0 || tempStatus==='bad' ? 'warn' : 'good';
+
+  const blocks = [];
+
+  // Overall
+  blocks.push(`
+    <div class="verdict-box ${overallStatus}">
+      <span class="verdict-icon">${overallStatus==='good'?'✅':overallStatus==='warn'?'⚠️':'🔴'}</span>
+      <div class="verdict-title">Общее состояние батареи: ${overallStatus==='good'?'Хорошее':overallStatus==='warn'?'Требует внимания':'Критическое'}</div>
+      <div class="verdict-text">
+        Проанализировано <strong>${allLogs.length} лог(а)</strong>. 
+        ${weakRed.length > 0 ? `Обнаружено <strong>${weakRed.length} слабых модуля</strong>: ${weakRed.join(', ')}.` : 'Все модули в рабочем состоянии.'}
+        ${weakYellow.length > 0 ? ` Требуют наблюдения: <strong>${weakYellow.join(', ')}</strong>.` : ''}
+        Максимальная температура: <strong style="color:${maxTemp>44?'var(--red)':maxTemp>40?'var(--yellow)':'var(--green)'}">${maxTemp.toFixed(1)}°C</strong>.
+      </div>
+    </div>
+  `);
+
+  // Modules verdict
+  if (weakRed.length > 0) {
+    blocks.push(`
+      <div class="verdict-box bad">
+        <span class="verdict-icon">🔋</span>
+        <div class="verdict-title">Слабые модули — требуют замены</div>
+        <div class="verdict-text">
+          ${weakRed.map(c => {
+            const d = avg(aggDevs[c]);
+            const w = avg(aggWorst[c]);
+            return `<strong>${c}</strong>: среднее отклонение ${d.toFixed(4)}V, худший при разряде ${w.toFixed(1)}% времени.`;
+          }).join('<br>')}
+          <br><br>Рекомендация: <strong>замена модулей</strong>. Возможно самостоятельно — батарея Prius 30 / Auris хорошо задокументирована. Донорский модуль: 5–15€ с разборки.
+        </div>
+      </div>
+    `);
+  }
+
+  if (weakYellow.length > 0) {
+    blocks.push(`
+      <div class="verdict-box warn">
+        <span class="verdict-icon">⚖️</span>
+        <div class="verdict-title">Модули в жёлтой зоне — балансировка</div>
+        <div class="verdict-text">
+          <strong>${weakYellow.join(', ')}</strong> — немного ниже среднего, но не критично.<br><br>
+          Попробуйте <strong>балансировку</strong> (50–100€ в сервисе) перед заменой — может восстановить баланс. 
+          Если после балансировки остаются в жёлтой зоне — наблюдать далее.
+        </div>
+      </div>
+    `);
+  }
+
+  // Temperature verdict
+  blocks.push(`
+    <div class="verdict-box ${tempStatus}">
+      <span class="verdict-icon">🌡️</span>
+      <div class="verdict-title">Температура: ${maxTemp > 44 ? 'Перегрев!' : maxTemp > 40 ? 'Повышенная' : 'В норме'}</div>
+      <div class="verdict-text">
+        Максимум на центральном датчике: <strong>${maxTemp.toFixed(1)}°C</strong>. 
+        ${maxTemp > 44 ? '<strong>Проверьте вентилятор охлаждения батареи — скорее всего забит пылью.</strong> После чистки температура снижается на 4–6°C.' :
+          maxTemp > 40 ? 'Температура в допустимых пределах, но при длительных городских поездках следите за нагревом.' :
+          'Вентилятор охлаждения работает нормально, температурный режим оптимален.'}
+      </div>
+    </div>
+  `);
+
+  // Limits verdict
+  const minChg = Math.min(...allLogs.map(l => l.stats.chgMin));
+  const minDis = Math.min(...allLogs.map(l => l.stats.disMin));
+  if (minChg < 25 || minDis < 24) {
+    blocks.push(`
+      <div class="verdict-box bad">
+        <span class="verdict-icon">⚡</span>
+        <div class="verdict-title">Лимиты мощности урезались BMS</div>
+        <div class="verdict-text">
+          Charge Limit падал до <strong>${minChg.toFixed(1)} HP</strong> (норма 33.5), 
+          Discharge до <strong>${minDis.toFixed(1)} HP</strong> (норма 28.1).<br><br>
+          Причина: перегрев батареи или слабый модуль просаживает всю цепочку. 
+          Устраните перегрев и замените слабые модули.
+        </div>
+      </div>
+    `);
+  } else {
+    blocks.push(`
+      <div class="verdict-box good">
+        <span class="verdict-icon">⚡</span>
+        <div class="verdict-title">Лимиты мощности — в норме</div>
+        <div class="verdict-text">
+          Charge Limit: <strong>${minChg.toFixed(1)} HP</strong>, Discharge: <strong>${minDis.toFixed(1)} HP</strong>. BMS не ограничивал мощность критично.
+        </div>
+      </div>
+    `);
+  }
+
+  document.getElementById('verdictBlock').innerHTML = blocks.join('');
+}
+
+// ===================== CHART HELPERS =====================
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function drawBarChart(id, labels, data, bgColors, yLabel, zeroline) {
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: bgColors, borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y.toFixed(4)} ${yLabel}` } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7a8899', font: { family: 'Space Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7a8899', font: { family: 'Space Mono', size: 10 } },
+             ...(zeroline ? { afterBuildTicks: axis => { if (!axis.ticks.find(t => t.value === 0)) axis.ticks.push({value:0}); } } : {}) }
+      }
+    }
+  });
+}
+
+function drawLineChart(id, labels, datasets, yLabel) {
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      animation: false,
+      plugins: { legend: { labels: { color: '#7a8899', font: { family: 'Space Mono', size: 10 }, boxWidth: 12 } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#7a8899', font: { family: 'Space Mono', size: 9 }, maxTicksLimit: 10 } },
+        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#7a8899', font: { family: 'Space Mono', size: 10 } } }
+      }
+    }
+  });
+}
+
+function drawDualChart(id, labels, datasets) {
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      animation: false,
+      plugins: { legend: { labels: { color: '#7a8899', font: { family: 'Space Mono', size: 10 }, boxWidth: 12 } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#7a8899', font: { family: 'Space Mono', size: 9 }, maxTicksLimit: 10 } },
+        y:  { position: 'left',  grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#4ecdc4', font: { family: 'Space Mono', size: 9 } } },
+        y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#ffd166', font: { family: 'Space Mono', size: 9 } } }
+      }
+    }
+  });
+}
+
+// ===================== TABS =====================
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+  });
+});
+</script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+</body>
+</html>
