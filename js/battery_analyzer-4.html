@@ -125,6 +125,10 @@ canvas{width:100%!important;display:block}
 .dv-li-v{font-family:var(--mono);font-size:13px;font-weight:700}
 .dv-tip{background:rgba(0,232,122,.05);border:1px solid rgba(0,232,122,.12);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.7}
 .dv-tip strong{color:var(--green)}
+.diag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px}
+.diag-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px}
+.diag-title{font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:8px;text-transform:uppercase}
+.diag-desc{font-size:12px;color:var(--dim);line-height:1.5}
 </style>
 </head>
 <body>
@@ -198,6 +202,8 @@ canvas{width:100%!important;display:block}
     <div id="bmsLiveBlock"></div>
     <div class="cbox mt8"><div class="clabel">Charge + Discharge Limit / Температура</div><canvas id="bmsChart1" height="220"></canvas></div>
     <div class="cbox"><div class="clabel">Charge + Discharge Limit / SOC %</div><canvas id="bmsChart2" height="220"></canvas></div>
+	<div class="sh mt8">Диагностические режимы</div>
+<div class="diag-grid" id="diagModes"></div>
     <div class="sh mt8">Как работает ЭБУ батареи</div>
     <div id="bmsExplain"></div>
   </div>
@@ -287,6 +293,15 @@ function stats(rows){
   s.curMin=mn(cur);s.curMax=mx(cur);
   const deltas=rows.map(r=>{const v=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return v.length?mx(v)-mn(v):0;});
   s.deltaMean=avg(deltas);s.deltaMax=mx(deltas);
+  
+  // ⭐ ДОБАВЛЯЕМ: разброс ТОЛЬКО в режиме покоя (ток < 10A)
+  const restRows = rows.filter(r => Math.abs(r['Current(Amp)']||0) < 10);
+  const restDeltas = restRows.map(r => {
+    const v = VOL.map(c=>r[c]).filter(x=>!isNaN(x));
+    return v.length ? Math.max(...v) - Math.min(...v) : 0;
+  });
+  s.deltaRest = restDeltas.length ? avg(restDeltas) : s.deltaMean;
+  
   const lr=rows.filter(r=>r['Current(Amp)']<-15);
   s.worstPct={};
   if(lr.length){
@@ -309,34 +324,50 @@ function stats(rows){
 }
 
 function moduleStatus(vd, worstPct, ir, avgIR){
-  // vd — отклонение среднего напряжения от общего среднего (V)
-  // Отрицательное vd = модуль слабее среднего (проседает)
-  // Положительное vd = модуль сильнее среднего
-  
   let score = 0;
   
-  // 1. Отклонение напряжения — штрафуем только если сильно отличается в любую сторону
-  // Слишком низкое напряжение (слабый модуль)
-  if(vd < -0.04) score += 2;       // сильно слабый
-  else if(vd < -0.025) score += 1;  // умеренно слабый
+  // Слишком низкое напряжение (слабый модуль) — только сильное отклонение
+  if(vd < -0.05) score += 2;       // сильно слабый
+  else if(vd < -0.035) score += 1;  // умеренно слабый
   
-  // Слишком высокое напряжение (как модуль №1 — "притворяется живым")
-  // Только если реально высокое (> +0.04V), а не просто чуть выше
-  if(vd > 0.045) score += 2;        // подозрительно высокий (проблемный)
-  else if(vd > 0.03) score += 1;    // немного высоковат
+  // Слишком высокое напряжение — только если реально высокое
+  if(vd > 0.06) score += 2;         // подозрительно высокий
+  else if(vd > 0.045) score += 1;   // немного высоковат
   
-  // 2. Частота быть самым слабым под нагрузкой
-  if(worstPct > 20) score += 2;
-  else if(worstPct > 8) score += 1;
+  // Частота быть самым слабым под нагрузкой
+  if(worstPct > 25) score += 2;
+  else if(worstPct > 12) score += 1;
   
-  // 3. Внутреннее сопротивление выше среднего
+  // Внутреннее сопротивление выше среднего
   const irDelta = ir - avgIR;
-  if(irDelta > 1.8) score += 2;
-  else if(irDelta > 0.9) score += 1;
+  if(irDelta > 2.0) score += 2;
+  else if(irDelta > 1.2) score += 1;
   
   if(score >= 3) return 'red';
   if(score >= 1) return 'yellow';
   return 'green';
+}
+
+function getModuleGroup(vd, worstPct, ir, avgIR){
+  const irDelta = ir - avgIR;
+  const isWeakUnderLoad = vd < -0.03 && worstPct > 10;
+  const isChargeBlocker = vd > 0.02 && irDelta > 0.7;
+  
+  // Критическое звено (и то и другое)
+  if(isWeakUnderLoad && isChargeBlocker) return { group: 'critical', label: '🔴 Слабое звено', desc: 'Критический риск — замена обязательна', color: 'red' };
+  
+  // Уставший (проседает при разряде)
+  if(isWeakUnderLoad) return { group: 'weak', label: '🟠 Уставший', desc: 'Проседает при разряде — дефицит ёмкости', color: 'orange' };
+  
+  // Затычка (взлетает при заряде)
+  if(isChargeBlocker) return { group: 'blocker', label: '🟡 Затычка', desc: 'Взлетает при заряде — высокое IR', color: 'yellow' };
+  
+  // Эталон (лучшие из лучших) — минимальное IR и минимальное отклонение
+  const isElite = Math.abs(vd) < 0.01 && irDelta < 0.3;
+  if(isElite) return { group: 'elite', label: '⭐ Эталон', desc: 'Минимальное IR, стабильный вольтаж — ориентир для всей сборки', color: 'green' };
+  
+  // Крепкий (обычная норма)
+  return { group: 'good', label: '🟢 Крепкий', desc: 'Низкое IR, стабильный вольтаж', color: 'green' };
 }
 
 function aggMod(){
@@ -386,12 +417,23 @@ function renderDelta(){
   const deltas=rows.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return vs.length?Math.max(...vs)-Math.min(...vs):0;});
   const deltaMean=avg(deltas);
   const deltaMax=Math.max(...deltas);
+  
+  // Покой
   const rest=rows.filter(r=>Math.abs(r['Current(Amp)']||0)<10);
-  const mid=rows.filter(r=>(r['Current(Amp)']||0)<-15&&(r['Current(Amp)']||0)>-50);
-  const heavy=rows.filter(r=>(r['Current(Amp)']||0)<=-50);
   const dRest=rest.length?avg(rest.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return Math.max(...vs)-Math.min(...vs);})):null;
+  
+  // Средняя нагрузка (разряд)
+  const mid=rows.filter(r=>(r['Current(Amp)']||0)<-15&&(r['Current(Amp)']||0)>-50);
   const dMid=mid.length?avg(mid.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return Math.max(...vs)-Math.min(...vs);})):null;
+  
+  // Интенсивный разряд (газ в пол)
+  const heavy=rows.filter(r=>(r['Current(Amp)']||0)<=-50);
   const dHeavy=heavy.length?avg(heavy.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return Math.max(...vs)-Math.min(...vs);})):null;
+  
+  // РЕКУПЕРАЦИЯ (ЗАРЯД) — добавлено по PDF
+  const recharge=rows.filter(r=>r['Current(Amp)']>40 && r['Vehicle Speed(KPH)']>30);
+  const dRecharge=recharge.length?avg(recharge.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return Math.max(...vs)-Math.min(...vs);})):null;
+  
   const volMeans={};
   VOL.forEach(c=>{const v=rows.map(r=>r[c]).filter(x=>!isNaN(x));volMeans[c]=avg(v);});
   const sorted=VOL.slice().sort((a,b)=>volMeans[b]-volMeans[a]);
@@ -400,40 +442,109 @@ function renderDelta(){
   const realSpread=volMeans[strongest]-volMeans[weakest];
   const ref=dRest!=null?dRest:deltaMean;
   
-  // ПРАВИЛЬНЫЕ ПОРОГИ ДЛЯ PRIUS/AURIS
+  // ПРАВИЛЬНЫЕ ПОРОГИ ПО PDF
   let col,zone,desc,hint,action;
-  if(ref<=0.15){
-    col='var(--green)';zone='🟢 Зелёная зона';
-    desc='Отличный баланс';
-    hint='Батарея сбалансирована. Разброс между модулями минимальный. Всё в норме.';
-    action='Ездить спокойно. Никаких действий не нужно.';
-  } else if(ref<=0.35){
-    col='var(--yellow)';zone='🟡 Жёлтая зона';
-    desc='Есть разбаланс';
-    hint='Батарея начинает «разбегаться». Модули немного отличаются друг от друга по заряду.';
-    action='Рекомендуется балансировка (циклование) у специалиста. заглушка.';
-  } else if(ref<=1.0){
-    col='#ff8c00';zone='🟠 Оранжевая зона';
-    desc='Нужна замена модуля';
-    hint='Разброс большой. Слабый модуль сильно отстаёт. BMS ограничивает мощность батареи.';
-    action='Скорая замена одного или нескольких модулей.';
+  if(ref <= 0.05){
+    col='var(--green)'; zone='🟢 Идеальный баланс';
+    desc='Батарея как новая';
+    hint='Разброс в покое до 0.05V — эталонное состояние.';
+    action='Ездить спокойно.';
+  } else if(ref <= 0.18){
+    col='var(--green)'; zone='🟢 Хорошее состояние';
+    desc='Отличный баланс для пробежной батареи';
+    hint='Разброс 0.05–0.18V — норма для HSD 3-го поколения.';
+    action='Ездить спокойно.';
+  } else if(ref <= 0.30){
+    col='var(--yellow)'; zone='🟡 Жёлтая зона';
+    desc='Признак саморазряда';
+    hint='Разброс 0.18–0.30V — один из модулей имеет повышенный саморазряд.';
+    action='Наблюдать, планировать диагностику.';
+  } else if(ref <= 0.60){
+    col='var(--orange)'; zone='🟠 Оранжевая зона';
+    desc='Высокий саморазряд';
+    hint='Разброс >0.30V — модуль не держит заряд. Балансировка не поможет.';
+    action='Замена проблемного модуля.';
   } else {
-    col='var(--red)';zone='🔴 Красная зона';
+    col='var(--red)'; zone='🔴 Красная зона';
     desc='Ошибка P0A80!';
-    hint='Критический разброс. Компьютер гибрида зажигает «Треугольник» и фиксирует ошибку.';
-    action='Немедленная замена модуля. Аварийный режим.';
+    hint='Критический разброс. Компьютер зажжёт треугольник.';
+    action='Немедленная замена модуля.';
   }
   
   let loadCol,loadZone;
-  if(deltaMax<=0.45){loadCol='var(--green)';loadZone='Норма при разгоне';}
-  else if(deltaMax<=0.80){loadCol='var(--yellow)';loadZone='Допустимо';}
-  else if(deltaMax<=1.20){loadCol='#ff8c00';loadZone='Плохо — замена';}
-  else{loadCol='var(--red)';loadZone='Ошибка P0A80';}
+  if(deltaMax<=0.45){loadCol='var(--green)';loadZone='Отличная реакция';}
+  else if(deltaMax<=0.80){loadCol='var(--yellow)';loadZone='Норма для живой батареи';}
+  else if(deltaMax<=1.20){loadCol='#ff8c00';loadZone='Риск ошибки P0A80';}
+  else{loadCol='var(--red)';loadZone='Критическая зона';}
   
   const scaleMax=1.2;
   const arrowPct=Math.min(ref/scaleMax*100,100);
   
-  document.getElementById('deltaBlock').innerHTML=`<div class="dv-card" style="--dvc:${col}"><div class="dv-top"><div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Разброс в покое (Delta V)</div><div class="dv-main">${ref.toFixed(3)}V</div></div><div class="dv-badge">${zone}</div></div><div class="dv-desc">${desc}</div><div class="dv-hint">${hint}<br><strong style="color:var(--text)">Действие:</strong> ${action}</div><div class="dv-scale"><div class="dv-seg" style="flex:2;background:#00e87a;opacity:.7"></div><div class="dv-seg" style="flex:2;background:#ffcc44;opacity:.7"></div><div class="dv-seg" style="flex:2;background:#ff8c00;opacity:.7"></div><div class="dv-seg" style="flex:1;background:#ff3d55;opacity:.7"></div></div><div class="dv-arrow-wrap"><div class="dv-arrow" style="left:${arrowPct}%"></div></div><div class="dv-scale-labels"><span>0V</span><span>0.15V</span><span>0.35V</span><span>1.0V</span><span>1.2V+</span></div><div class="dv-row"><div class="dv-stat"><div class="dv-stat-l">Самый высокий V</div><div class="dv-stat-v" style="color:var(--orange)">${strongest.replace('Vol#','Мод.#')}</div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">${volMeans[strongest].toFixed(4)}V</div></div><div class="dv-stat"><div class="dv-stat-l">Самый низкий V</div><div class="dv-stat-v" style="color:var(--red)">${weakest.replace('Vol#','Мод.#')}</div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">${volMeans[weakest].toFixed(4)}V</div></div><div class="dv-stat"><div class="dv-stat-l">Реальный разброс</div><div class="dv-stat-v" style="color:${col}">${realSpread.toFixed(4)}V</div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">сильн.−слаб.</div></div></div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Delta V по режимам езды</div><div class="dv-load-grid"><div class="dv-li"><div class="dv-li-l">🅿 Покой</div><div class="dv-li-v" style="color:${dRest!=null?(dRest<=0.15?'var(--green)':dRest<=0.35?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dRest!=null?dRest.toFixed(3)+'V':'—'}</div></div><div class="dv-li"><div class="dv-li-l">🚗 Средний</div><div class="dv-li-v" style="color:${dMid!=null?(dMid<=0.30?'var(--green)':dMid<=0.60?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dMid!=null?dMid.toFixed(3)+'V':'—'}</div></div><div class="dv-li"><div class="dv-li-l">⚡ Газ в пол</div><div class="dv-li-v" style="color:${loadCol}">${dHeavy!=null?dHeavy.toFixed(3)+'V':'—'}</div></div></div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:10px">Максимальный разброс напряжений между модулями за всю поездку: <span style="color:${loadCol};font-weight:700">${deltaMax.toFixed(3)}V</span> — ${loadZone}</div><div class="dv-tip">💡 <strong>Как читать:</strong> Смотри не только на цифру, а на <strong>скорость возврата</strong>. Если после газа разброс за 2–3 сек вернулся к норме — батарея живая. Если «яма» висит долго — модуль потерял ёмкость.</div></div>`;
+  document.getElementById('deltaBlock').innerHTML=`
+    <div class="dv-card" style="--dvc:${col}">
+      <div class="dv-top">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Разброс в покое (Delta V)</div>
+          <div class="dv-main">${ref.toFixed(3)}V</div>
+        </div>
+        <div class="dv-badge">${zone}</div>
+      </div>
+      <div class="dv-desc">${desc}</div>
+      <div class="dv-hint">${hint}<br><strong style="color:var(--text)">Действие:</strong> ${action}</div>
+<div class="dv-scale">
+  <div class="dv-seg" style="flex:1;background:#00e87a;opacity:.7"></div>
+  <div class="dv-seg" style="flex:3;background:#00e87a;opacity:.5"></div>
+  <div class="dv-seg" style="flex:2;background:#ffcc44;opacity:.7"></div>
+  <div class="dv-seg" style="flex:6;background:#ff8c00;opacity:.7"></div>
+  <div class="dv-seg" style="flex:12;background:#ff3d55;opacity:.7"></div>
+</div>
+      <div class="dv-arrow-wrap"><div class="dv-arrow" style="left:${arrowPct}%"></div></div>
+      <div class="dv-scale-labels">
+        <span>0V</span><span>0.05V</span><span>0.18V</span><span>0.30V</span><span>0.60V</span><span>1.2V+</span>
+      </div>
+      <div class="dv-row">
+        <div class="dv-stat">
+          <div class="dv-stat-l">Самый высокий V</div>
+          <div class="dv-stat-v" style="color:var(--orange)">${strongest.replace('Vol#','Мод.#')}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">${volMeans[strongest].toFixed(4)}V</div>
+        </div>
+        <div class="dv-stat">
+          <div class="dv-stat-l">Самый низкий V</div>
+          <div class="dv-stat-v" style="color:var(--red)">${weakest.replace('Vol#','Мод.#')}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">${volMeans[weakest].toFixed(4)}V</div>
+        </div>
+        <div class="dv-stat">
+          <div class="dv-stat-l">Реальный разброс</div>
+          <div class="dv-stat-v" style="color:${col}">${realSpread.toFixed(4)}V</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">сильн.−слаб.</div>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Delta V по режимам езды</div>
+      <div class="dv-load-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="dv-li">
+          <div class="dv-li-l">🅿 Покой</div>
+          <div class="dv-li-v" style="color:${dRest!=null?(dRest<=0.18?'var(--green)':dRest<=0.30?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dRest!=null?dRest.toFixed(3)+'V':'—'}</div>
+          <div class="dv-li-l" style="margin-top:4px">норма до 0.18V</div>
+        </div>
+        <div class="dv-li">
+          <div class="dv-li-l">🚗 Средний</div>
+          <div class="dv-li-v" style="color:${dMid!=null?(dMid<=0.35?'var(--green)':dMid<=0.60?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dMid!=null?dMid.toFixed(3)+'V':'—'}</div>
+          <div class="dv-li-l" style="margin-top:4px">норма до 0.35V</div>
+        </div>
+        <div class="dv-li">
+          <div class="dv-li-l">⚡ Разряд(газ в пол)</div>
+          <div class="dv-li-v" style="color:${dHeavy!=null?(dHeavy<=0.45?'var(--green)':dHeavy<=0.80?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dHeavy!=null?dHeavy.toFixed(3)+'V':'—'}</div>
+          <div class="dv-li-l" style="margin-top:4px">норма до 0.80V</div>
+        </div>
+        <div class="dv-li">
+          <div class="dv-li-l">🔋 Заряд (рекуперация)</div>
+          <div class="dv-li-v" style="color:${dRecharge!=null?(dRecharge<=0.60?'var(--green)':dRecharge<=0.95?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dRecharge!=null?dRecharge.toFixed(3)+'V':'—'}</div>
+          <div class="dv-li-l" style="margin-top:4px">норма до 0.95V</div>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:10px">Максимальный разброс за всю поездку: <span style="color:${loadCol};font-weight:700">${deltaMax.toFixed(3)}V</span> — ${loadZone}</div>
+      <div class="dv-tip">💡 <strong>Внимание:</strong> Разброс в покое >0.30V — признак саморазряда. При разряде норма 0.60–0.80V. При рекуперации норма 0.70–0.95V. Порог ошибки P0A80 — 1.20V.</div>
+    </div>`;
 }
 
 function renderSummary(){
@@ -452,18 +563,56 @@ function renderSummary(){
     {l:'Скор. макс',v:`${s.speedMax.toFixed(0)}`,s:'км/ч',c:'var(--blue)'},
   ];
   document.getElementById('summaryCards').innerHTML=cards.map(c=>`<div class="scard" style="--c:${c.c}"><div class="sc-label">${c.l}</div><div class="sc-value">${c.v}</div><div class="sc-sub">${c.s}</div></div>`).join('');
+  
   const {devs,worsts,irs,avgIR}=aggMod();
-  const SCOL={red:'var(--red)',yellow:'var(--yellow)',green:'var(--green)'};
-  const SLBL={red:'🔴 Слабый',yellow:'🟡 Ниже нормы',green:'🟢 Норма'};
-  document.getElementById('miniMod').innerHTML=VOL.map((c,i)=>{const d=devs[c],w=worsts[c],ir=irs[IR[i]],st=moduleStatus(d,w,ir,avgIR),col=SCOL[st];return `<div class="mrow"><span class="mrow-n">Мод.${i+1}</span><span style="font-family:var(--mono);font-size:11px;color:var(--dim)">${logs[0].stats.vm[c].toFixed(3)}V</span><span class="mrow-d" style="color:${col}">${d>=0?'+':''}${d.toFixed(4)}V</span><span class="mrow-s" style="color:${col}">${SLBL[st]}</span></div>`;}).join('');
+  const groupColorsMini={green:'var(--green)',yellow:'var(--yellow)',orange:'var(--orange)',red:'var(--red)'};
+  
+  document.getElementById('miniMod').innerHTML=VOL.map((c,i)=>{
+    const d=devs[c],w=worsts[c],ir=irs[IR[i]];
+    const group=getModuleGroup(d,w,ir,avgIR);
+    const col=groupColorsMini[group.color];
+    let shortLabel = '';
+    if(group.group === 'critical') shortLabel = '🔴 Слабое звено';
+    else if(group.group === 'weak') shortLabel = '🟠 Уставший';
+    else if(group.group === 'blocker') shortLabel = '🟡 Затычка';
+	else if(group.group === 'elite') shortLabel = '⭐ Эталон';
+    else shortLabel = '🟢 Крепкий';
+    return `<div class="mrow">
+      <span class="mrow-n">Мод.${i+1}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--dim)">${logs[0].stats.vm[c].toFixed(3)}V</span>
+      <span class="mrow-d" style="color:${col}">${d>=0?'+':''}${d.toFixed(4)}V</span>
+      <span class="mrow-s" style="color:${col}">${shortLabel}</span>
+    </div>`;
+  }).join('');
 }
 
 function renderModules(){
   const {devs,worsts,loads,irs,avgIR}=aggMod();
-  const SCOL={red:'var(--red)',yellow:'var(--yellow)',green:'var(--green)'};
-  const SLBL={red:'🔴 Слабый',yellow:'🟡 Ниже нормы',green:'🟢 Норма'};
-  document.getElementById('modList').innerHTML=VOL.map((c,i)=>{const d=devs[c],w=worsts[c],ld=loads[c],ir=irs[IR[i]],st=moduleStatus(d,w,ir,avgIR),col=SCOL[st];const pct=Math.min(Math.abs(d)/0.1*50,50),left=d<0?50-pct:50;return `<div class="mcard" style="--mc:${col}"><div class="mc-top"><div class="mc-num">МОДУЛЬ ${i+1} · ${c}</div><div class="mc-status">${SLBL[st]}</div></div><div class="mc-row"><div><div class="msl">Откл.</div><div class="msv" style="color:${col}">${d>=0?'+':''}${d.toFixed(4)}</div></div><div><div class="msl">Худший</div><div class="msv">${w.toFixed(1)}%</div></div><div><div class="msl">Нагруз.</div><div class="msv">${ld>=0?'+':''}${ld.toFixed(3)}</div></div><div><div class="msl">IR мОм</div><div class="msv">${ir.toFixed(1)}</div></div></div><div class="dev-track"><div class="dev-ctr"></div><div class="dev-fill" style="left:${left}%;width:${pct}%"></div></div></div>`;}).join('');
-  destroyC('devChart');const vals=VOL.map(c=>devs[c]);mkBar('devChart',VOL.map((_,i)=>`#${i+1}`),vals,vals.map(v=>v<-0.03?'rgba(255,61,85,.75)':v<-0.015?'rgba(255,204,68,.75)':'rgba(0,232,122,.6)'));
+  const groupColors={elite:'var(--green)', green:'var(--green)', yellow:'var(--yellow)', orange:'var(--orange)', red:'var(--red)'};
+  document.getElementById('modList').innerHTML=VOL.map((c,i)=>{
+    const d=devs[c],w=worsts[c],ld=loads[c],ir=irs[IR[i]];
+    const group=getModuleGroup(d,w,ir,avgIR);
+    const col=groupColors[group.color];
+    const pct=Math.min(Math.abs(d)/0.1*50,50);
+    const left=d<0?50-pct:50;
+    return `<div class="mcard" style="--mc:${col}">
+      <div class="mc-top">
+        <div class="mc-num">МОДУЛЬ ${i+1} · ${c}</div>
+        <div class="mc-status">${group.label}</div>
+      </div>
+      <div class="mc-row">
+        <div><div class="msl">Откл.</div><div class="msv" style="color:${col}">${d>=0?'+':''}${d.toFixed(4)}</div></div>
+        <div><div class="msl">Худший</div><div class="msv">${w.toFixed(1)}%</div></div>
+        <div><div class="msl">Нагруз.</div><div class="msv">${ld>=0?'+':''}${ld.toFixed(3)}</div></div>
+        <div><div class="msl">IR мОм</div><div class="msv">${ir.toFixed(1)}</div></div>
+      </div>
+      <div class="dev-track"><div class="dev-ctr"></div><div class="dev-fill" style="left:${left}%;width:${pct}%"></div></div>
+      <div class="mc-status" style="margin-top:8px;font-size:9px;font-weight:normal">${group.desc}</div>
+    </div>`;
+  }).join('');
+  destroyC('devChart');
+  const vals=VOL.map(c=>devs[c]);
+  mkBar('devChart',VOL.map((_,i)=>`#${i+1}`),vals,vals.map(v=>v<-0.03?'rgba(255,61,85,.75)':v<-0.015?'rgba(255,204,68,.75)':'rgba(0,232,122,.6)'));
 }
 
 function renderTemp(){
@@ -480,8 +629,8 @@ function renderLimits(){
 
 function renderIR(){
   const {irs,avgIR}=aggMod();
-  document.getElementById('irGrid').innerHTML=IR.map((c,i)=>{const v=irs[c],d=v-avgIR,col=d>1.5?'var(--red)':d>0.7?'var(--yellow)':'var(--blue)';return `<div class="ir-item"><div class="ir-label">Модуль ${i+1}</div><div class="ir-val" style="color:${col}">${v.toFixed(2)}</div></div>`;}).join('');
-  destroyC('irChart');const vals=IR.map(c=>irs[c]);mkBar('irChart',IR.map((_,i)=>`#${i+1}`),vals,vals.map(v=>{const d=v-avgIR;return d>1.5?'rgba(255,61,85,.7)':d>0.7?'rgba(255,204,68,.7)':'rgba(56,189,248,.6)';}));
+  document.getElementById('irGrid').innerHTML=IR.map((c,i)=>{const v=irs[c],d=v-avgIR,col=d>1.8?'var(--red)':d>0.9?'var(--yellow)':'var(--blue)';return `<div class="ir-item"><div class="ir-label">Модуль ${i+1}</div><div class="ir-val" style="color:${col}">${v.toFixed(2)} мОм</div></div>`;}).join('');
+  destroyC('irChart');const vals=IR.map(c=>irs[c]);mkBar('irChart',IR.map((_,i)=>`#${i+1}`),vals,vals.map(v=>{const d=v-avgIR;return d>1.8?'rgba(255,61,85,.7)':d>0.9?'rgba(255,204,68,.7)':'rgba(56,189,248,.6)';}));
 }
 
 function renderBMS(){
@@ -492,12 +641,23 @@ function renderBMS(){
   if(minD<26) reasons.push({icon:'💪',text:`Discharge Limit падал до ${minD.toFixed(1)} HP`,detail:'Слабый модуль просаживается сильнее других.'});
   if(!reasons.length) reasons.push({icon:'✅',text:'Лимиты стабильны',detail:'ЭБУ не фиксировал критических ситуаций.'});
   document.getElementById('bmsLiveBlock').innerHTML=`<div class="vcard ${minC<25||minD<24||maxT>44?'bad':minC<31||minD<26||maxT>41?'warn':'good'}"><span class="vi">🧠</span><div class="vt">Почему ЭБУ резал мощность</div><div class="vx">${reasons.map(r=>`<div style="margin-bottom:10px"><strong>${r.icon} ${r.text}</strong><br>${r.detail}</div>`).join('')}</div></div>`;
+  
+  // ДИАГНОСТИЧЕСКИЕ РЕЖИМЫ (по PDF)
+  const diagModes = [
+    { name: '🅿 Абсолютный покой', desc: 'После ночного простоя, ток ~0A. Норма Delta V: 0.01–0.05V. Выше 0.30V — саморазряд, замена модуля.' },
+    { name: '⚡ Пиковый разряд (газ в пол)', desc: '0→60 км/ч, ток 60–100A. Норма Delta V: 0.60–0.80V. Выше 1.20V — риск P0A80.' },
+    { name: '🔋 Рекуперация (торможение)', desc: '80→20 км/ч, ток 60–90A. Норма Delta V: 0.70–0.95V. Поиск модулей-«затычек».' },
+    { name: '🚗 EV-выносливость', desc: '5–25 км/ч, ток 10–20A. Норма Delta V: 0.20–0.35V. Проверка реальной ёмкости.' }
+  ];
+  document.getElementById('diagModes').innerHTML = diagModes.map(m => `<div class="diag-card"><div class="diag-title">${m.name}</div><div class="diag-desc">${m.desc}</div></div>`).join('');
+  
   destroyC('bmsChart1');const ctx1=document.getElementById('bmsChart1').getContext('2d');charts['bmsChart1']=new Chart(ctx1,{type:'line',data:{labels:lbs,datasets:[{label:'Charge HP',data:frows.map(r=>r['Charge Limit(HP)']),borderColor:'#00e87a',backgroundColor:'rgba(0,232,122,.08)',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y',fill:true},{label:'Discharge HP',data:frows.map(r=>r['Discharge Limit(HP)']),borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.06)',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y',fill:true},{label:'Темп °C',data:frows.map(r=>r['Batt Temp#2(C)']),borderColor:'#ff3d55',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,yAxisID:'y1',borderDash:[4,3]}]},options:{responsive:true,animation:false,plugins:{legend:{labels:{color:'#5a6a80',font:{family:'Space Mono',size:10},boxWidth:10}},tooltip:{mode:'index',intersect:false}},scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9},maxTicksLimit:8}},y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9}},title:{display:true,text:'HP',color:'#5a6a80',font:{size:9}}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#ff3d55',font:{family:'Space Mono',size:9}},title:{display:true,text:'°C',color:'#ff3d55',font:{size:9}}}}}});
   destroyC('bmsChart2');const ctx2=document.getElementById('bmsChart2').getContext('2d');charts['bmsChart2']=new Chart(ctx2,{type:'line',data:{labels:lbs,datasets:[{label:'Charge HP',data:frows.map(r=>r['Charge Limit(HP)']),borderColor:'#00e87a',backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Discharge HP',data:frows.map(r=>r['Discharge Limit(HP)']),borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y'},{label:'SOC %',data:frows.map(r=>r['SOC(%)']),borderColor:'#ffcc44',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,yAxisID:'y1',borderDash:[4,3]}]},options:{responsive:true,animation:false,plugins:{legend:{labels:{color:'#5a6a80',font:{family:'Space Mono',size:10},boxWidth:10}},tooltip:{mode:'index',intersect:false}},scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9},maxTicksLimit:8}},y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9}},title:{display:true,text:'HP',color:'#5a6a80',font:{size:9}}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#ffcc44',font:{family:'Space Mono',size:9}},title:{display:true,text:'%',color:'#ffcc44',font:{size:9}}}}}});
+  
   const cards=[
     {icon:'🌡️',title:'Температура режет мощность',body:'При +25–35°C лимит максимальный. Выше +42°C — ЭБУ начинает снижать оба лимита.',tip:'Проверь вентилятор батареи.'},
     {icon:'⚡',title:'Слабый модуль режет всех',body:'Если один модуль проседает быстрее остальных — ЭБУ снижает ток для всей батареи.',tip:'Замена одного модуля восстанавливает полную мощность.'},
-    {icon:'🔋',title:'SOC — неприкосновенный запас',body:'При SOC ниже 40% ЭБУ режет Discharge Limit. При SOC выше 75% режет Charge Limit.',tip:'На затяжных спусках рекуперация пропадает — это нормально.'},
+    {icon:'🔋',title:'SOC — неприкосновенный запас',body:'Рабочий диапазон 40–80%. 60% на приборке = золотая середина. При SOC ниже 40% ЭБУ режет Discharge Limit. При SOC выше 75% режет Charge Limit.',tip:'На затяжных спусках рекуперация пропадает при SOC>75% — это норма.'},
   ];
   document.getElementById('bmsExplain').innerHTML=cards.map(c=>`<div class="vcard good"><span class="vi">${c.icon}</span><div class="vt">${c.title}</div><div class="vx">${c.body}</div><div class="dv-tip">💡 ${c.tip}</div></div>`).join('');
 }
@@ -522,11 +682,14 @@ function renderVerdict(){
     else if(st==='yellow') modulesYellow.push(c);
   });
   
-  // Общий вердикт
+  // Общий вердикт — более мягкий
   let overall='good';
-  if(modulesRed.length>0) overall='bad';
-  else if(modulesYellow.length>2 || maxT>44 || minC<25 || minD<24) overall='warn';
+  if(modulesRed.length >= 3) overall='bad';
+  else if(modulesRed.length > 0) overall='warn';
+  else if(modulesYellow.length > 4 || maxT>44 || minC<25 || minD<24) overall='warn';
+  else overall='good';
   
+  // ========== 1. ОБЩИЙ ВЕРДИКТ (кратко) ==========
   let html=`<div class="vcard ${overall}">
     <span class="vi">${overall==='good'?'✅':overall==='warn'?'⚠️':'🔴'}</span>
     <div class="vt">Общее состояние: ${overall==='good'?'Хорошее':overall==='warn'?'Требует внимания':'Критическое'}</div>
@@ -534,60 +697,91 @@ function renderVerdict(){
     ${modulesRed.length?`<br><strong style="color:var(--red)">⚠️ Кандидаты на замену: ${modulesRed.map(c=>`Модуль ${modulesData[c].idx}`).join(', ')}.</strong>`:''}
     ${modulesYellow.length && !modulesRed.length?`<br><strong style="color:var(--yellow)">📌 Наблюдать: ${modulesYellow.map(c=>`Модуль ${modulesData[c].idx}`).join(', ')}.</strong>`:''}
     Макс. температура: <strong style="color:${maxT>44?'var(--red)':maxT>40?'var(--yellow)':'var(--green)'}">${maxT.toFixed(1)}°C</strong>.
-    Разброс в покое: <strong>${s0.deltaMean.toFixed(3)}V</strong> ${s0.deltaMean<=0.20?'✅ отлично':s0.deltaMean<=0.35?'⚠️ допустимо':'🔴 высокий'}.
+    Разброс в покое: <strong>${(s0.deltaRest || s0.deltaMean).toFixed(3)}V</strong> ${(s0.deltaRest || s0.deltaMean)<=0.18?'✅ отлично':(s0.deltaRest || s0.deltaMean)<=0.30?'⚠️ допустимо':'🔴 высокий'}.
     </div>
   </div>`;
   
-  // БЛОК ДЛЯ КАЖДОГО ПРОБЛЕМНОГО МОДУЛЯ (красные и жёлтые)
-  const allProblemModules = [...modulesRed, ...modulesYellow];
-  
-  for(const c of allProblemModules){
-    const data = modulesData[c];
-    const isRed = data.status === 'red';
-    const irDelta = data.ir - data.avgIR;
-    
-    let problemType = '';
-    let explanation = '';
-    let icon = '';
-    
-    if(data.dev > 0.01 && irDelta > 0.7){
-      problemType = '«притворяется живым»';
-      icon = '🔬';
-      explanation = `У него <strong>повышенное фоновое напряжение</strong> (${data.meanV.toFixed(4)}V при среднем ${s0.om.toFixed(4)}V) и <strong>IR выше среднего</strong> (${data.ir.toFixed(1)} мОм vs ${data.avgIR.toFixed(1)} мОм). Такой модуль первым упирается в потолок при рекуперации и заставляет ЭБУ резать Charge Limit.`;
-    }
-    else if(data.dev < -0.03 && data.worst > 10){
-      problemType = 'проседает под нагрузкой';
-      icon = '📉';
-      explanation = `При разгоне этот модуль показывает напряжение на ${Math.abs(data.dev).toFixed(4)}V ниже среднего. <strong>${data.worst.toFixed(1)}% времени</strong> он был самым слабым. Типичный признак потери ёмкости.`;
-    }
-    else if(data.dev < -0.02){
-      problemType = 'ниже среднего уровня';
-      icon = '🔻';
-      explanation = `Напряжение модуля в среднем на ${Math.abs(data.dev).toFixed(4)}V ниже общего фона. Это говорит о частичной деградации. В ${data.worst.toFixed(1)}% времени он был самым слабым под нагрузкой.`;
-    }
-    else if(irDelta > 1.2){
-      problemType = 'повышенное внутреннее сопротивление';
-      icon = '⚡';
-      explanation = `IR составляет ${data.ir.toFixed(1)} мОм, что на ${irDelta.toFixed(1)} мОм выше среднего (${data.avgIR.toFixed(1)} мОм). Это приводит к повышенному нагреву и потерям мощности.`;
-    }
-    else if(data.worst > 8){
-      problemType = 'часто проседает';
-      icon = '⚠️';
-      explanation = `В ${data.worst.toFixed(1)}% случаев под нагрузкой этот модуль оказывается самым слабым. Следите за его динамикой.`;
-    }
-    else {
-      problemType = 'требует внимания';
-      icon = '🔍';
-      explanation = `Отклонение напряжения: ${data.dev>=0?'+':''}${data.dev.toFixed(4)}V. Худший под нагрузкой: ${data.worst.toFixed(1)}% времени. IR: ${data.ir.toFixed(1)} мОм. Пока в допуске, но рекомендуется наблюдение.`;
-    }
-    
-    const cardClass = isRed ? 'bad' : 'warn';
-    html += `<div class="vcard ${cardClass}">
-      <span class="vi">${icon}</span>
-      <div class="vt">Модуль ${data.idx} — ${problemType}</div>
-      <div class="vx">${explanation}</div>
+  // ========== 2. ИТОГОВАЯ РЕКОМЕНДАЦИЯ (ГЛАВНЫЙ ВЫВОД) ==========
+  if(overall === 'good'){
+    html += `<div class="vcard good">
+      <span class="vi">🎯</span>
+      <div class="vt">Итог: живая, бодрая батарея</div>
+      <div class="vx">Критического разбаланса нет. Можешь спокойно ездить дальше. Следи за температурой.</div>
+    </div>`;
+  } else if(overall === 'warn'){
+    html += `<div class="vcard warn">
+      <span class="vi">🔧</span>
+      <div class="vt">Итог: требует внимания, но ездить можно</div>
+      <div class="vx">${modulesRed.length?`<strong>Замените слабые модули (${modulesRed.map(c=>`№${modulesData[c].idx}`).join(', ')}).</strong> Донорские модули с разборки.`:`<strong>Проведите балансировку (циклование) у специалиста</strong> — 50–100€.`}<br>После замены/балансировки лимиты мощности восстановятся.</div>
+    </div>`;
+  } else {
+    html += `<div class="vcard bad">
+      <span class="vi">🚨</span>
+      <div class="vt">Итог: срочная замена модулей</div>
+      <div class="vx">Немедленно замените <strong>${modulesRed.map(c=>`Модуль ${modulesData[c].idx}`).join(', ')}</strong>. Батарея в аварийном режиме. Ошибка P0A80 уже скоро появится. Стоимость замены модуля ~5–15€ + работа.</div>
     </div>`;
   }
+  
+  // ========== 3. ДЕТАЛЬНЫЙ РАЗБОР ПРОБЛЕМНЫХ МОДУЛЕЙ ==========
+  // ========== 3. ДЕТАЛЬНЫЙ РАЗБОР ПРОБЛЕМНЫХ МОДУЛЕЙ (компактно, как в diag-режимах) ==========
+  const allProblemModules = [...modulesRed, ...modulesYellow];
+  
+  if(allProblemModules.length > 0){
+    html += `<div class="sh mt8">Диагностика проблемных модулей</div>`;
+    html += `<div class="diag-grid" id="problemModulesGrid">`;
+    
+    for(const c of allProblemModules){
+      const data = modulesData[c];
+      const isRed = data.status === 'red';
+      const irDelta = data.ir - data.avgIR;
+      
+      let problemType = '';
+      let shortDesc = '';
+      let icon = '';
+      
+      if(data.dev > 0.01 && irDelta > 0.7){
+        problemType = '«притворяется живым»';
+        icon = '🔬';
+        shortDesc = `Фоновое напряжение ${data.meanV.toFixed(4)}V (среднее ${s0.om.toFixed(4)}V), IR ${data.ir.toFixed(1)} мОм (среднее ${data.avgIR.toFixed(1)} мОм). Первым упирается в потолок при рекуперации.`;
+      }
+      else if(data.dev < -0.03 && data.worst > 10){
+        problemType = 'проседает под нагрузкой';
+        icon = '📉';
+        shortDesc = `Напряжение на ${Math.abs(data.dev).toFixed(4)}V ниже среднего. ${data.worst.toFixed(1)}% времени был самым слабым. Признак потери ёмкости.`;
+      }
+      else if(data.dev < -0.02){
+        problemType = 'ниже среднего уровня';
+        icon = '🔻';
+        shortDesc = `Напряжение на ${Math.abs(data.dev).toFixed(4)}V ниже фона. В ${data.worst.toFixed(1)}% времени был самым слабым. Частичная деградация.`;
+      }
+      else if(irDelta > 1.2){
+        problemType = 'повышенное IR';
+        icon = '⚡';
+        shortDesc = `IR ${data.ir.toFixed(1)} мОм (на ${irDelta.toFixed(1)} мОм выше среднего). Повышенный нагрев и потери мощности.`;
+      }
+      else if(data.worst > 8){
+        problemType = 'часто проседает';
+        icon = '⚠️';
+        shortDesc = `В ${data.worst.toFixed(1)}% случаев под нагрузкой оказывается самым слабым. Требует наблюдения.`;
+      }
+      else {
+        problemType = 'требует внимания';
+        icon = '🔍';
+        shortDesc = `Отклонение ${data.dev>=0?'+':''}${data.dev.toFixed(4)}V. Худший ${data.worst.toFixed(1)}% времени. IR ${data.ir.toFixed(1)} мОм. В допуске, но наблюдайте.`;
+      }
+      
+      const cardClass = isRed ? 'bad' : 'warn';
+      // Используем такой же стиль, как у diag-card
+      html += `<div class="diag-card" style="border-left:3px solid ${cardClass === 'bad' ? 'var(--red)' : 'var(--orange)'}">
+        <div class="diag-title">${icon} Модуль ${data.idx} — ${problemType}</div>
+        <div class="diag-desc">${shortDesc}</div>
+      </div>`;
+    }
+    
+    html += `</div>`;
+  }
+  
+  // ========== 4. ДОПОЛНИТЕЛЬНЫЕ БЛОКИ ==========
   
   // Специальный блок про Charge Limit (если падал при высоком SOC — это норма)
   if(s0.chgMin < 12 && maxSOC > 70){
@@ -616,27 +810,6 @@ function renderVerdict(){
       <span class="vi">🌡️</span>
       <div class="vt">Повышенная температура батареи</div>
       <div class="vx">Максимум <strong>${maxT.toFixed(1)}°C</strong>. Рекомендуется <strong>проверить фильтр вентилятора</strong> (в ногах заднего пассажира справа). Даже лёгкий намёк пыли снижает эффективность охлаждения.</div>
-    </div>`;
-  }
-  
-  // Финальный итог с рекомендациями
-  if(overall === 'good'){
-    html += `<div class="vcard good">
-      <span class="vi">🎯</span>
-      <div class="vt">Итог: живая, бодрая батарея</div>
-      <div class="vx">Критического разбаланса нет. Можешь спокойно ездить дальше. Следи за температурой и при появлении ошибки P0A80 — меняй модули ${modulesRed.length?modulesRed.map(c=>`№${modulesData[c].idx}`).join(', '):'из списка выше'} в первую очередь.</div>
-    </div>`;
-  } else if(overall === 'warn'){
-    html += `<div class="vcard warn">
-      <span class="vi">🔧</span>
-      <div class="vt">Итог: требует внимания, но ездить можно</div>
-      <div class="vx">${modulesRed.length?`<strong>Замените слабые модули (${modulesRed.map(c=>`№${modulesData[c].idx}`).join(', ')}).</strong> Донорские модули 5–15€ с разборки.`:`<strong>Проведите балансировку (циклование) у специалиста</strong> — 50–100€.`}<br>После замены/балансировки лимиты мощности восстановятся.</div>
-    </div>`;
-  } else {
-    html += `<div class="vcard bad">
-      <span class="vi">🚨</span>
-      <div class="vt">Итог: срочная замена модулей</div>
-      <div class="vx">Немедленно замените <strong>${modulesRed.map(c=>`Модуль ${modulesData[c].idx}`).join(', ')}</strong>. Батарея в аварийном режиме. Ошибка P0A80 уже скоро появится. Стоимость замены модуля ~5–15€ + работа.</div>
     </div>`;
   }
   
