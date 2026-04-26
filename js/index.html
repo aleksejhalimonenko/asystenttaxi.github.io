@@ -1,27 +1,378 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta charset="utf-8">
-    <title>Мой личный Claude</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Claude Чат через Puter API</title>
+    <!-- Подключаем Puter.js -->
     <script src="https://js.puter.com/v2/"></script>
-    <style>/* ... тот же стиль ... */</style>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+        }
+        body {
+            background: linear-gradient(145deg, #e9eef3 0%, #dbe1e8 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .chat-card {
+            background: rgba(255,255,255,0.97);
+            backdrop-filter: blur(2px);
+            border-radius: 32px;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 650px;
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+        .chat-header {
+            background: #1a2c3e;
+            padding: 18px 24px;
+            color: white;
+        }
+        .chat-header h2 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .chat-header h2:before {
+            content: "🧠";
+            font-size: 1.8rem;
+        }
+        .chat-header p {
+            margin: 6px 0 0;
+            opacity: 0.8;
+            font-size: 0.85rem;
+        }
+        .chat-body {
+            padding: 24px;
+        }
+        .input-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .input-group input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 1.5px solid #cfdfed;
+            border-radius: 60px;
+            font-size: 1rem;
+            background: white;
+            transition: 0.2s;
+            outline: none;
+        }
+        .input-group input:focus {
+            border-color: #2c7da0;
+            box-shadow: 0 0 0 3px rgba(44,125,160,0.2);
+        }
+        .btn {
+            background: #2c7da0;
+            border: none;
+            padding: 0 24px;
+            border-radius: 60px;
+            font-weight: 600;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:hover {
+            background: #1f5e7a;
+            transform: scale(0.97);
+        }
+        .btn-login {
+            background: #f4a261;
+            color: #2d2f36;
+        }
+        .btn-login:hover {
+            background: #e76f51;
+        }
+        .answer-area {
+            background: #f8fafc;
+            border-radius: 28px;
+            padding: 18px 24px;
+            border: 1px solid #e2edf2;
+            min-height: 140px;
+            font-size: 1rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+            transition: 0.1s;
+        }
+        .status {
+            font-size: 0.8rem;
+            margin-top: 12px;
+            text-align: right;
+            color: #5b6f82;
+        }
+        .error {
+            color: #c7362b;
+            background: #ffe9e7;
+            border-left: 4px solid #c7362b;
+        }
+        .login-prompt {
+            text-align: center;
+            padding: 16px;
+            background: #fff3e0;
+            border-radius: 32px;
+            margin-bottom: 20px;
+        }
+        hr {
+            margin: 20px 0;
+            border-color: #dce5ec;
+        }
+        .model-badge {
+            font-size: 0.7rem;
+            background: #eef2f5;
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 30px;
+            color: #2c7da0;
+        }
+        footer {
+            font-size: 0.7rem;
+            text-align: center;
+            padding: 16px;
+            background: #f0f4f9;
+            color: #4a627a;
+        }
+    </style>
 </head>
 <body>
-<div class="chat-box">...</div>
+
+<div class="chat-card" id="appRoot">
+    <div class="chat-header">
+        <h2>Claude · Puter API</h2>
+        <p>Бесплатный доступ через ваш аккаунт Puter (User‑Pays)</p>
+    </div>
+    <div class="chat-body" id="dynamicContent">
+        <!-- сюда будет вставлен интерфейс после проверки авторизации -->
+        <div style="text-align:center; padding: 32px;">⏳ Загрузка...</div>
+    </div>
+    <footer>
+        Модель: Claude 3.5 Sonnet (или Sonnet 4) • Работает через Puter AI • <span id="loginHint"></span>
+    </footer>
+</div>
 
 <script>
-    window.onload = async () => {
-        // Ждём, пока библиотека загрузится
-        while (typeof puter === 'undefined') await new Promise(r => setTimeout(r, 100));
-        // Если не залогинены — открываем окно входа
-        if (!puter.auth.isSignedIn) {
-            await puter.auth.signIn();
-        }
-    };
+    // ---- Глобальные переменные ----
+    let isLoggedIn = false;
+    let appContainer = document.getElementById('dynamicContent');
 
-    async function askClaude() {
-        // ... как в исправленном коде выше ...
+    // ---- Функция рендера основного чата (после успешного входа) ----
+    function renderChatUI() {
+        appContainer.innerHTML = `
+            <div class="input-group">
+                <input type="text" id="userPrompt" placeholder="Напишите вопрос Claude..." autocomplete="off">
+                <button class="btn" id="sendBtn">📨 Отправить</button>
+            </div>
+            <div id="answerBlock" class="answer-area">
+                💬 Здесь появится ответ...
+            </div>
+            <div class="status">
+                <span class="model-badge">🧠 Claude 3.5 / Sonnet 4</span> 
+                <span style="margin-left: 10px;">⚡ Бесплатно через Puter (User pays)</span>
+            </div>
+            <div id="errorMsg" style="margin-top: 12px;"></div>
+        `;
+
+        // Привязываем обработчики
+        const promptInput = document.getElementById('userPrompt');
+        const sendButton = document.getElementById('sendBtn');
+        const answerDiv = document.getElementById('answerBlock');
+        const errorDiv = document.getElementById('errorMsg');
+
+        async function sendToClaude() {
+            const question = promptInput.value.trim();
+            if (!question) {
+                answerDiv.innerHTML = "⚠️ Пожалуйста, введите текст вопроса.";
+                answerDiv.classList.add('error');
+                return;
+            }
+            // Сброс стилей
+            answerDiv.classList.remove('error');
+            answerDiv.innerHTML = "🤔 Claude обдумывает ответ... <span style='font-size:0.9rem;'>(может занять 3–8 сек)</span>";
+            errorDiv.innerHTML = "";
+
+            try {
+                // Ещё раз проверим сессию перед запросом (на случай, если Puter разлогинился)
+                if (!puter.auth.isSignedIn) {
+                    await reauthAndRetry(question);
+                    return;
+                }
+
+                // ВЫЗОВ API – самая важная часть
+                // Указываем конкретную модель для максимальной стабильности: claude-3-5-sonnet или claude-sonnet-4
+                // Puter поддерживает оба имени; используем популярное 'claude-3-5-sonnet'
+                const response = await puter.ai.chat(question, { 
+                    model: 'claude-3-5-sonnet',
+                    stream: false    // просто получаем полный ответ
+                });
+
+                // Извлечём текст из ответа (Puter возвращает строку или объект с message)
+                let finalAnswer = "";
+                if (typeof response === 'string') {
+                    finalAnswer = response;
+                } else if (response && response.message && response.message.content) {
+                    if (Array.isArray(response.message.content)) {
+                        finalAnswer = response.message.content.map(part => part.text || part).join('');
+                    } else {
+                        finalAnswer = String(response.message.content);
+                    }
+                } else if (response && response.text) {
+                    finalAnswer = response.text;
+                } else {
+                    // fallback – просто преобразуем в строку
+                    finalAnswer = JSON.stringify(response, null, 2);
+                }
+
+                if (!finalAnswer || finalAnswer === "{}") {
+                    finalAnswer = "✅ Ответ получен, но он пуст. Возможно, модель вернула служебное сообщение. Попробуйте другой вопрос.";
+                }
+
+                answerDiv.innerHTML = finalAnswer;
+                answerDiv.classList.remove('error');
+            } catch (err) {
+                console.error("Ошибка Puter AI:", err);
+                let errorText = err.message || err.toString();
+                if (errorText.includes("insufficient_quota") || errorText.includes("balance")) {
+                    errorText = "❌ Недостаточно средств на аккаунте Puter. Вам нужно пополнить баланс или использовать бесплатные кредиты. Проверьте аккаунт на puter.com";
+                } else if (errorText.includes("sign in") || errorText.includes("auth")) {
+                    errorText = "🔐 Сессия истекла. Нажмите кнопку «Войти» внизу или обновите страницу.";
+                    showLoginButtonInline();
+                }
+                answerDiv.innerHTML = `⚠️ Ошибка: ${errorText}`;
+                answerDiv.classList.add('error');
+                errorDiv.innerHTML = "Подробности в консоли браузера (F12)";
+            }
+        }
+
+        // Функция для повторной авторизации и повторного вызова
+        async function reauthAndRetry(questionText) {
+            try {
+                await puter.auth.signIn();
+                // После возврата из входа пробуем снова отправить тот же вопрос
+                if (puter.auth.isSignedIn) {
+                    isLoggedIn = true;
+                    const newResponse = await puter.ai.chat(questionText, { model: 'claude-3-5-sonnet' });
+                    let newAnswer = typeof newResponse === 'string' ? newResponse : newResponse?.message?.content?.[0]?.text || "Ответ готов.";
+                    answerDiv.innerHTML = newAnswer;
+                    answerDiv.classList.remove('error');
+                } else {
+                    throw new Error("Не удалось войти в Puter.");
+                }
+            } catch (authErr) {
+                answerDiv.innerHTML = `🔐 Необходима авторизация в Puter. Пожалуйста, нажмите кнопку входа внизу страницы.`;
+                showLoginButtonInline();
+            }
+        }
+
+        // Кнопка входа, которая появляется при ошибке
+        function showLoginButtonInline() {
+            if (!document.getElementById('inlineLoginBtn')) {
+                const btnWrap = document.createElement('div');
+                btnWrap.id = 'inlineLoginBtn';
+                btnWrap.style.marginTop = '12px';
+                btnWrap.innerHTML = `<button class="btn btn-login" id="loginNowBtn">🔑 Войти в Puter</button>`;
+                errorDiv.appendChild(btnWrap);
+                document.getElementById('loginNowBtn')?.addEventListener('click', async () => {
+                    await puter.auth.signIn();
+                    window.location.reload(); // перезагружаем чтобы интерфейс обновился
+                });
+            }
+        }
+
+        // Обработчик на кнопку отправки
+        sendButton.addEventListener('click', sendToClaude);
+        // Отправка по Enter
+        promptInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendToClaude();
+        });
     }
+
+    // ---- Функция для отображения приглашения войти (если пользователь не залогинен) ----
+    function renderLoginPrompt() {
+        appContainer.innerHTML = `
+            <div class="login-prompt">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🔐</div>
+                <h3 style="margin: 0 0 8px;">Требуется вход в Puter</h3>
+                <p style="margin-bottom: 16px;">Для бесплатного использования Claude через Puter API нужно войти в свой аккаунт.</p>
+                <button class="btn btn-login" id="loginMainBtn">🚀 Войти / Зарегистрироваться</button>
+                <p style="font-size: 0.8rem; margin-top: 16px;">После входа вы получите бесплатные кредиты (~100 запросов в день).<br>Данные списываются с вашего баланса — разработчик не платит.</p>
+            </div>
+        `;
+        const loginBtn = document.getElementById('loginMainBtn');
+        if (loginBtn) {
+            loginBtn.addEventListener('click', async () => {
+                try {
+                    await puter.auth.signIn();
+                    // После успешного входа перезагружаем интерфейс
+                    window.location.reload();
+                } catch (e) {
+                    appContainer.innerHTML += `<div style="color:red; margin-top:12px;">Ошибка входа: ${e.message}</div>`;
+                }
+            });
+        }
+    }
+
+    // ---- Основная логика инициализации ----
+    async function init() {
+        // Ждём полной загрузки puter объекта
+        if (typeof puter === 'undefined') {
+            // Если библиотека ещё не загружена, подождём немного
+            await new Promise(resolve => {
+                const check = setInterval(() => {
+                    if (typeof puter !== 'undefined') {
+                        clearInterval(check);
+                        resolve();
+                    }
+                }, 100);
+            });
+        }
+
+        try {
+            // Проверяем статус авторизации
+            // puter.auth.isSignedIn – синхронное свойство? В документации – Promise? Проверим.
+            let signedIn = false;
+            if (typeof puter.auth.isSignedIn === 'boolean') {
+                signedIn = puter.auth.isSignedIn;
+            } else if (typeof puter.auth.isSignedIn === 'function') {
+                signedIn = await puter.auth.isSignedIn();
+            } else {
+                // fallback – пробуем получить инфо о пользователе
+                try {
+                    const user = await puter.auth.getUser();
+                    signedIn = !!user;
+                } catch(e) { signedIn = false; }
+            }
+
+            if (signedIn) {
+                isLoggedIn = true;
+                renderChatUI();
+            } else {
+                renderLoginPrompt();
+            }
+        } catch (err) {
+            console.warn("Ошибка инициализации auth, показываем кнопку входа", err);
+            renderLoginPrompt();
+        }
+    }
+
+    // Запускаем
+    init();
 </script>
 </body>
 </html>
