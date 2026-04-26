@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Battery Analyzer Pro — Prius/Auris NiMH</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+:root{
+  --bg:#080a0d;--bg2:#0f1318;--bg3:#161b22;--border:#1c2333;
+  --text:#dde4f0;--dim:#5a6a80;
+  --green:#00e87a;--yellow:#ffcc44;--red:#ff3d55;--blue:#38bdf8;--orange:#ff8c00;
+  --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:90px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(8,10,13,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:14px 16px}
+.t-icon{font-size:22px}
+.t-title{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.t-sub{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;margin-top:1px}
+.t-badge{margin-left:auto;font-family:var(--mono);font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--dim);padding:4px 10px;border-radius:20px;white-space:nowrap}
+.page{display:none;padding:16px}.page.active{display:block}
+.lpage{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:20px}.lpage.active{display:flex}
+.upload-hero{margin-top:8px;background:var(--bg2);border:2px dashed var(--border);border-radius:20px;padding:44px 20px;text-align:center}
+.upload-hero.drag{border-color:var(--green);background:rgba(0,232,122,.04)}
+.u-emoji{font-size:52px;display:block;margin-bottom:14px}
+.u-title{font-size:22px;font-weight:800;margin-bottom:6px}
+.u-hint{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:28px;line-height:1.9}
+.btn-p{display:block;width:100%;background:var(--green);color:#000;font-family:var(--sans);font-weight:800;font-size:16px;letter-spacing:.04em;text-transform:uppercase;border:none;border-radius:14px;padding:18px;cursor:pointer;transition:opacity .15s}
+.btn-p:active{opacity:.8}
+.btn-p:disabled{background:var(--bg3);color:var(--dim);cursor:not-allowed}
+.btn-s{display:block;width:100%;margin-top:12px;background:transparent;color:var(--dim);font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer}
+#fileInput{display:none}
+.chips{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.chip{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;color:var(--green)}
+.chip-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip-x{color:var(--dim);font-size:20px;cursor:pointer;line-height:1}
+.spinner{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltxt{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.15em}
+.sh{display:flex;align-items:center;gap:10px;margin:24px 0 12px;font-family:var(--mono);font-size:10px;color:var(--green);letter-spacing:.2em;text-transform:uppercase}
+.sh::after{content:'';flex:1;height:1px;background:var(--border)}
+.mt8{margin-top:8px}.mt16{margin-top:16px}
+.sscroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;margin:0 -16px;padding-left:16px;padding-right:16px;scrollbar-width:none}
+.sscroll::-webkit-scrollbar{display:none}
+.scard{flex:0 0 140px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 14px;position:relative;overflow:hidden}
+.scard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c,var(--green))}
+.sc-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.sc-value{font-size:24px;font-weight:800;color:var(--c,var(--text));letter-spacing:-.02em;line-height:1;margin-bottom:4px}
+.sc-sub{font-family:var(--mono);font-size:9px;color:var(--dim)}
+.mini-mod{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:4px 16px}
+.mrow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.mrow:last-child{border-bottom:none}
+.mrow-n{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.mrow-d{font-family:var(--mono);font-size:12px;font-weight:700}
+.mrow-s{font-family:var(--mono);font-size:10px}
+.mod-list{display:flex;flex-direction:column;gap:10px}
+.mcard{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--mc,var(--green));border-radius:14px;padding:16px}
+.mc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.mc-num{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.mc-status{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--mc);letter-spacing:.08em;text-transform:uppercase}
+.mc-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.msl{font-family:var(--mono);font-size:8px;color:var(--dim);text-transform:uppercase;margin-bottom:3px;letter-spacing:.05em}
+.msv{font-family:var(--mono);font-size:13px;font-weight:700}
+.dev-track{height:5px;background:var(--border);border-radius:3px;position:relative}
+.dev-ctr{position:absolute;left:50%;top:-2px;width:1px;height:9px;background:var(--bg3);transform:translateX(-50%)}
+.dev-fill{position:absolute;top:0;height:5px;border-radius:3px;background:var(--mc)}
+.temp-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tcard{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 10px;text-align:center}
+.tc-label{font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:8px}
+.tc-val{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-bottom:6px}
+.tc-mm{font-family:var(--mono);font-size:9px;color:var(--dim);line-height:1.7}
+.lim-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:10px}
+.lh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+.lh-name{font-size:14px;font-weight:700}
+.lh-val{font-family:var(--mono);font-size:12px}
+.lim-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.lim-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.lim-det{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:8px}
+.ir-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ir-item{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:space-between}
+.ir-label{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.ir-val{font-family:var(--mono);font-size:13px;font-weight:700}
+.cbox{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px}
+.clabel{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+canvas{width:100%!important;display:block}
+.lpills{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px 12px}
+.lpills::-webkit-scrollbar{display:none}
+.lpill{flex:0 0 auto;padding:8px 16px;font-family:var(--mono);font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--dim);border-radius:20px;cursor:pointer;white-space:nowrap}
+.lpill.active{background:var(--green);color:#000;font-weight:700;border-color:var(--green)}
+.vcard{border-radius:16px;padding:20px;border:1px solid var(--border);margin-bottom:12px;position:relative;overflow:hidden}
+.vcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--vc,var(--green))}
+.vcard.good{background:rgba(0,232,122,.04);--vc:var(--green)}
+.vcard.warn{background:rgba(255,204,68,.04);--vc:var(--yellow)}
+.vcard.bad{background:rgba(255,61,85,.05);--vc:var(--red)}
+.vi{font-size:28px;margin-bottom:10px;display:block}
+.vt{font-size:16px;font-weight:800;margin-bottom:8px}
+.vx{font-size:14px;color:var(--dim);line-height:1.7}
+.vx strong{color:var(--text)}
+.bnav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(8,10,13,.97);backdrop-filter:blur(16px);border-top:1px solid var(--border);display:none;grid-template-columns:repeat(6,1fr);padding-bottom:env(safe-area-inset-bottom,0)}
+.bnav.on{display:grid}
+.bni{display:flex;flex-direction:column;align-items:center;padding:10px 4px 8px;cursor:pointer}
+.bni-icon{font-size:20px;margin-bottom:3px}
+.bni-label{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase}
+.bni.active .bni-label{color:var(--green)}
+.bni.active .bni-icon{filter:drop-shadow(0 0 5px var(--green))}
+.dv-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:12px;position:relative;overflow:hidden}
+.dv-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--dvc,var(--green))}
+.dv-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.dv-main{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--dvc,var(--green))}
+.dv-badge{font-family:var(--mono);font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;background:rgba(255,255,255,.07);color:var(--dvc,var(--green));letter-spacing:.05em;text-align:right}
+.dv-desc{font-size:14px;font-weight:700;margin-bottom:6px}
+.dv-hint{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.7;margin-bottom:14px}
+.dv-scale{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:4px;gap:2px}
+.dv-scale-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:14px}
+.dv-arrow-wrap{position:relative;height:10px;margin-bottom:2px}
+.dv-arrow{position:absolute;top:0;width:2px;height:10px;background:white;border-radius:1px;transform:translateX(-50%)}
+.dv-row{display:flex;gap:10px;margin-bottom:12px}
+.dv-stat{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;flex:1;text-align:center}
+.dv-stat-l{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.dv-stat-v{font-family:var(--mono);font-size:14px;font-weight:700}
+.dv-load-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.dv-li{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.dv-li-l{font-family:var(--mono);font-size:8px;color:var(--dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+.dv-li-v{font-family:var(--mono);font-size:13px;font-weight:700}
+.dv-tip{background:rgba(0,232,122,.05);border:1px solid rgba(0,232,122,.12);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.7}
+.dv-tip strong{color:var(--green)}
+.diag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px}
+.diag-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px}
+.diag-title{font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:8px;text-transform:uppercase}
+.diag-desc{font-size:12px;color:var(--dim);line-height:1.5}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="t-icon">⚡</div>
+  <div>
+    <div class="t-title">Battery Analyzer Pro</div>
+    <div class="t-sub">PRIUS 30 · AURIS · NiMH</div>
+  </div>
+  <div class="t-badge" id="topBadge">v6.0</div>
+</header>
+
+<div class="page active" id="pg-upload">
+  <div class="upload-hero" id="dropZone">
+    <span class="u-emoji">🔋</span>
+    <div class="u-title">Загрузить лог</div>
+    <div class="u-hint">Формат: BatteryMonitor CSV<br>Можно несколько файлов<br>Перетащите или нажмите кнопку</div>
+    <button class="btn-p" id="pickBtn">📂 Выбрать файл(ы)</button>
+    <input type="file" id="fileInput" accept=".csv" multiple>
+  </div>
+  <div class="chips" id="chips"></div>
+  <button class="btn-p mt16" id="analyzeBtn" disabled style="opacity:.4">Анализировать →</button>
+  <button class="btn-s" id="clearBtn" style="display:none">Очистить</button>
+</div>
+
+<div class="lpage" id="pg-loading">
+  <div class="spinner"></div>
+  <div class="ltxt">АНАЛИЗ ДАННЫХ...</div>
+</div>
+
+<div class="page" id="pg-results">
+  <div id="tab-summary" class="tab-pane active">
+    <div class="sh">Ключевые показатели</div>
+    <div class="sscroll" id="summaryCards"></div>
+    <div class="sh">Delta V — разброс батареи</div>
+    <div id="deltaBlock"></div>
+    <div class="sh">Состояние всех модулей</div>
+    <div class="mini-mod" id="miniMod"></div>
+  </div>
+  <div id="tab-modules" class="tab-pane" style="display:none">
+    <div class="sh">Детально по каждому модулю</div>
+    <div class="mod-list" id="modList"></div>
+    <div class="sh mt16">График отклонений</div>
+    <div class="cbox"><div class="clabel">Отклонение напряжения (V)</div><canvas id="devChart" height="180"></canvas></div>
+  </div>
+  <div id="tab-temp" class="tab-pane" style="display:none">
+    <div class="sh">Датчики температуры</div>
+    <div class="temp-row" id="tempCards"></div>
+    <div class="sh mt16">Динамика</div>
+    <div class="cbox"><div class="clabel">Температура °C по времени</div><canvas id="tempChart" height="200"></canvas></div>
+  </div>
+  <div id="tab-limits" class="tab-pane" style="display:none">
+    <div class="sh">Лимиты мощности</div>
+    <div id="limitsBlock"></div>
+    <div class="cbox mt8"><div class="clabel">Charge / Discharge HP по времени</div><canvas id="limChart" height="180"></canvas></div>
+    <div class="sh mt16">Внутреннее сопротивление IR</div>
+    <div class="ir-grid" id="irGrid"></div>
+    <div class="cbox mt8"><div class="clabel">IR по модулям (мОм)</div><canvas id="irChart" height="180"></canvas></div>
+  </div>
+  <div id="tab-verdict" class="tab-pane" style="display:none">
+    <div class="sh">Вердикт и рекомендации</div>
+    <div id="verdictBlock"></div>
+    <div class="sh mt16">Остаточная ёмкость — все модули</div>
+    <div id="capacityTable"></div>
+    <div class="sh mt16" id="logCompHead" style="display:none">Динамика по логам</div>
+    <div id="logCompTable"></div>
+    <div class="sh mt16">Напряжение по логу</div>
+    <div class="lpills" id="logPills"></div>
+    <div class="cbox"><div class="clabel">Напряжение модулей V</div><canvas id="voltChart" height="200"></canvas></div>
+    <div class="cbox"><div class="clabel">SOC % / Ток A</div><canvas id="socChart" height="180"></canvas></div>
+  </div>
+  <div id="tab-bms" class="tab-pane" style="display:none">
+    <div class="sh">Динамика лимитов ЭБУ</div>
+    <div id="bmsLiveBlock"></div>
+    <div class="cbox mt8"><div class="clabel">Charge + Discharge Limit / Температура</div><canvas id="bmsChart1" height="220"></canvas></div>
+    <div class="cbox"><div class="clabel">Charge + Discharge Limit / SOC %</div><canvas id="bmsChart2" height="220"></canvas></div>
+	<div class="sh mt8">Диагностические режимы</div>
+<div class="diag-grid" id="diagModes"></div>
+    <div class="sh mt8">Как работает ЭБУ батареи</div>
+    <div id="bmsExplain"></div>
+  </div>
+</div>
+
+<nav class="bnav" id="bnav">
+  <div class="bni active" data-tab="summary"><div class="bni-icon">📊</div><div class="bni-label">Сводка</div></div>
+  <div class="bni" data-tab="modules"><div class="bni-icon">🔋</div><div class="bni-label">Модули</div></div>
+  <div class="bni" data-tab="temp"><div class="bni-icon">🌡️</div><div class="bni-label">Темп.</div></div>
+  <div class="bni" data-tab="limits"><div class="bni-icon">⚡</div><div class="bni-label">Лимиты</div></div>
+  <div class="bni" data-tab="bms"><div class="bni-icon">🧠</div><div class="bni-label">ЭБУ</div></div>
+  <div class="bni" data-tab="verdict"><div class="bni-icon">✅</div><div class="bni-label">Вердикт</div></div>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const VOL=Array.from({length:14},(_,i)=>`Vol#${i+1}`);
+const IR=Array.from({length:14},(_,i)=>`IR#${i+1}`);
+const TMPC=['Batt Temp#1(C)','Batt Temp#2(C)','Batt Temp#3(C)'];
+const HEALTHY=['Vol#2','Vol#7','Vol#9','Vol#13']; // только стабильные средние, без крайних #1 и #14
+const EDGE_MODULES=['Vol#1','Vol#14']; // крайние — конструктивно всегда шумят
+let files=[],logs=[],charts={},activeLog=0;
+
+const dz=document.getElementById('dropZone');
+const fi=document.getElementById('fileInput');
+document.getElementById('pickBtn').onclick=()=>fi.click();
+fi.onchange=()=>{addFiles([...fi.files]);fi.value='';};
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');addFiles([...e.dataTransfer.files])});
+document.getElementById('clearBtn').onclick=()=>{files=[];renderChips()};
+document.getElementById('analyzeBtn').onclick=run;
+
+function addFiles(f){
+  f.filter(x=>x.name.toLowerCase().endsWith('.csv')).forEach(x=>{
+    if(!files.find(p=>p.name===x.name))files.push(x);
+  });
+  renderChips();
+}
+function renderChips(){
+  const c=document.getElementById('chips');
+  c.innerHTML=files.map((f,i)=>`<div class="chip"><span>📄</span><span class="chip-name">${f.name}</span><span class="chip-x" data-i="${i}">×</span></div>`).join('');
+  c.querySelectorAll('.chip-x').forEach(el=>el.onclick=()=>{files.splice(+el.dataset.i,1);renderChips()});
+  const has=files.length>0;
+  const ab=document.getElementById('analyzeBtn');
+  ab.disabled=!has; ab.style.opacity=has?'1':'.4';
+  document.getElementById('clearBtn').style.display=has?'block':'none';
+}
+
+function parseCSV(txt){
+  const lines=txt.trim().split('\n');
+  const h=lines[0].split(',').map(x=>x.trim().replace(/"/g,''));
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const v=lines[i].split(',');
+    if(v.length<2)continue;
+    const row={};
+    h.forEach((k,j)=>{const s=(v[j]||'').trim().replace(/"/g,'');row[k]=isNaN(s)||s===''?s:+s;});
+    rows.push(row);
+  }
+  return rows;
+}
+
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+const mn=a=>a.length?Math.min(...a):0;
+const mx=a=>a.length?Math.max(...a):0;
+
+function stats(rows){
+  const s={};
+  const vm={};
+  VOL.forEach(c=>{const v=rows.map(r=>r[c]).filter(x=>!isNaN(x));vm[c]=avg(v);});
+  const om=avg(Object.values(vm));
+  s.om=om; s.vm=vm;
+  s.vd={}; VOL.forEach(c=>s.vd[c]=vm[c]-om);
+  s.vmin={}; s.vmax={};
+  VOL.forEach(c=>{const v=rows.map(r=>r[c]).filter(x=>!isNaN(x));s.vmin[c]=mn(v);s.vmax[c]=mx(v);});
+  s.ir={}; IR.forEach(c=>{const v=rows.map(r=>r[c]).filter(x=>!isNaN(x));s.ir[c]=avg(v);});
+  s.temps={};
+  TMPC.forEach(c=>{const v=rows.map(r=>r[c]).filter(x=>!isNaN(x));s.temps[c]={mean:avg(v),min:mn(v),max:mx(v)};});
+  const chg=rows.map(r=>r['Charge Limit(HP)']).filter(x=>!isNaN(x));
+  const dis=rows.map(r=>r['Discharge Limit(HP)']).filter(x=>!isNaN(x));
+  s.chgMean=avg(chg);s.chgMin=mn(chg);s.disMean=avg(dis);s.disMin=mn(dis);
+  const soc=rows.map(r=>r['SOC(%)']).filter(x=>!isNaN(x));
+  s.socMean=avg(soc);s.socMin=mn(soc);s.socMax=mx(soc);
+  const spd=rows.map(r=>r['Vehicle Speed(KPH)']).filter(x=>!isNaN(x));
+  s.speedMean=avg(spd);s.speedMax=mx(spd);
+  const cur=rows.map(r=>r['Current(Amp)']).filter(x=>!isNaN(x));
+  s.curMin=mn(cur);s.curMax=mx(cur);
+  const deltas=rows.map(r=>{const v=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return v.length?mx(v)-mn(v):0;});
+  s.deltaMean=avg(deltas);s.deltaMax=mx(deltas);
+  
+  // ⭐ ДОБАВЛЯЕМ: разброс ТОЛЬКО в режиме покоя (ток < 10A)
+  const restRows = rows.filter(r => Math.abs(r['Current(Amp)']||0) < 10);
+  const restDeltas = restRows.map(r => {
+    const v = VOL.map(c=>r[c]).filter(x=>!isNaN(x));
+    return v.length ? Math.max(...v) - Math.min(...v) : 0;
+  });
+  s.deltaRest = restDeltas.length ? avg(restDeltas) : s.deltaMean;
+  
+  const lr=rows.filter(r=>r['Current(Amp)']<-15);
+  s.worstPct={};
+  if(lr.length){
+    const cnt={}; VOL.forEach(c=>cnt[c]=0);
+    lr.forEach(r=>{let mv=Infinity,mc=null;VOL.forEach(c=>{if(r[c]<mv){mv=r[c];mc=c;}});if(mc)cnt[mc]++;});
+    VOL.forEach(c=>s.worstPct[c]=cnt[c]/lr.length*100);
+  } else VOL.forEach(c=>s.worstPct[c]=0);
+  s.loadDev={}; s.regenDev={}; s.bounce={}; s.trafficDev={};
+  const rr=rows.filter(r=>r['Current(Amp)']>30);
+  const traffic=rows.filter(r=>r['Current(Amp)']<-5&&r['Current(Amp)']>-20&&(r['Vehicle Speed(KPH)']||0)<30);
+  const restRows2=rows.filter(r=>Math.abs(r['Current(Amp)']||0)<=10);
+  if(lr.length){
+    VOL.forEach(c=>{
+      const d=lr.map(r=>{const hv=HEALTHY.map(h=>r[h]).filter(x=>!isNaN(x));return r[c]-avg(hv);});
+      s.loadDev[c]=avg(d);
+    });
+  } else VOL.forEach(c=>s.loadDev[c]=0);
+  if(rr.length>5){
+    VOL.forEach(c=>{
+      const d=rr.map(r=>{const hv=HEALTHY.map(h=>r[h]).filter(x=>!isNaN(x));return r[c]-avg(hv);});
+      s.regenDev[c]=avg(d);
+    });
+  } else VOL.forEach(c=>s.regenDev[c]=0);
+  if(traffic.length>20){
+    const tmed=traffic.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return avg(vs);});
+    VOL.forEach(c=>{
+      const d=traffic.map((r,i)=>r[c]-tmed[i]).filter(x=>!isNaN(x));
+      s.trafficDev[c]=d.length?avg(d):0;
+    });
+  } else VOL.forEach(c=>s.trafficDev[c]=0);
+  VOL.forEach(c=>{
+    const prevLoad=rows.map((_,i)=>i>0?Math.abs(rows[i-1]['Current(Amp)']||0)>30:false);
+    const relax=rows.filter((_,i)=>prevLoad[i]&&Math.abs(rows[i]['Current(Amp)']||0)<3);
+    const restMean=restRows2.length?avg(restRows2.map(r=>r[c]).filter(x=>!isNaN(x))):0;
+    const relaxMean=relax.length?avg(relax.map(r=>r[c]).filter(x=>!isNaN(x))):restMean;
+    s.bounce[c]=Math.abs(relaxMean-restMean);
+  });
+  // Остаточная ёмкость — 4 метода (Sag + Range + Charge Acceptance + Traffic)
+  s.capacity={};
+  const loadSub=rows.filter(r=>r['Current(Amp)']<-15&&r['Current(Amp)']>-40);
+  const load2=rows.filter(r=>r['Current(Amp)']<-10);
+  const regen2=rows.filter(r=>r['Current(Amp)']>15);
+  if(loadSub.length>20&&load2.length>20){
+    const med1=loadSub.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return avg(vs);});
+    const sag={}; VOL.forEach(c=>{sag[c]=avg(loadSub.map((r,i)=>(r[c]||0)-med1[i]).filter(x=>!isNaN(x)));});
+    const rng={}; VOL.forEach(c=>{const v=load2.map(r=>r[c]).filter(x=>!isNaN(x)).sort((a,b)=>a-b);rng[c]=v.length?(v[Math.floor(v.length*0.95)]-(v[Math.floor(v.length*0.05)]||v[0])):2;});
+    const acc={}; const med3=regen2.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return avg(vs);});
+    VOL.forEach(c=>{acc[c]=regen2.length>5?avg(regen2.map((r,i)=>r[c]-med3[i]).filter(x=>!isNaN(x))):0;});
+    const tdv=s.trafficDev;
+    const b_sag=Math.max(...Object.values(sag)),w_sag=Math.min(...Object.values(sag)),sp_sag=b_sag-w_sag||0.001;
+    const b_rng=Math.min(...Object.values(rng)),w_rng=Math.max(...Object.values(rng)),sp_rng=w_rng-b_rng||0.001;
+    const b_acc=Math.min(...Object.values(acc)),w_acc=Math.max(...Object.values(acc)),sp_acc=w_acc-b_acc||0.001;
+    const tdVals=Object.values(tdv); const b_td=Math.max(...tdVals),w_td=Math.min(...tdVals),sp_td=b_td-w_td||0.001;
+    const combo={};
+    VOL.forEach(c=>{
+      const p1=(sag[c]-w_sag)/sp_sag*100;
+      const p2=(w_rng-rng[c])/sp_rng*100;
+      const p3=(w_acc-acc[c])/sp_acc*100;
+      const p4=sp_td>0.01?(tdv[c]-w_td)/sp_td*100:50;
+      combo[c]=p1*0.35+p2*0.25+p3*0.20+p4*0.20;
+    });
+    const bestCombo=Math.max(...Object.values(combo))||1;
+    VOL.forEach(c=>{s.capacity[c]=Math.max(5,Math.round(combo[c]/bestCombo*79));});
+  } else {
+    VOL.forEach(c=>s.capacity[c]=null);
+  }
+  const times=rows.map(r=>r['DateTime']).filter(Boolean);
+  s.timeStart=times[0]||'—'; s.timeEnd=times[times.length-1]||'—';
+  try{s.dur=(new Date(times[times.length-1])-new Date(times[0]))/60000;}catch(e){s.dur=0;}
+  s.rowCount=rows.length;
+  return s;
+}
+
+function moduleStatus(vd, worstPct, ir, avgIR, isEdge){
+  // Крайние модули #1 и #14 — конструктивная поправка 0.08V по PDF
+  const adjVd = isEdge ? vd - 0.06 : vd;
+  let score = 0;
+  if(adjVd < -0.05) score += 2;
+  else if(adjVd < -0.035) score += 1;
+  if(!isEdge && adjVd > 0.06) score += 1; // высокое только у не-крайних
+  if(worstPct > 25) score += 2;
+  else if(worstPct > 12) score += 1;
+  const irDelta = ir - avgIR;
+  if(irDelta > 2.0) score += 2;
+  else if(irDelta > 1.2) score += 1;
+  if(score >= 3) return 'red';
+  if(score >= 1) return 'yellow';
+  return 'green';
+}
+
+function getModuleGroup(vd, worstPct, ir, avgIR, regenDev, isEdge){
+  const irDelta = ir - avgIR;
+  // Крайние модули — поправка по PDF (конструктивная особенность обдува)
+  const adjVd = isEdge ? vd - 0.06 : vd;
+  const isWeakUnderLoad = adjVd < -0.03 && worstPct > 10;
+  // Затычка: взлетает при рекуперации (высокий regenDev) — но не крайние
+  const isChargeBlocker = !isEdge && regenDev > 0.035 && irDelta > 0.5;
+  if(isEdge && (irDelta > 1.5 || worstPct > 20)) return { group:'edge_bad', label:'🔶 Крайний (износ)', desc:'Крайний модуль с признаками деградации', color:'orange'};
+  if(isEdge) return { group:'edge', label:'🔷 Крайний', desc:'Конструктивная особенность — крайние модули шумят сильнее из-за обдува', color:'blue'};
+  if(isWeakUnderLoad && isChargeBlocker) return { group:'critical', label:'🔴 Слабое звено', desc:'Критический риск — замена обязательна', color:'red'};
+  if(isWeakUnderLoad) return { group:'weak', label:'🟠 Уставший', desc:'Проседает при разряде — дефицит ёмкости', color:'orange'};
+  if(isChargeBlocker) return { group:'blocker', label:'🟡 Затычка', desc:'Взлетает при рекуперации — высокое IR, урезает Charge Limit', color:'yellow'};
+  const isElite = Math.abs(adjVd) < 0.015 && irDelta < 0.3 && worstPct < 5;
+  if(isElite) return { group:'elite', label:'⭐ Эталон', desc:'Минимальное IR, стабильный вольтаж — ориентир для всей сборки', color:'green'};
+  return { group:'good', label:'🟢 Крепкий', desc:'Стабильный, в норме', color:'green'};
+}
+
+function aggMod(){
+  const devs={},worsts={},loads={},irs={},regens={},traffics={},bounces={},caps={};
+  VOL.forEach(c=>{devs[c]=[];worsts[c]=[];loads[c]=[];regens[c]=[];traffics[c]=[];bounces[c]=[];caps[c]=[];});
+  IR.forEach(c=>irs[c]=[]);
+  logs.forEach(l=>{
+    const s=l.stats;
+    VOL.forEach(c=>{
+      devs[c].push(s.vd[c]);
+      worsts[c].push(s.worstPct[c]);
+      loads[c].push(s.loadDev[c]);
+      if(s.regenDev) regens[c].push(s.regenDev[c]||0);
+      if(s.trafficDev) traffics[c].push(s.trafficDev[c]||0);
+      if(s.bounce) bounces[c].push(s.bounce[c]||0);
+      if(s.capacity&&s.capacity[c]!=null) caps[c].push(s.capacity[c]);
+    });
+    IR.forEach(c=>irs[c].push(s.ir[c]));
+  });
+  const avgIR=avg(IR.map(c=>avg(irs[c])));
+  return {
+    devs:Object.fromEntries(VOL.map(c=>[c,avg(devs[c])])),
+    worsts:Object.fromEntries(VOL.map(c=>[c,avg(worsts[c])])),
+    loads:Object.fromEntries(VOL.map(c=>[c,avg(loads[c])])),
+    regens:Object.fromEntries(VOL.map(c=>[c,regens[c].length?avg(regens[c]):0])),
+    traffics:Object.fromEntries(VOL.map(c=>[c,traffics[c].length?avg(traffics[c]):0])),
+    bounces:Object.fromEntries(VOL.map(c=>[c,bounces[c].length?avg(bounces[c]):0])),
+    caps:Object.fromEntries(VOL.map(c=>[c,caps[c].length?Math.round(avg(caps[c])):null])),
+    irs:Object.fromEntries(IR.map(c=>[c,avg(irs[c])])),
+    avgIR
+  };
+}
+
+async function run(){
+  showPage('loading');
+  logs=[];
+  for(const f of files){
+    const txt=await f.text();
+    const rows=parseCSV(txt);
+    if(rows.length===0) continue;
+    const s=stats(rows);
+    const name=f.name.replace(/BatteryMonitorLog_*/g,'').replace('.csv','').trim()||f.name.replace('.csv','');
+    logs.push({name,rows,stats:s});
+  }
+  if(logs.length===0){ alert('Не удалось прочитать CSV-файлы'); showPage('upload'); return; }
+  document.getElementById('topBadge').textContent=logs[0].stats.timeStart.split(' ')[0]||`${logs.length} лог`;
+  renderAll();
+  showPage('results');
+  document.getElementById('bnav').classList.add('on');
+  switchTab('summary');
+}
+
+function renderAll(){
+  renderSummary();renderDelta();renderModules();renderTemp();renderLimits();renderIR();renderBMS();renderVerdict();renderCapacityTable();renderLogComparison();initPills();
+}
+
+function renderDelta(){
+  const rows=logs[0].rows;
+  const deltas=rows.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return vs.length?Math.max(...vs)-Math.min(...vs):0;});
+  const deltaMean=avg(deltas);
+  const deltaMax=Math.max(...deltas);
+  
+  // Покой
+  const rest=rows.filter(r=>Math.abs(r['Current(Amp)']||0)<10);
+  const dRest=rest.length?avg(rest.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return Math.max(...vs)-Math.min(...vs);})):null;
+  
+  // Средняя нагрузка (разряд)
+  const mid=rows.filter(r=>(r['Current(Amp)']||0)<-15&&(r['Current(Amp)']||0)>-50);
+  const dMid=mid.length?avg(mid.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return Math.max(...vs)-Math.min(...vs);})):null;
+  
+  // Интенсивный разряд (газ в пол)
+  const heavy=rows.filter(r=>(r['Current(Amp)']||0)<=-50);
+  const dHeavy=heavy.length?avg(heavy.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return Math.max(...vs)-Math.min(...vs);})):null;
+  
+  // РЕКУПЕРАЦИЯ (ЗАРЯД) — добавлено по PDF
+  const recharge=rows.filter(r=>r['Current(Amp)']>40 && r['Vehicle Speed(KPH)']>30);
+  const dRecharge=recharge.length?avg(recharge.map(r=>{const vs=VOL.map(c=>r[c]).filter(x=>!isNaN(x));return Math.max(...vs)-Math.min(...vs);})):null;
+  
+  const volMeans={};
+  VOL.forEach(c=>{const v=rows.map(r=>r[c]).filter(x=>!isNaN(x));volMeans[c]=avg(v);});
+  const sorted=VOL.slice().sort((a,b)=>volMeans[b]-volMeans[a]);
+  const strongest=sorted[0];
+  const weakest=sorted[sorted.length-1];
+  const realSpread=volMeans[strongest]-volMeans[weakest];
+  const ref=dRest!=null?dRest:deltaMean;
+  
+  // ПРАВИЛЬНЫЕ ПОРОГИ ПО PDF
+  let col,zone,desc,hint,action;
+  if(ref <= 0.05){
+    col='var(--green)'; zone='🟢 Идеальный баланс';
+    desc='Батарея как новая';
+    hint='Разброс в покое до 0.05V — эталонное состояние.';
+    action='Ездить спокойно.';
+  } else if(ref <= 0.18){
+    col='var(--green)'; zone='🟢 Хорошее состояние';
+    desc='Отличный баланс для пробежной батареи';
+    hint='Разброс 0.05–0.18V — норма для HSD 3-го поколения.';
+    action='Ездить спокойно.';
+  } else if(ref <= 0.30){
+    col='var(--yellow)'; zone='🟡 Жёлтая зона';
+    desc='Признак саморазряда';
+    hint='Разброс 0.18–0.30V — один из модулей имеет повышенный саморазряд.';
+    action='Наблюдать, планировать диагностику.';
+  } else if(ref <= 0.60){
+    col='var(--orange)'; zone='🟠 Оранжевая зона';
+    desc='Высокий саморазряд';
+    hint='Разброс >0.30V — модуль не держит заряд. Балансировка не поможет.';
+    action='Замена проблемного модуля.';
+  } else {
+    col='var(--red)'; zone='🔴 Красная зона';
+    desc='Ошибка P0A80!';
+    hint='Критический разброс. Компьютер зажжёт треугольник.';
+    action='Немедленная замена модуля.';
+  }
+  
+  let loadCol,loadZone;
+  if(deltaMax<=0.45){loadCol='var(--green)';loadZone='Отличная реакция';}
+  else if(deltaMax<=0.80){loadCol='var(--yellow)';loadZone='Норма для живой батареи';}
+  else if(deltaMax<=1.20){loadCol='#ff8c00';loadZone='Риск ошибки P0A80';}
+  else{loadCol='var(--red)';loadZone='Критическая зона';}
+  
+  const scaleMax=1.2;
+  const arrowPct=Math.min(ref/scaleMax*100,100);
+  
+  document.getElementById('deltaBlock').innerHTML=`
+    <div class="dv-card" style="--dvc:${col}">
+      <div class="dv-top">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Разброс в покое (Delta V)</div>
+          <div class="dv-main">${ref.toFixed(3)}V</div>
+        </div>
+        <div class="dv-badge">${zone}</div>
+      </div>
+      <div class="dv-desc">${desc}</div>
+      <div class="dv-hint">${hint}<br><strong style="color:var(--text)">Действие:</strong> ${action}</div>
+<div class="dv-scale">
+  <div class="dv-seg" style="flex:1;background:#00e87a;opacity:.7"></div>
+  <div class="dv-seg" style="flex:3;background:#00e87a;opacity:.5"></div>
+  <div class="dv-seg" style="flex:2;background:#ffcc44;opacity:.7"></div>
+  <div class="dv-seg" style="flex:6;background:#ff8c00;opacity:.7"></div>
+  <div class="dv-seg" style="flex:12;background:#ff3d55;opacity:.7"></div>
+</div>
+      <div class="dv-arrow-wrap"><div class="dv-arrow" style="left:${arrowPct}%"></div></div>
+      <div class="dv-scale-labels">
+        <span>0V</span><span>0.05V</span><span>0.18V</span><span>0.30V</span><span>0.60V</span><span>1.2V+</span>
+      </div>
+      <div class="dv-row">
+        <div class="dv-stat">
+          <div class="dv-stat-l">Самый высокий V</div>
+          <div class="dv-stat-v" style="color:var(--orange)">${strongest.replace('Vol#','Мод.#')}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">${volMeans[strongest].toFixed(4)}V</div>
+        </div>
+        <div class="dv-stat">
+          <div class="dv-stat-l">Самый низкий V</div>
+          <div class="dv-stat-v" style="color:var(--red)">${weakest.replace('Vol#','Мод.#')}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">${volMeans[weakest].toFixed(4)}V</div>
+        </div>
+        <div class="dv-stat">
+          <div class="dv-stat-l">Реальный разброс</div>
+          <div class="dv-stat-v" style="color:${col}">${realSpread.toFixed(4)}V</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">сильн.−слаб.</div>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Delta V по режимам езды</div>
+      <div class="dv-load-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="dv-li">
+          <div class="dv-li-l">🅿 Покой</div>
+          <div class="dv-li-v" style="color:${dRest!=null?(dRest<=0.18?'var(--green)':dRest<=0.30?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dRest!=null?dRest.toFixed(3)+'V':'—'}</div>
+          <div class="dv-li-l" style="margin-top:4px">норма до 0.18V</div>
+        </div>
+        <div class="dv-li">
+          <div class="dv-li-l">🚗 Средний</div>
+          <div class="dv-li-v" style="color:${dMid!=null?(dMid<=0.35?'var(--green)':dMid<=0.60?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dMid!=null?dMid.toFixed(3)+'V':'—'}</div>
+          <div class="dv-li-l" style="margin-top:4px">норма до 0.35V</div>
+        </div>
+        <div class="dv-li">
+          <div class="dv-li-l">⚡ Разряд(газ в пол)</div>
+          <div class="dv-li-v" style="color:${dHeavy!=null?(dHeavy<=0.45?'var(--green)':dHeavy<=0.80?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dHeavy!=null?dHeavy.toFixed(3)+'V':'—'}</div>
+          <div class="dv-li-l" style="margin-top:4px">норма до 0.80V</div>
+        </div>
+        <div class="dv-li">
+          <div class="dv-li-l">🔋 Заряд (рекуперация)</div>
+          <div class="dv-li-v" style="color:${dRecharge!=null?(dRecharge<=0.60?'var(--green)':dRecharge<=0.95?'var(--yellow)':'#ff8c00'):'var(--dim)'}">${dRecharge!=null?dRecharge.toFixed(3)+'V':'—'}</div>
+          <div class="dv-li-l" style="margin-top:4px">норма до 0.95V</div>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:10px">Максимальный разброс за всю поездку: <span style="color:${loadCol};font-weight:700">${deltaMax.toFixed(3)}V</span> — ${loadZone}</div>
+      <div class="dv-tip">💡 <strong>Внимание:</strong> Разброс в покое >0.30V — признак саморазряда. При разряде норма 0.60–0.80V. При рекуперации норма 0.70–0.95V. Порог ошибки P0A80 — 1.20V.</div>
+    </div>`;
+}
+
+function renderSummary(){
+  const s=logs[0].stats;
+  const maxT=Math.max(...TMPC.map(c=>s.temps[c].max));
+  const tc=maxT>44?'var(--red)':maxT>40?'var(--yellow)':'var(--green)';
+  const cc=s.chgMin<25?'var(--red)':s.chgMin<32?'var(--yellow)':'var(--green)';
+  const dc=s.deltaMax>0.6?'var(--red)':s.deltaMax>0.35?'var(--yellow)':'var(--green)';
+  const cards=[
+    {l:'Файлов',v:logs.length,s:'загружено',c:'var(--blue)'},
+    {l:'Длит.',v:`${s.dur.toFixed(0)}м`,s:`${s.rowCount} точек`,c:'var(--blue)'},
+    {l:'Темп макс',v:`${maxT.toFixed(1)}°`,s:'центр. датчик',c:tc},
+    {l:'SOC',v:`${s.socMin.toFixed(0)}–${s.socMax.toFixed(0)}%`,s:`ср.${s.socMean.toFixed(0)}%`,c:'var(--blue)'},
+    {l:'Charge мин',v:`${s.chgMin.toFixed(1)}`,s:'HP',c:cc},
+    {l:'Δ Volt макс',v:`${s.deltaMax.toFixed(3)}`,s:'V',c:dc},
+    {l:'Скор. макс',v:`${s.speedMax.toFixed(0)}`,s:'км/ч',c:'var(--blue)'},
+  ];
+  document.getElementById('summaryCards').innerHTML=cards.map(c=>`<div class="scard" style="--c:${c.c}"><div class="sc-label">${c.l}</div><div class="sc-value">${c.v}</div><div class="sc-sub">${c.s}</div></div>`).join('');
+  
+  const {devs,worsts,irs,avgIR,regens,caps}=aggMod();
+  const groupColorsMini={green:'var(--green)',yellow:'var(--yellow)',orange:'var(--orange,#ff8c00)',red:'var(--red)',blue:'var(--blue)',elite:'var(--green)'};
+  document.getElementById('miniMod').innerHTML=VOL.map((c,i)=>{
+    const d=devs[c],w=worsts[c],ir=irs[IR[i]],rd=regens[c]||0;
+    const isEdge=(i===0||i===13);
+    const group=getModuleGroup(d,w,ir,avgIR,rd,isEdge);
+    const col=groupColorsMini[group.color]||'var(--green)';
+    const cap=caps[c];
+    const capStr=cap!=null?`${cap}%`:'—';
+    const capCol=cap!=null?(cap<30?'var(--red)':cap<45?'var(--yellow)':'var(--green)'):'var(--dim)';
+    return `<div class="mrow">
+      <span class="mrow-n">Мод.${i+1}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--dim)">${logs[0].stats.vm[c].toFixed(3)}V</span>
+      <span class="mrow-d" style="color:${col}">${d>=0?'+':''}${d.toFixed(4)}V</span>
+      <span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${capCol}">${capStr}</span>
+      <span class="mrow-s" style="color:${col}">${group.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderModules(){
+  const {devs,worsts,loads,irs,avgIR,regens,traffics,bounces,caps}=aggMod();
+  const groupColors={elite:'var(--green)',green:'var(--green)',yellow:'var(--yellow)',orange:'var(--orange,#ff8c00)',red:'var(--red)',blue:'var(--blue)',edge:'var(--blue)',edge_bad:'var(--orange,#ff8c00)'};
+  document.getElementById('modList').innerHTML=VOL.map((c,i)=>{
+    const d=devs[c],w=worsts[c],ld=loads[c],ir=irs[IR[i]],rd=regens[c]||0;
+    const isEdge=(i===0||i===13);
+    const group=getModuleGroup(d,w,ir,avgIR,rd,isEdge);
+    const col=groupColors[group.color]||'var(--green)';
+    const s0=logs[0].stats;
+    const vmean=s0.vm[c],vmin=s0.vmin[c],vmax=s0.vmax[c];
+    const cap=caps[c];
+    const capCol=cap!=null?(cap<30?'var(--red)':cap<45?'var(--yellow)':'var(--green)'):'var(--dim)';
+    const capBar=cap!=null?`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-family:var(--mono);font-size:9px;color:var(--dim)">ОСТАТОЧНАЯ ЁМКОСТЬ</span><span style="font-family:var(--mono);font-size:14px;font-weight:700;color:${capCol}">${cap}% от новой</span></div><div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${cap}%;background:${capCol};border-radius:3px;transition:width .5s"></div></div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px">Новый модуль: 6500 мАч = 100% → ваш ≈ ${Math.round(6500*cap/100)} мАч</div></div>`:
+      '<div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:8px">Недостаточно данных для расчёта ёмкости</div>';
+    const edgeNote=isEdge?'<div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:6px;padding:6px 10px;margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--blue)">📐 Крайний модуль — конструктивно шумит сильнее из-за краевого обдува. Делается поправка +0.06V.</div>':'';
+    const pct=Math.min(Math.abs(d)/0.1*50,50);
+    const left=d<0?50-pct:50;
+    return `<div class="mcard" style="--mc:${col}">
+      <div class="mc-top"><div class="mc-num">МОДУЛЬ ${i+1} · ${c}${isEdge?' [крайний]':''}</div><div class="mc-status">${group.label}</div></div>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+        <div><div class="msl" style="margin-bottom:3px">Среднее напряжение</div><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:${col}">${vmean.toFixed(3)}V</div></div>
+        <div style="text-align:right"><div style="font-family:var(--mono);font-size:9px;color:var(--dim)">↓ мин ${vmin.toFixed(3)}V</div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:2px">↑ макс ${vmax.toFixed(3)}V</div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:2px">Δ ${(vmax-vmin).toFixed(3)}V</div></div>
+      </div>
+      <div class="mc-row">
+        <div><div class="msl">Откл.</div><div class="msv" style="color:${col}">${d>=0?'+':''}${d.toFixed(4)}</div></div>
+        <div><div class="msl">Худший</div><div class="msv">${w.toFixed(1)}%</div></div>
+        <div><div class="msl">Нагруз.</div><div class="msv">${ld>=0?'+':''}${ld.toFixed(3)}</div></div>
+        <div><div class="msl">IR мОм</div><div class="msv">${ir.toFixed(1)}</div></div>
+      </div>
+      <div class="dev-track"><div class="dev-ctr"></div><div class="dev-fill" style="left:${left}%;width:${pct}%"></div></div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:6px">${group.desc}</div>
+      ${capBar}${edgeNote}
+    </div>`;
+  }).join('');
+  destroyC('devChart');
+  const vals=VOL.map(c=>devs[c]);
+  mkBar('devChart',VOL.map((_,i)=>`#${i+1}`),vals,vals.map(v=>v<-0.03?'rgba(255,61,85,.75)':v<-0.015?'rgba(255,204,68,.75)':'rgba(0,232,122,.6)'));
+}
+
+
+function renderTemp(){
+  const s=logs[0].stats,lbl=['Датчик 1','Датчик 2','Датчик 3'];
+  document.getElementById('tempCards').innerHTML=TMPC.map((c,i)=>{const t=s.temps[c],col=t.max>44?'var(--red)':t.max>40?'var(--yellow)':'var(--green)';return `<div class="tcard"><div class="tc-label">${lbl[i]}</div><div class="tc-val" style="color:${col}">${t.mean.toFixed(1)}°</div><div class="tc-mm">↓${t.min.toFixed(1)}°<br>↑${t.max.toFixed(1)}°C</div></div>`;}).join('');
+  destroyC('tempChart');const rows=logs[0].rows,step=Math.max(1,Math.floor(rows.length/150));const lbs=rows.filter((_,i)=>i%step===0).map(r=>(r['DateTime']||'').split(' ')[1]?.substr(0,5)||'');mkLine('tempChart',lbs,TMPC.map((c,i)=>({label:lbl[i],data:rows.filter((_,j)=>j%step===0).map(r=>r[c]),borderColor:i===1?'#ff3d55':i===0?'#ffcc44':'#38bdf8',backgroundColor:'transparent',borderWidth:i===1?2:1.5,pointRadius:0,tension:.3})));
+}
+
+function renderLimits(){
+  const s=logs[0].stats,cc=s.chgMin<25?'var(--red)':s.chgMin<32?'var(--yellow)':'var(--green)',dc=s.disMin<24?'var(--red)':s.disMin<27?'var(--yellow)':'var(--green)';
+  document.getElementById('limitsBlock').innerHTML=`<div class="lim-card"><div class="lh"><div class="lh-name">⚡ Charge Limit</div><div class="lh-val" style="color:${cc}">${s.chgMin.toFixed(2)} HP мин</div></div><div class="lim-track"><div class="lim-fill" style="width:${s.chgMean/33.5*100}%;background:${cc}"></div></div><div class="lim-det">Среднее: ${s.chgMean.toFixed(2)} HP / Норма: 33.5 HP</div></div><div class="lim-card"><div class="lh"><div class="lh-name">🔋 Discharge Limit</div><div class="lh-val" style="color:${dc}">${s.disMin.toFixed(2)} HP мин</div></div><div class="lim-track"><div class="lim-fill" style="width:${s.disMean/28.14*100}%;background:${dc}"></div></div><div class="lim-det">Среднее: ${s.disMean.toFixed(2)} HP / Норма: 28.14 HP</div></div>`;
+  destroyC('limChart');const rows=logs[0].rows,step=Math.max(1,Math.floor(rows.length/150));const lbs=rows.filter((_,i)=>i%step===0).map(r=>(r['DateTime']||'').split(' ')[1]?.substr(0,5)||'');mkLine('limChart',lbs,[{label:'Charge',data:rows.filter((_,j)=>j%step===0).map(r=>r['Charge Limit(HP)']),borderColor:'#00e87a',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.2},{label:'Discharge',data:rows.filter((_,j)=>j%step===0).map(r=>r['Discharge Limit(HP)']),borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.2}]);
+}
+
+function renderIR(){
+  const {irs,avgIR}=aggMod();
+  document.getElementById('irGrid').innerHTML=IR.map((c,i)=>{const v=irs[c],d=v-avgIR,col=d>1.8?'var(--red)':d>0.9?'var(--yellow)':'var(--blue)';return `<div class="ir-item"><div class="ir-label">Модуль ${i+1}</div><div class="ir-val" style="color:${col}">${v.toFixed(2)} мОм</div></div>`;}).join('');
+  destroyC('irChart');const vals=IR.map(c=>irs[c]);mkBar('irChart',IR.map((_,i)=>`#${i+1}`),vals,vals.map(v=>{const d=v-avgIR;return d>1.8?'rgba(255,61,85,.7)':d>0.9?'rgba(255,204,68,.7)':'rgba(56,189,248,.6)';}));
+}
+
+function renderBMS(){
+  const rows=logs[0].rows,s=logs[0].stats,step=Math.max(1,Math.floor(rows.length/200)),frows=rows.filter((_,i)=>i%step===0),lbs=frows.map(r=>(r['DateTime']||'').split(' ')[1]?.substr(0,5)||''),minC=s.chgMin,minD=s.disMin,maxT=Math.max(...TMPC.map(c=>s.temps[c].max)),minSOC=s.socMin,reasons=[];
+  if(maxT>42) reasons.push({icon:'🌡️',text:`Перегрев до ${maxT.toFixed(1)}°C`,detail:'При >42°C ЭБУ начинает снижать лимиты.'});
+  if(minSOC<40) reasons.push({icon:'🔋',text:`SOC падал до ${minSOC.toFixed(0)}%`,detail:'При <40% ЭБУ режет Discharge Limit.'});
+  if(minC<30) reasons.push({icon:'⚡',text:`Charge Limit падал до ${minC.toFixed(1)} HP`,detail:'Слабый модуль заряжается быстрее других.'});
+  if(minD<26) reasons.push({icon:'💪',text:`Discharge Limit падал до ${minD.toFixed(1)} HP`,detail:'Слабый модуль просаживается сильнее других.'});
+  if(!reasons.length) reasons.push({icon:'✅',text:'Лимиты стабильны',detail:'ЭБУ не фиксировал критических ситуаций.'});
+  document.getElementById('bmsLiveBlock').innerHTML=`<div class="vcard ${minC<25||minD<24||maxT>44?'bad':minC<31||minD<26||maxT>41?'warn':'good'}"><span class="vi">🧠</span><div class="vt">Почему ЭБУ резал мощность</div><div class="vx">${reasons.map(r=>`<div style="margin-bottom:10px"><strong>${r.icon} ${r.text}</strong><br>${r.detail}</div>`).join('')}</div></div>`;
+  
+  // ДИАГНОСТИЧЕСКИЕ РЕЖИМЫ (по PDF)
+  const diagModes = [
+    { name: '🅿 Абсолютный покой', desc: 'После ночного простоя, ток ~0A. Норма Delta V: 0.01–0.05V. Выше 0.30V — саморазряд, замена модуля.' },
+    { name: '⚡ Пиковый разряд (газ в пол)', desc: '0→60 км/ч, ток 60–100A. Норма Delta V: 0.60–0.80V. Выше 1.20V — риск P0A80.' },
+    { name: '🔋 Рекуперация (торможение)', desc: '80→20 км/ч, ток 60–90A. Норма Delta V: 0.70–0.95V. Поиск модулей-«затычек».' },
+    { name: '🚗 EV-выносливость', desc: '5–25 км/ч, ток 10–20A. Норма Delta V: 0.20–0.35V. Проверка реальной ёмкости.' }
+  ];
+  document.getElementById('diagModes').innerHTML = diagModes.map(m => `<div class="diag-card"><div class="diag-title">${m.name}</div><div class="diag-desc">${m.desc}</div></div>`).join('');
+  
+  destroyC('bmsChart1');const ctx1=document.getElementById('bmsChart1').getContext('2d');charts['bmsChart1']=new Chart(ctx1,{type:'line',data:{labels:lbs,datasets:[{label:'Charge HP',data:frows.map(r=>r['Charge Limit(HP)']),borderColor:'#00e87a',backgroundColor:'rgba(0,232,122,.08)',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y',fill:true},{label:'Discharge HP',data:frows.map(r=>r['Discharge Limit(HP)']),borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.06)',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y',fill:true},{label:'Темп °C',data:frows.map(r=>r['Batt Temp#2(C)']),borderColor:'#ff3d55',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,yAxisID:'y1',borderDash:[4,3]}]},options:{responsive:true,animation:false,plugins:{legend:{labels:{color:'#5a6a80',font:{family:'Space Mono',size:10},boxWidth:10}},tooltip:{mode:'index',intersect:false}},scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9},maxTicksLimit:8}},y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9}},title:{display:true,text:'HP',color:'#5a6a80',font:{size:9}}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#ff3d55',font:{family:'Space Mono',size:9}},title:{display:true,text:'°C',color:'#ff3d55',font:{size:9}}}}}});
+  destroyC('bmsChart2');const ctx2=document.getElementById('bmsChart2').getContext('2d');charts['bmsChart2']=new Chart(ctx2,{type:'line',data:{labels:lbs,datasets:[{label:'Charge HP',data:frows.map(r=>r['Charge Limit(HP)']),borderColor:'#00e87a',backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Discharge HP',data:frows.map(r=>r['Discharge Limit(HP)']),borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y'},{label:'SOC %',data:frows.map(r=>r['SOC(%)']),borderColor:'#ffcc44',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,yAxisID:'y1',borderDash:[4,3]}]},options:{responsive:true,animation:false,plugins:{legend:{labels:{color:'#5a6a80',font:{family:'Space Mono',size:10},boxWidth:10}},tooltip:{mode:'index',intersect:false}},scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9},maxTicksLimit:8}},y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9}},title:{display:true,text:'HP',color:'#5a6a80',font:{size:9}}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#ffcc44',font:{family:'Space Mono',size:9}},title:{display:true,text:'%',color:'#ffcc44',font:{size:9}}}}}});
+  
+  const cards=[
+    {icon:'🌡️',title:'Температура режет мощность',body:'При +25–35°C лимит максимальный. Выше +42°C — ЭБУ начинает снижать оба лимита.',tip:'Проверь вентилятор батареи.'},
+    {icon:'⚡',title:'Слабый модуль режет всех',body:'Если один модуль проседает быстрее остальных — ЭБУ снижает ток для всей батареи.',tip:'Замена одного модуля восстанавливает полную мощность.'},
+    {icon:'🔋',title:'SOC — неприкосновенный запас',body:'Рабочий диапазон 40–80%. 60% на приборке = золотая середина. При SOC ниже 40% ЭБУ режет Discharge Limit. При SOC выше 75% режет Charge Limit.',tip:'На затяжных спусках рекуперация пропадает при SOC>75% — это норма.'},
+  ];
+  document.getElementById('bmsExplain').innerHTML=cards.map(c=>`<div class="vcard good"><span class="vi">${c.icon}</span><div class="vt">${c.title}</div><div class="vx">${c.body}</div><div class="dv-tip">💡 ${c.tip}</div></div>`).join('');
+}
+
+function renderVerdict(){
+  const {devs,worsts,irs,avgIR}=aggMod();
+  const s0=logs[0].stats;
+  const maxT=Math.max(...TMPC.map(c=>s0.temps[c].max));
+  const minC=Math.min(...logs.map(l=>l.stats.chgMin));
+  const minD=Math.min(...logs.map(l=>l.stats.disMin));
+  const maxSOC=s0.socMax;
+  
+  // Собираем все проблемные модули (красные и жёлтые)
+  const modulesRed=[];
+  const modulesYellow=[];
+  const modulesData={};
+  
+  VOL.forEach((c,i)=>{
+    const st=moduleStatus(devs[c],worsts[c],irs[IR[i]],avgIR);
+    modulesData[c]={idx:i+1,status:st,dev:devs[c],worst:worsts[c],ir:irs[IR[i]],meanV:s0.vm[c],avgIR:avgIR};
+    if(st==='red') modulesRed.push(c);
+    else if(st==='yellow') modulesYellow.push(c);
+  });
+  
+  // Общий вердикт — более мягкий
+  let overall='good';
+  if(modulesRed.length >= 3) overall='bad';
+  else if(modulesRed.length > 0) overall='warn';
+  else if(modulesYellow.length > 4 || maxT>44 || minC<25 || minD<24) overall='warn';
+  else overall='good';
+  
+  // ========== ОБЪЕДИНЁННЫЙ БЛОК: ОБЩЕЕ СОСТОЯНИЕ + ИТОГ ==========
+  let html = '';
+  
+  if(overall === 'good'){
+    html += `<div class="vcard good">
+      <span class="vi">✅</span>
+      <div class="vt">Общее состояние: Хорошее</div>
+      <div class="vx">Проанализировано <strong>${logs.length} лог(а)</strong>.
+      Макс. температура: <strong style="color:${maxT>44?'var(--red)':maxT>40?'var(--yellow)':'var(--green)'}">${maxT.toFixed(1)}°C</strong>.
+      Разброс в покое: <strong>${(s0.deltaRest || s0.deltaMean).toFixed(3)}V</strong> ${(s0.deltaRest || s0.deltaMean)<=0.18?'✅ отлично':(s0.deltaRest || s0.deltaMean)<=0.30?'⚠️ допустимо':'🔴 высокий'}.
+      </div>
+      <div class="vx" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)">
+        <strong>🎯 Итог:</strong> Критического разбаланса нет. Можешь спокойно ездить дальше. Следи за температурой.
+      </div>
+    </div>`;
+  } else if(overall === 'warn'){
+    html += `<div class="vcard warn">
+      <span class="vi">⚠️</span>
+      <div class="vt">Общее состояние: Требует внимания</div>
+      <div class="vx">Проанализировано <strong>${logs.length} лог(а)</strong>.
+      ${modulesRed.length?`<br><strong style="color:var(--red)">⚠️ Кандидаты на замену: ${modulesRed.map(c=>`Модуль ${modulesData[c].idx}`).join(', ')}.</strong>`:''}
+      ${modulesYellow.length && !modulesRed.length?`<br><strong style="color:var(--yellow)">📌 Наблюдать: ${modulesYellow.map(c=>`Модуль ${modulesData[c].idx}`).join(', ')}.</strong>`:''}
+      Макс. температура: <strong style="color:${maxT>44?'var(--red)':maxT>40?'var(--yellow)':'var(--green)'}">${maxT.toFixed(1)}°C</strong>.
+      Разброс в покое: <strong>${(s0.deltaRest || s0.deltaMean).toFixed(3)}V</strong> ${(s0.deltaRest || s0.deltaMean)<=0.18?'✅ отлично':(s0.deltaRest || s0.deltaMean)<=0.30?'⚠️ допустимо':'🔴 высокий'}.
+      </div>
+      <div class="vx" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)">
+        <strong>🔧 Итог:</strong> ${modulesRed.length?`Замените слабые модули (${modulesRed.map(c=>`№${modulesData[c].idx}`).join(', ')}). Донорские модули с разборки.`:`Проведите балансировку (циклование) у специалиста.`}<br>После замены/балансировки лимиты мощности восстановятся.
+      </div>
+    </div>`;
+  } else {
+    html += `<div class="vcard bad">
+      <span class="vi">🔴</span>
+      <div class="vt">Общее состояние: Критическое</div>
+      <div class="vx">Проанализировано <strong>${logs.length} лог(а)</strong>.
+      <br><strong style="color:var(--red)">⚠️ Кандидаты на замену: ${modulesRed.map(c=>`Модуль ${modulesData[c].idx}`).join(', ')}.</strong>
+      Макс. температура: <strong style="color:${maxT>44?'var(--red)':maxT>40?'var(--yellow)':'var(--green)'}">${maxT.toFixed(1)}°C</strong>.
+      Разброс в покое: <strong>${(s0.deltaRest || s0.deltaMean).toFixed(3)}V</strong> ${(s0.deltaRest || s0.deltaMean)<=0.18?'✅ отлично':(s0.deltaRest || s0.deltaMean)<=0.30?'⚠️ допустимо':'🔴 высокий'}.
+      </div>
+      <div class="vx" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)">
+        <strong>🚨 Итог:</strong> Немедленно замените <strong>${modulesRed.map(c=>`Модуль ${modulesData[c].idx}`).join(', ')}</strong>. Батарея в аварийном режиме. Ошибка P0A80 уже скоро появится. Стоимость замены модуля ~5–15€ + работа.
+      </div>
+    </div>`;
+  }
+  
+  // ========== ДЕТАЛЬНЫЙ РАЗБОР ПРОБЛЕМНЫХ МОДУЛЕЙ ==========
+  const allProblemModules = [...modulesRed, ...modulesYellow];
+  
+  if(allProblemModules.length > 0){
+    html += `<div class="sh mt8">Диагностика проблемных модулей</div>`;
+    html += `<div class="diag-grid" id="problemModulesGrid">`;
+    
+    for(const c of allProblemModules){
+      const data = modulesData[c];
+      const isRed = data.status === 'red';
+      const irDelta = data.ir - data.avgIR;
+      
+      let problemType = '';
+      let shortDesc = '';
+      let icon = '';
+      
+      if(data.dev > 0.01 && irDelta > 0.7){
+        problemType = '«притворяется живым»';
+        icon = '🔬';
+        shortDesc = `Фоновое напряжение ${data.meanV.toFixed(4)}V (среднее ${s0.om.toFixed(4)}V), IR ${data.ir.toFixed(1)} мОм (среднее ${data.avgIR.toFixed(1)} мОм). Первым упирается в потолок при рекуперации.`;
+      }
+      else if(data.dev < -0.03 && data.worst > 10){
+        problemType = 'проседает под нагрузкой';
+        icon = '📉';
+        shortDesc = `Напряжение на ${Math.abs(data.dev).toFixed(4)}V ниже среднего. ${data.worst.toFixed(1)}% времени был самым слабым. Признак потери ёмкости.`;
+      }
+      else if(data.dev < -0.02){
+        problemType = 'ниже среднего уровня';
+        icon = '🔻';
+        shortDesc = `Напряжение на ${Math.abs(data.dev).toFixed(4)}V ниже фона. В ${data.worst.toFixed(1)}% времени был самым слабым. Частичная деградация.`;
+      }
+      else if(irDelta > 1.2){
+        problemType = 'повышенное IR';
+        icon = '⚡';
+        shortDesc = `IR ${data.ir.toFixed(1)} мОм (на ${irDelta.toFixed(1)} мОм выше среднего). Повышенный нагрев и потери мощности.`;
+      }
+      else if(data.worst > 8){
+        problemType = 'часто проседает';
+        icon = '⚠️';
+        shortDesc = `В ${data.worst.toFixed(1)}% случаев под нагрузкой оказывается самым слабым. Требует наблюдения.`;
+      }
+      else {
+        problemType = 'требует внимания';
+        icon = '🔍';
+        shortDesc = `Отклонение ${data.dev>=0?'+':''}${data.dev.toFixed(4)}V. Худший ${data.worst.toFixed(1)}% времени. IR ${data.ir.toFixed(1)} мОм. В допуске, но наблюдайте.`;
+      }
+      
+      const borderColor = isRed ? 'var(--red)' : 'var(--orange)';
+      html += `<div class="diag-card" style="border-left:3px solid ${borderColor}">
+        <div class="diag-title">${icon} Модуль ${data.idx} — ${problemType}</div>
+        <div class="diag-desc">${shortDesc}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  
+  // ========== ДОПОЛНИТЕЛЬНЫЕ БЛОКИ ==========
+  
+  // Специальный блок про Charge Limit (если падал при высоком SOC — это норма)
+  if(s0.chgMin < 12 && maxSOC > 70){
+    html += `<div class="vcard good">
+      <span class="vi">⚡</span>
+      <div class="vt">Charge Limit падал до ${s0.chgMin.toFixed(1)} HP — это НЕ поломка</div>
+      <div class="vx">Машина достигла <strong>SOC ${maxSOC}%</strong> (батарея почти полная) и штатно ограничила рекуперацию, чтобы не перегреть ячейки. Это нормальное поведение ЭБУ.</div>
+    </div>`;
+  } else if(s0.chgMin < 25){
+    html += `<div class="vcard warn">
+      <span class="vi">⚠️</span>
+      <div class="vt">Charge Limit снижался до ${s0.chgMin.toFixed(1)} HP</div>
+      <div class="vx">При этом SOC был не максимальным (${maxSOC}%). Это может указывать на <strong>слабый модуль, который слишком быстро заряжается</strong> (скорее всего ${modulesRed.length?modulesRed.map(c=>`Модуль ${modulesData[c].idx}`).join(', '):'один из проблемных модулей'}). Рекомендуется проверка.</div>
+    </div>`;
+  }
+  
+  // Температурный блок
+  if(maxT > 44){
+    html += `<div class="vcard bad">
+      <span class="vi">🌡️</span>
+      <div class="vt">Критический перегрев батареи</div>
+      <div class="vx">Максимальная температура достигла <strong>${maxT.toFixed(1)}°C</strong>. <strong>Проверьте вентилятор охлаждения батареи</strong> — он забит пылью. Чистка снижает температуру на 4–6°C и восстанавливает лимиты мощности.</div>
+    </div>`;
+  } else if(maxT > 40){
+    html += `<div class="vcard warn">
+      <span class="vi">🌡️</span>
+      <div class="vt">Повышенная температура батареи</div>
+      <div class="vx">Максимум <strong>${maxT.toFixed(1)}°C</strong>. Рекомендуется <strong>проверить фильтр вентилятора</strong> (в ногах заднего пассажира справа). Даже лёгкий намёк пыли снижает эффективность охлаждения.</div>
+    </div>`;
+  }
+  
+  document.getElementById('verdictBlock').innerHTML = html;
+}
+
+function renderCapacityTable(){
+  const {caps,devs,worsts,irs,avgIR,regens}=aggMod();
+  const sorted=VOL.slice().sort((a,b)=>{
+    const ca=caps[a]??99, cb=caps[b]??99;
+    return ca-cb;
+  });
+  const rows=sorted.map((c,rank)=>{
+    const i=VOL.indexOf(c);
+    const isEdge=(i===0||i===13);
+    const cap=caps[c];
+    const capStr=cap!=null?`${cap}%`:'—';
+    const mah=cap!=null?Math.round(6500*cap/100):null;
+    const mahStr=mah!=null?`~${mah} мАч`:'—';
+    const capCol=cap!=null?(cap<30?'var(--red)':cap<45?'var(--yellow)':'var(--green)'):'var(--dim)';
+    const grp=getModuleGroup(devs[c],worsts[c],irs[IR[i]],avgIR,regens[c]||0,isEdge);
+    let action='';
+    if(cap!=null){
+      if(cap<30) action='❌ Замена';
+      else if(cap<45) action='🟡 Наблюдать';
+      else action='🟢 Норма';
+    }
+    const barW=cap??0;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--dim);width:20px">#${rank+1}</span>
+      <span style="font-family:var(--mono);font-size:11px;width:48px">${c}${isEdge?'*':''}</span>
+      <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${barW}%;background:${capCol};border-radius:3px"></div>
+      </div>
+      <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:${capCol};width:36px;text-align:right">${capStr}</span>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--dim);width:72px;text-align:right">${mahStr}</span>
+      <span style="font-size:11px;width:80px;text-align:right">${action}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('capacityTable').innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);display:flex;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:4px">
+        <span style="width:20px">#</span><span style="width:48px">Модуль</span>
+        <span style="flex:1">Ёмкость</span>
+        <span style="width:36px;text-align:right">%</span>
+        <span style="width:72px;text-align:right">мАч</span>
+        <span style="width:80px;text-align:right">Статус</span>
+      </div>
+      ${rows}
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:10px">* крайние модули — поправка по конструкции. Эталон новых: 6500 мАч = 100%</div>
+    </div>`;
+}
+
+function renderLogComparison(){
+  if(logs.length<2){
+    document.getElementById('logCompHead').style.display='none';
+    document.getElementById('logCompTable').innerHTML='';
+    return;
+  }
+  document.getElementById('logCompHead').style.display='flex';
+  // Заголовки логов
+  const logNames=logs.map(l=>l.name.length>10?l.name.substr(0,10)+'…':l.name);
+  const header=`<div style="display:flex;gap:4px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:4px">
+    <span style="font-family:var(--mono);font-size:9px;color:var(--dim);width:52px">Модуль</span>
+    ${logNames.map(n=>`<span style="font-family:var(--mono);font-size:9px;color:var(--dim);flex:1;text-align:center">${n}</span>`).join('')}
+    <span style="font-family:var(--mono);font-size:9px;color:var(--dim);width:60px;text-align:right">Тренд</span>
+  </div>`;
+  const tableRows=VOL.map(c=>{
+    const vals=logs.map(l=>l.stats.capacity?.[c]??null);
+    const first=vals.find(v=>v!=null);
+    const last=[...vals].reverse().find(v=>v!=null);
+    const delta=first!=null&&last!=null?last-first:null;
+    const trend=delta==null?'—':delta<=-8?'⬇️⬇️':delta<=-3?'⬇️':delta>=3?'⬆️':'➡️';
+    const trendCol=delta==null?'var(--dim)':delta<=-8?'var(--red)':delta<=-3?'var(--yellow)':delta>=3?'var(--green)':'var(--dim)';
+    const cells=vals.map(v=>{
+      if(v==null) return `<span style="font-family:var(--mono);font-size:11px;color:var(--dim);flex:1;text-align:center">—</span>`;
+      const col=v<30?'var(--red)':v<45?'var(--yellow)':'var(--green)';
+      return `<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${col};flex:1;text-align:center">${v}%</span>`;
+    }).join('');
+    const i=VOL.indexOf(c);
+    const isEdge=(i===0||i===13);
+    return `<div style="display:flex;align-items:center;gap:4px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="font-family:var(--mono);font-size:11px;width:52px;color:${isEdge?'var(--blue)':'var(--dim)'}">${c}${isEdge?'*':''}</span>
+      ${cells}
+      <span style="font-family:var(--mono);font-size:11px;width:60px;text-align:right;color:${trendCol}">${trend}${delta!=null?` ${delta>0?'+':''}${delta}%`:''}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('logCompTable').innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;overflow-x:auto">
+      ${header}${tableRows}
+      <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:8px">* крайние модули #1 и #14 — конструктивно шумят сильнее</div>
+    </div>`;
+}
+
+function initPills(){
+   document.getElementById('logPills').innerHTML=logs.map((l,i)=>`<div class="lpill ${i===0?'active':''}" data-idx="${i}">${l.name}</div>`).join('');
+  document.querySelectorAll('.lpill').forEach(el=>el.onclick=()=>{document.querySelectorAll('.lpill').forEach(p=>p.classList.remove('active'));el.classList.add('active');activeLog=+el.dataset.idx;renderVolt();renderSoc();});
+  renderVolt();renderSoc();
+}
+
+function renderVolt(){
+  const rows=logs[activeLog].rows,step=Math.max(1,Math.floor(rows.length/200)),lbs=rows.filter((_,i)=>i%step===0).map(r=>(r['DateTime']||'').split(' ')[1]?.substr(0,5)||'');
+  destroyC('voltChart');mkLine('voltChart',lbs,VOL.map(c=>({label:c,pointRadius:0,tension:.2,data:rows.filter((_,j)=>j%step===0).map(r=>r[c]),borderColor:c==='Vol#11'?'rgba(255,61,85,.9)':c==='Vol#1'?'rgba(255,204,68,.8)':'rgba(0,232,122,.2)',backgroundColor:'transparent',borderWidth:c==='Vol#11'||c==='Vol#1'?2:1})));
+}
+
+function renderSoc(){
+  const rows=logs[activeLog].rows,step=Math.max(1,Math.floor(rows.length/200)),lbs=rows.filter((_,i)=>i%step===0).map(r=>(r['DateTime']||'').split(' ')[1]?.substr(0,5)||'');
+  destroyC('socChart');const ctx=document.getElementById('socChart').getContext('2d');charts['socChart']=new Chart(ctx,{type:'line',data:{labels:lbs,datasets:[{label:'SOC %',data:rows.filter((_,j)=>j%step===0).map(r=>r['SOC(%)']),borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.3,yAxisID:'y'},{label:'Ток A',data:rows.filter((_,j)=>j%step===0).map(r=>r['Current(Amp)']),borderColor:'rgba(255,204,68,.5)',backgroundColor:'transparent',borderWidth:1,pointRadius:0,tension:.2,yAxisID:'y1'}]},options:{responsive:true,animation:false,plugins:{legend:{labels:{color:'#5a6a80',font:{family:'Space Mono',size:10},boxWidth:10}}},scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9},maxTicksLimit:8}},y:{position:'left',grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#38bdf8',font:{family:'Space Mono',size:9}}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#ffcc44',font:{family:'Space Mono',size:9}}}}}});
+}
+
+function destroyC(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function mkBar(id,labels,data,bg){const ctx=document.getElementById(id).getContext('2d');charts[id]=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data,backgroundColor:bg,borderRadius:4,borderSkipped:false}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9}}},y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9}}}}}});}
+function mkLine(id,labels,datasets){const ctx=document.getElementById(id).getContext('2d');charts[id]=new Chart(ctx,{type:'line',data:{labels,datasets},options:{responsive:true,animation:false,plugins:{legend:{labels:{color:'#5a6a80',font:{family:'Space Mono',size:10},boxWidth:10}}},scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9},maxTicksLimit:8}},y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5a6a80',font:{family:'Space Mono',size:9}}}}}});}
+function showPage(n){['upload','loading','results'].forEach(p=>{const el=document.getElementById(`pg-${p}`);if(el){el.classList.remove('active');if(el.classList.contains('lpage'))el.classList.remove('active');}});const t=document.getElementById(`pg-${n}`);if(t)t.classList.add('active');}
+function switchTab(tab){document.querySelectorAll('.tab-pane').forEach(p=>p.style.display='none');document.querySelectorAll('.bni').forEach(b=>b.classList.remove('active'));const pane=document.getElementById(`tab-${tab}`);if(pane)pane.style.display='block';const btn=document.querySelector(`.bni[data-tab="${tab}"]`);if(btn)btn.classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}
+document.querySelectorAll('.bni').forEach(el=>el.onclick=()=>switchTab(el.dataset.tab));
+</script>
+</body>
+</html>
