@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Мой личный Claude</title>
+    <script src="https://js.puter.com/v2/"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; background-color: #f0f0f0; }
+        .chat-box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 500px; }
+        input { width: 70%; padding: 10px; margin-bottom: 10px; }
+        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #answer { margin-top: 15px; white-space: pre-wrap; font-size: 16px; }
+    </style>
+</head>
+<body>
+
+<div class="chat-box">
+    <h2>Спроси Claude 3.5 🤖</h2>
+    
+    <input type="text" id="prompt" placeholder="Напиши свой вопрос здесь...">
+    <button onclick="askClaude()">Отправить</button>
+    
+    <div id="answer">Здесь появится ответ...</div>
+</div>
+
+<script>
+    async function askClaude() {
+        // Берем текст, который ты написал
+        const question = document.getElementById('prompt').value;
+        const answerDiv = document.getElementById('answer');
+        
+        // Пишем, что нейросеть думает
+        answerDiv.style.color = "gray";
+        answerDiv.innerText = "Claude думает... Подожди немного ⏳";
+
+        try {
+            // Тот самый вызов Puter API! Указываем, что хотим модель Claude
+            const response = await puter.ai.chat(question, {model: 'claude-3-5-sonnet'});
+            
+            // Выводим ответ на экран
+            answerDiv.style.color = "black";
+            answerDiv.innerText = response;
+        } catch (error) {
+            // Если что-то пошло не так
+            answerDiv.style.color = "red";
+            answerDiv.innerText = "Упс! Произошла ошибка: " + error.message;
+        }
+    }
+</script>
+
+</body>
+</html>
